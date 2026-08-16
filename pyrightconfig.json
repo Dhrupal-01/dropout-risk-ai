@@ -1,0 +1,13 @@
+{
+  "include": [
+    "ml",
+    "data"
+  ],
+  "venvPath": "/Users/dhrupal/Documents/SIH 2026/dropout-risk-ai",
+  "venv": ".venv",
+  "extraPaths": [
+    "/Users/dhrupal/Documents/SIH 2026/dropout-risk-ai",
+    "/Users/dhrupal/Documents/SIH 2026/dropout-risk-ai/.venv/lib/python3.14/site-packages"
+  ],
+  "reportMissingImports": "warning"
+}
