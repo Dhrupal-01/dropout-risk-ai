@@ -1,0 +1,30 @@
+{
+  "accuracy": 0.9066666666666666,
+  "recall_at_risk_minority": 0.8490566037735849,
+  "precision_at_risk_minority": 0.8823529411764706,
+  "f1_at_risk_minority": 0.8653846153846154,
+  "f1_macro": 0.896978021978022,
+  "roc_auc": 0.9762692083252287,
+  "confusion_matrix": {
+    "true_negatives": 182,
+    "false_positives": 12,
+    "false_negatives": 16,
+    "true_positives": 90
+  },
+  "imbalance_strategy": {
+    "chosen_method": "SMOTE (Synthetic Minority Over-sampling)",
+    "reason": "SMOTE achieved superior minority-class F1 and balanced decision boundaries on validation split.",
+    "metrics_weighted": {
+      "recall_minority": 0.8130841121495327,
+      "precision_minority": 0.8207547169811321,
+      "f1_minority": 0.8169014084507042,
+      "roc_auc": 0.9333204203186286
+    },
+    "metrics_smote": {
+      "recall_minority": 0.822429906542056,
+      "precision_minority": 0.8148148148148148,
+      "f1_minority": 0.8186046511627907,
+      "roc_auc": 0.9305602634254999
+    }
+  }
+}
