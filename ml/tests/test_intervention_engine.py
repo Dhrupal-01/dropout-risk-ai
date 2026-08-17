@@ -123,12 +123,13 @@ class TestSHAPToInterventionMapping:
         assert recs[0]["intervention_id"] in ["INT_BEH_01", "INT_BEH_02"]
 
 
+@pytest.fixture(scope="module")
+def recourse_engine():
+    return CounterfactualRecourseEngine()
+
+
 class TestCounterfactualRecourse:
     """Tests for counterfactual recourse and path-to-improvement generation."""
-
-    @pytest.fixture(scope="class")
-    def recourse_engine(self):
-        return CounterfactualRecourseEngine()
 
     def test_counterfactual_reduces_predicted_risk(self, recourse_engine):
         """Verify counterfactual plan measurably decreases predicted risk probability."""

@@ -28,14 +28,20 @@ from ml.models.explain_shap import SHAPExplainerService, build_plain_language_se
 from ml.models.fairness_audit import run_comprehensive_fairness_audit
 
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_model_artifacts():
+    """Ensures model training and calibration artifacts exist."""
+    train_pipeline()
+    run_calibration_pipeline()
+
+
+@pytest.fixture(scope="module")
+def shap_service():
+    return SHAPExplainerService()
+
+
 class TestModelTrainingAndCalibration:
     """Tests for model training and probability calibration."""
-
-    @pytest.fixture(scope="class", autouse=True)
-    def setup_model_artifacts(self):
-        """Ensures model training and calibration artifacts exist."""
-        train_pipeline()
-        run_calibration_pipeline()
 
     def test_artifacts_exist(self):
         """Verify saved model and metadata artifacts."""
@@ -77,10 +83,6 @@ class TestModelTrainingAndCalibration:
 class TestSHAPExplainability:
     """Tests for SHAP TreeExplainer and plain language generation."""
 
-    @pytest.fixture(scope="class")
-    def shap_service(self):
-        return SHAPExplainerService()
-
     def test_global_importance_structure(self, shap_service):
         """Verify global SHAP feature ranking structure."""
         X, _, _, _ = prepare_training_data()
@@ -112,7 +114,7 @@ class TestSHAPExplainability:
             assert len(exp["plain_language_explanation"]) > 10
 
     def test_sentence_generator_plain_language(self):
-        """Test domain specific sentence templates."""
+        """Test domain specific sentence templates and boundary conditions."""
         s1 = build_plain_language_sentence("attendance_percentage", 62.0, 0.185, 18.5)
         assert "increasing risk by 18.5 percentage points" in s1
         assert "75%" in s1
@@ -125,6 +127,15 @@ class TestSHAPExplainability:
         assert "45 days" in s3
         assert "financial distress" in s3
 
+        # Test boundary cases: zero/low values must not produce self-contradictory adjectives
+        s4 = build_plain_language_sentence("financial_stress_index", 0.00, 0.05, 13.8)
+        assert "High" not in s4
+        assert "0.00" in s4
+
+        s5 = build_plain_language_sentence("behavioral_disengagement_index", 0.01, -0.15, 13.4)
+        assert "Elevated" not in s5
+        assert "Low behavioral disengagement" in s5
+
 
 class TestFairnessAudit:
     """Tests for the fairness and bias audit reporting."""
@@ -136,10 +147,13 @@ class TestFairnessAudit:
         assert "gender" in audit_results
         assert "economic_proxy" in audit_results
         assert "first_generation" in audit_results
+        assert "test_split" in audit_results
+        assert "cross_validation" in audit_results
 
         assert FAIRNESS_REPORT_PATH.exists()
         content = FAIRNESS_REPORT_PATH.read_text()
         assert len(content) > 500
-        assert "Gender Disparity Audit" in content
+        assert "Gender Parity Audit" in content
         assert "Socio-Economic Proxy Audit" in content
-        assert "False Negative Rate" in content
+        assert "False Negative" in content
+        assert "5-Fold Stratified Cross-Validation" in content
