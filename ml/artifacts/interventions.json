@@ -1,0 +1,182 @@
+{
+  "INT_ATT_01": {
+    "intervention_id": "INT_ATT_01",
+    "pillar": "attendance",
+    "title": "Mandatory Attendance Counseling & Faculty Mentor Check-in",
+    "description": "Schedule a 1-on-1 mentor session to identify root causes of absenteeism (commute, medical, health) and create a daily check-in schedule.",
+    "action_type": "MENTOR_CHECKIN",
+    "urgency": "HIGH",
+    "target_pillar": "Attendance Dynamics",
+    "suggested_duration_days": 14,
+    "recommended_for": [
+      "attendance_percentage",
+      "attendance_month_3",
+      "attendance_risk_flag",
+      "attendance_3m_trend"
+    ]
+  },
+  "INT_ATT_02": {
+    "intervention_id": "INT_ATT_02",
+    "pillar": "attendance",
+    "title": "Parent / Guardian Attendance Advisory Notification",
+    "description": "Send official institutional alert regarding 75% AICTE/UGC debarment risk to parent/guardian with automated attendance tracking updates.",
+    "action_type": "PARENT_NOTIFICATION",
+    "urgency": "HIGH",
+    "target_pillar": "Attendance Dynamics",
+    "suggested_duration_days": 3,
+    "recommended_for": [
+      "consecutive_absences",
+      "attendance_risk_flag",
+      "attendance_percentage"
+    ]
+  },
+  "INT_ATT_03": {
+    "intervention_id": "INT_ATT_03",
+    "pillar": "attendance",
+    "title": "Subject-Specific Make-up Class & Lab Session Allocation",
+    "description": "Assign dedicated weekend laboratory slots and remedial theory attendance reconciliation sessions for lagging subjects.",
+    "action_type": "LAB_MAKEUP",
+    "urgency": "MEDIUM",
+    "target_pillar": "Attendance Dynamics",
+    "suggested_duration_days": 21,
+    "recommended_for": [
+      "att_core1",
+      "att_core2",
+      "att_lab",
+      "subject_attendance_std"
+    ]
+  },
+  "INT_ACAD_01": {
+    "intervention_id": "INT_ACAD_01",
+    "pillar": "academic",
+    "title": "Peer Tutoring & Department Remedial Session Assignment",
+    "description": "Pair student with a high-performing departmental peer mentor and enroll in weekly remedial coaching for core engineering subjects.",
+    "action_type": "PEER_TUTORING",
+    "urgency": "HIGH",
+    "target_pillar": "Academic Performance",
+    "suggested_duration_days": 30,
+    "recommended_for": [
+      "current_cgpa",
+      "cgpa_delta",
+      "internal_exam_score_pct",
+      "stem_core_fail_flag"
+    ]
+  },
+  "INT_ACAD_02": {
+    "intervention_id": "INT_ACAD_02",
+    "pillar": "academic",
+    "title": "Backlog Clearance Action Plan & Academic Strategy Roadmap",
+    "description": "Formulate a customized semester study roadmap with the Head of Department (HOD) prioritizing uncleared prerequisite backlogs.",
+    "action_type": "BACKLOG_REMEDIATION",
+    "urgency": "HIGH",
+    "target_pillar": "Academic Performance",
+    "suggested_duration_days": 45,
+    "recommended_for": [
+      "backlog_count",
+      "interaction_cgpa_x_backlog",
+      "academic_crisis_flag"
+    ]
+  },
+  "INT_ACAD_03": {
+    "intervention_id": "INT_ACAD_03",
+    "pillar": "academic",
+    "title": "Continuous Internal Assessment (CIA) Retest Opportunity",
+    "description": "Grant eligibility for internal improvement quizzes and supplementary assignment submissions to recover internal marks deficit.",
+    "action_type": "INTERNAL_RETEST",
+    "urgency": "MEDIUM",
+    "target_pillar": "Academic Performance",
+    "suggested_duration_days": 14,
+    "recommended_for": [
+      "internal_exam_score_pct",
+      "cgpa_delta"
+    ]
+  },
+  "INT_FIN_01": {
+    "intervention_id": "INT_FIN_01",
+    "pillar": "financial",
+    "title": "Institutional Fee-Waiver & Emergency Financial Aid Desk Referral",
+    "description": "Fast-track application for institute emergency hardship funds, alumni tuition grants, and flexible installment fee payment schedules.",
+    "action_type": "FINANCIAL_DESK",
+    "urgency": "HIGH",
+    "target_pillar": "Socio-Economic Indicators",
+    "suggested_duration_days": 7,
+    "recommended_for": [
+      "fee_payment_delay_days",
+      "financial_stress_index",
+      "interaction_att_x_fee"
+    ]
+  },
+  "INT_FIN_02": {
+    "intervention_id": "INT_FIN_02",
+    "pillar": "financial",
+    "title": "State/National Post-Matric Scholarship Desk Assistance",
+    "description": "Assign institutional scholarship coordinator to resolve pending documentation and disburse government welfare subsidies (NSP, PMSSS, SC/ST/EWS).",
+    "action_type": "SCHOLARSHIP_DESK",
+    "urgency": "MEDIUM",
+    "target_pillar": "Socio-Economic Indicators",
+    "suggested_duration_days": 15,
+    "recommended_for": [
+      "has_scholarship",
+      "income_slab_idx",
+      "financial_stress_index"
+    ]
+  },
+  "INT_FIN_03": {
+    "intervention_id": "INT_FIN_03",
+    "pillar": "financial",
+    "title": "Hostel Subsidized Accommodation & Commute Relief Support",
+    "description": "Evaluate long-distance day-scholar transit burden and allocate emergency subsidized campus hostel room or college bus pass concession.",
+    "action_type": "HOSTEL_COMMUTE_RELIEF",
+    "urgency": "LOW",
+    "target_pillar": "Socio-Economic Indicators",
+    "suggested_duration_days": 10,
+    "recommended_for": [
+      "commute_distance_km",
+      "is_hosteler"
+    ]
+  },
+  "INT_BEH_01": {
+    "intervention_id": "INT_BEH_01",
+    "pillar": "engagement",
+    "title": "Professional Student Counselor & Wellbeing Consultation",
+    "description": "Refer student to campus counseling center for confidential mental health support, motivation assessment, and personal guidance.",
+    "action_type": "COUNSELOR_CONSULT",
+    "urgency": "HIGH",
+    "target_pillar": "Learning Behavior",
+    "suggested_duration_days": 7,
+    "recommended_for": [
+      "days_since_last_lms_activity",
+      "behavioral_disengagement_index",
+      "interaction_firstgen_x_inactivity"
+    ]
+  },
+  "INT_BEH_02": {
+    "intervention_id": "INT_BEH_02",
+    "pillar": "engagement",
+    "title": "Digital LMS Onboarding & Learning Resource Assistance",
+    "description": "Provide dedicated orientation on accessing digital lecture recordings, e-library repositories, and interactive quiz modules.",
+    "action_type": "LMS_ONBOARDING",
+    "urgency": "MEDIUM",
+    "target_pillar": "Learning Behavior",
+    "suggested_duration_days": 5,
+    "recommended_for": [
+      "lms_logins_per_week",
+      "resource_access_count",
+      "assignment_submission_lag_days"
+    ]
+  },
+  "INT_BEH_03": {
+    "intervention_id": "INT_BEH_03",
+    "pillar": "engagement",
+    "title": "First-Generation Learner Academic Navigation Mentorship",
+    "description": "Connect student with senior student mentors and faculty advisers experienced in guiding first-generation collegiate scholars.",
+    "action_type": "FIRST_GEN_MENTORSHIP",
+    "urgency": "MEDIUM",
+    "target_pillar": "Learning Behavior",
+    "suggested_duration_days": 21,
+    "recommended_for": [
+      "is_first_generation",
+      "interaction_firstgen_x_inactivity"
+    ]
+  }
+}

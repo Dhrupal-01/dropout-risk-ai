@@ -1,0 +1,32 @@
+[project]
+name = "dropoutguard"
+version = "0.1.0"
+description = "AI-Powered Academic Dropout Prediction & Intervention System (SIH 2026 PSID 7-L / SDG 4)"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "xgboost",
+    "shap",
+    "imbalanced-learn",
+    "joblib",
+    "ucimlrepo",
+    "pytest",
+    "requests"
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths = [
+    ".",
+    ".venv/lib/python3.14/site-packages"
+]
+reportMissingImports = false
+
+[tool.pytest.ini_options]
+testpaths = ["ml/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

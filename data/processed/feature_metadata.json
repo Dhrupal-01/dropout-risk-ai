@@ -1,0 +1,58 @@
+{
+  "attendance": [
+    "attendance_percentage",
+    "attendance_month_1",
+    "attendance_month_2",
+    "attendance_month_3",
+    "attendance_3m_trend",
+    "consecutive_absences",
+    "attendance_risk_flag",
+    "subject_attendance_std"
+  ],
+  "academic": [
+    "current_cgpa",
+    "prev_sem_cgpa",
+    "cgpa_delta",
+    "backlog_count",
+    "internal_exam_score_pct",
+    "stem_core_fail_flag",
+    "academic_crisis_flag"
+  ],
+  "behavior": [
+    "lms_logins_per_week",
+    "assignment_submission_lag_days",
+    "resource_access_count",
+    "days_since_last_lms_activity",
+    "forum_participation_count",
+    "behavioral_disengagement_index"
+  ],
+  "socio_economic": [
+    "income_slab_idx",
+    "is_first_generation",
+    "fee_payment_delay_days",
+    "has_scholarship",
+    "is_hosteler",
+    "commute_distance_km",
+    "financial_stress_index"
+  ],
+  "interactions": [
+    "interaction_att_x_fee",
+    "interaction_cgpa_x_backlog",
+    "interaction_firstgen_x_inactivity",
+    "interaction_att_x_cgpa_drop"
+  ],
+  "demographics_protected": [
+    "gender",
+    "category",
+    "age",
+    "family_income_slab",
+    "hostel_status"
+  ],
+  "identifiers": [
+    "student_id"
+  ],
+  "targets": [
+    "is_dropout",
+    "ground_truth_risk_prob"
+  ]
+}

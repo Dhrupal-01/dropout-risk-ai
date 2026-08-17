@@ -1,0 +1,40 @@
+# DropoutGuard - AI-Powered Academic Dropout Prediction & Intervention System
+
+# Python & Environment
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data & Heavy Processed Datasets (keep directories via .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*.csv
+!data/processed/.gitkeep
+!data/processed/feature_metadata.json
+data/synthetic/*.csv
+!data/synthetic/.gitkeep
+
+# Model Binary Artifacts (keep lightweight configs & .gitkeep)
+ml/artifacts/*.joblib
+ml/artifacts/*.pkl
+!ml/artifacts/.gitkeep
+!ml/artifacts/interventions.json
+!ml/artifacts/feature_names.json
+!ml/artifacts/model_metrics.json
+
+# Frontend & Build
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+.DS_Store
+
+# IDE & Secrets
+.vscode/
+.idea/
+.env
