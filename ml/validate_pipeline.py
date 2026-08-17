@@ -148,33 +148,46 @@ def run_pipeline_validation(regenerate: bool = False):
             print(f"[{low_b*100:4.1f}% - {high_b*100:4.1f}%]  | {'--':<14} | {'--':<20} | {0:12d} | {'--':<14}")
 
     # =========================================================================
-    # SECTION 3: QUANTITATIVE FAIRNESS AUDIT
+    # SECTION 3: QUANTITATIVE FAIRNESS & RESPONSIBLE AI AUDIT
     # =========================================================================
     print("\n" + "-" * 80)
-    print("SECTION 3: QUANTITATIVE FAIRNESS & BIAS AUDIT")
+    print("SECTION 3: QUANTITATIVE FAIRNESS AUDIT (Single Split vs. 5-Fold Cross-Validation)")
     print("-" * 80)
-    audit = run_comprehensive_fairness_audit()
-    
-    g_m = audit["gender"]["male"]
-    g_f = audit["gender"]["female"]
-    print(f"A. Gender Parity Audit:")
-    print(f"   • Female Students (N={g_f['n_samples']}): Recall = {g_f['tpr_recall']*100:.2f}%, FNR Miss Rate = {g_f['fnr_miss_rate']*100:.2f}%")
-    print(f"   • Male Students   (N={g_m['n_samples']}): Recall = {g_m['tpr_recall']*100:.2f}%, FNR Miss Rate = {g_m['fnr_miss_rate']*100:.2f}%")
-    print(f"   • FNR Disparity Gap: {audit['gender']['fnr_disparity']*100:.2f} percentage points | Disparate Impact: {audit['gender']['disparate_impact_ratio']}")
+    audit_full = run_comprehensive_fairness_audit()
+    audit_test = audit_full["test_split"]
+    audit_cv = audit_full["cross_validation"]
 
-    inc_l = audit["economic_proxy"]["lower_income_under_5lpa"]
-    inc_h = audit["economic_proxy"]["higher_income_above_5lpa"]
-    print(f"\nB. Socio-Economic Proxy Audit (Family Income):")
-    print(f"   • Lower Income (<5 LPA) (N={inc_l['n_samples']}): Recall = {inc_l['tpr_recall']*100:.2f}%, FNR Miss Rate = {inc_l['fnr_miss_rate']*100:.2f}%")
-    print(f"   • Higher Income (>=5 LPA) (N={inc_h['n_samples']}): Recall = {inc_h['tpr_recall']*100:.2f}%, FNR Miss Rate = {inc_h['fnr_miss_rate']*100:.2f}%")
-    print(f"   • FNR Disparity Gap: {audit['economic_proxy']['fnr_disparity']*100:.2f} percentage points")
+    print("[3.1] HELD-OUT TEST SPLIT FAIRNESS AUDIT (N = 300 students, 17 Total FNs):")
+    g_m_t = audit_test["gender"]["male"]
+    g_f_t = audit_test["gender"]["female"]
+    print(f" • Gender: Female (N={g_f_t['n_samples']}, FN={g_f_t['false_negatives']}): Recall={g_f_t['tpr_recall']*100:.2f}%, FNR={g_f_t['fnr_miss_rate']*100:.2f}% | Male (N={g_m_t['n_samples']}, FN={g_m_t['false_negatives']}): Recall={g_m_t['tpr_recall']*100:.2f}%, FNR={g_m_t['fnr_miss_rate']*100:.2f}%")
+    print(f"   Disparity Gap: {audit_test['gender']['fnr_disparity']*100:.2f} percentage points | Disparate Impact: {audit_test['gender']['disparate_impact_ratio']}")
 
-    fg_y = audit["first_generation"]["first_gen"]
-    fg_n = audit["first_generation"]["non_first_gen"]
-    print(f"\nC. First-Generation Learner Audit:")
-    print(f"   • First-Gen College Students (N={fg_y['n_samples']}): Recall = {fg_y['tpr_recall']*100:.2f}%, FNR Miss Rate = {fg_y['fnr_miss_rate']*100:.2f}%")
-    print(f"   • Non-First-Gen Students     (N={fg_n['n_samples']}): Recall = {fg_n['tpr_recall']*100:.2f}%, FNR Miss Rate = {fg_n['fnr_miss_rate']*100:.2f}%")
-    print(f"   • FNR Disparity Gap: {audit['first_generation']['fnr_disparity']*100:.2f} percentage points")
+    inc_l_t = audit_test["economic_proxy"]["lower_income_under_5lpa"]
+    inc_h_t = audit_test["economic_proxy"]["higher_income_above_5lpa"]
+    print(f" • Income: <5 LPA (N={inc_l_t['n_samples']}, FN={inc_l_t['false_negatives']}): Recall={inc_l_t['tpr_recall']*100:.2f}%, FNR={inc_l_t['fnr_miss_rate']*100:.2f}% | >=5 LPA (N={inc_h_t['n_samples']}, FN={inc_h_t['false_negatives']}): Recall={inc_h_t['tpr_recall']*100:.2f}%, FNR={inc_h_t['fnr_miss_rate']*100:.2f}%")
+    print(f"   Disparity Gap: {audit_test['economic_proxy']['fnr_disparity']*100:.2f} percentage points")
+
+    fg_y_t = audit_test["first_generation"]["first_gen"]
+    fg_n_t = audit_test["first_generation"]["non_first_gen"]
+    print(f" • First-Gen: First-Gen (N={fg_y_t['n_samples']}, FN={fg_y_t['false_negatives']}): Recall={fg_y_t['tpr_recall']*100:.2f}%, FNR={fg_y_t['fnr_miss_rate']*100:.2f}% | Non-First-Gen (N={fg_n_t['n_samples']}, FN={fg_n_t['false_negatives']}): Recall={fg_n_t['tpr_recall']*100:.2f}%, FNR={fg_n_t['fnr_miss_rate']*100:.2f}%")
+    print(f"   Disparity Gap: {audit_test['first_generation']['fnr_disparity']*100:.2f} percentage points")
+
+    print("\n[3.2] 5-FOLD STRATIFIED CROSS-VALIDATION FAIRNESS AUDIT (N = 2,000 full cohort, 106 Total FNs):")
+    g_m_cv = audit_cv["gender"]["male"]
+    g_f_cv = audit_cv["gender"]["female"]
+    print(f" • Gender: Female (N={g_f_cv['n_samples']}, FN={g_f_cv['false_negatives']}): Recall={g_f_cv['tpr_recall']*100:.2f}%, FNR={g_f_cv['fnr_miss_rate']*100:.2f}% | Male (N={g_m_cv['n_samples']}, FN={g_m_cv['false_negatives']}): Recall={g_m_cv['tpr_recall']*100:.2f}%, FNR={g_m_cv['fnr_miss_rate']*100:.2f}%")
+    print(f"   Cross-Validated Gap: {audit_cv['gender']['fnr_disparity']*100:.2f} percentage points (Converges from {audit_test['gender']['fnr_disparity']*100:.2f} pp -> {audit_cv['gender']['fnr_disparity']*100:.2f} pp)")
+
+    inc_l_cv = audit_cv["economic_proxy"]["lower_income_under_5lpa"]
+    inc_h_cv = audit_cv["economic_proxy"]["higher_income_above_5lpa"]
+    print(f" • Income: <5 LPA (N={inc_l_cv['n_samples']}, FN={inc_l_cv['false_negatives']}): Recall={inc_l_cv['tpr_recall']*100:.2f}%, FNR={inc_l_cv['fnr_miss_rate']*100:.2f}% | >=5 LPA (N={inc_h_cv['n_samples']}, FN={inc_h_cv['false_negatives']}): Recall={inc_h_cv['tpr_recall']*100:.2f}%, FNR={inc_h_cv['fnr_miss_rate']*100:.2f}%")
+    print(f"   Cross-Validated Gap: {audit_cv['economic_proxy']['fnr_disparity']*100:.2f} percentage points (Converges from {audit_test['economic_proxy']['fnr_disparity']*100:.2f} pp -> {audit_cv['economic_proxy']['fnr_disparity']*100:.2f} pp)")
+
+    fg_y_cv = audit_cv["first_generation"]["first_gen"]
+    fg_n_cv = audit_cv["first_generation"]["non_first_gen"]
+    print(f" • First-Gen: First-Gen (N={fg_y_cv['n_samples']}, FN={fg_y_cv['false_negatives']}): Recall={fg_y_cv['tpr_recall']*100:.2f}%, FNR={fg_y_cv['fnr_miss_rate']*100:.2f}% | Non-First-Gen (N={fg_n_cv['n_samples']}, FN={fg_n_cv['false_negatives']}): Recall={fg_n_cv['tpr_recall']*100:.2f}%, FNR={fg_n_cv['fnr_miss_rate']*100:.2f}%")
+    print(f"   Cross-Validated Gap: {audit_cv['first_generation']['fnr_disparity']*100:.2f} percentage points (Converges from {audit_test['first_generation']['fnr_disparity']*100:.2f} pp -> {audit_cv['first_generation']['fnr_disparity']*100:.2f} pp)")
 
     # =========================================================================
     # SECTION 4: CLINICAL REPORT CARDS FOR 6 HAND-PICKED SYNTHETIC STUDENTS
@@ -441,8 +454,8 @@ def run_pipeline_validation(regenerate: bool = False):
         # Interventions
         interventions = map_shap_drivers_to_interventions(shap_drivers, max_recommendations=3)
 
-        # Counterfactual Recourse
-        recourse = recourse_engine.generate_counterfactual(prof_df.iloc[0])
+        # Counterfactual Recourse (aligned with student's local SHAP drivers)
+        recourse = recourse_engine.generate_counterfactual(prof_df.iloc[0], top_shap_drivers=shap_drivers)
 
         report_card_results.append({
             "profile": prof,

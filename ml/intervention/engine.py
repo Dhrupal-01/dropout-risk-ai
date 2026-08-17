@@ -336,15 +336,14 @@ class CounterfactualRecourseEngine:
 
     def generate_counterfactual(
         self,
-        student_features: Union[pd.DataFrame, pd.Series, Dict[str, Any]],
-        target_tier: Optional[str] = None
+        student_features: Union[Dict[str, Any], pd.Series, pd.DataFrame],
+        target_tier: Optional[str] = None,
+        top_shap_drivers: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
-        Performs grid search over realistic actionable levers:
-        - Attendance Improvement: (e.g., Target 78%, 82%, 88%)
-        - Fee Payment Resolution: (Delay -> 0 days)
-        - Backlog Clearance: (Backlogs -> max(0, backlogs - 1 or 2))
-        - LMS Engagement Boost: (Logins -> 6.0/wk, Inactivity -> 1 day)
+        Calculates actionable counterfactual recourse aligned with the student's top SHAP risk drivers.
+        Simulates realistic multi-pillar interventions (attendance recovery, backlog clearance, fee aid)
+        and prioritizes solutions that directly address the student's primary root causes.
         """
         if self.model is None:
             self._load()
@@ -378,7 +377,7 @@ class CounterfactualRecourseEngine:
 
         if current_tier == "Low":
             return {
-                "student_id": student_df.get("student_id", ["STUDENT"])[0] if "student_id" in student_df else "STUDENT",
+                "student_id": str(student_df.get("student_id", ["STUDENT"])[0] if "student_id" in student_df else "STUDENT"),
                 "current_risk_prob": round(base_prob, 4),
                 "current_risk_tier": current_tier,
                 "projected_risk_prob": round(base_prob, 4),
@@ -391,17 +390,54 @@ class CounterfactualRecourseEngine:
                 "counselor_summary": "Student is performing exceptionally well across all 4 pillars and remains in the Low Risk tier (prob < 33%). Continue regular progress monitoring."
             }
 
-        # Plausible Intervention Simulation Scenarios
-        scenarios = []
+        # Extract primary risk driver features from SHAP
+        shap_driver_features = set()
+        if top_shap_drivers:
+            for d in top_shap_drivers:
+                if d.get("impact_direction") == "RISK_INCREASING":
+                    shap_driver_features.add(d.get("feature_name", ""))
+        else:
+            # Dynamically compute SHAP drivers if not passed
+            try:
+                from ml.models.explain_shap import SHAPExplainerService
+                explainer = SHAPExplainerService()
+                dyn_drivers = explainer.explain_local_student(base_df.iloc[0], top_k=4)
+                for d in dyn_drivers:
+                    if d.get("impact_direction") == "RISK_INCREASING":
+                        shap_driver_features.add(d.get("feature_name", ""))
+            except Exception:
+                pass
 
+        # Identify driver categories
+        has_academic_driver = any(f in shap_driver_features for f in [
+            "current_cgpa", "prev_sem_cgpa", "cgpa_delta", "backlog_count",
+            "internal_exam_score_pct", "stem_core_fail_flag", "interaction_cgpa_x_backlog",
+            "academic_crisis_flag"
+        ])
+        has_attendance_driver = any(f in shap_driver_features for f in [
+            "attendance_percentage", "attendance_month_1", "attendance_month_2", "attendance_month_3",
+            "attendance_3m_trend", "consecutive_absences", "attendance_risk_flag",
+            "interaction_att_x_fee", "interaction_att_x_cgpa_drop", "att_core1", "att_core2", "att_lab"
+        ])
+        has_financial_driver = any(f in shap_driver_features for f in [
+            "fee_payment_delay_days", "financial_stress_index", "income_slab_idx", "family_income_slab"
+        ])
+        has_behavior_driver = any(f in shap_driver_features for f in [
+            "lms_logins_per_week", "assignment_submission_lag_days", "days_since_last_lms_activity",
+            "behavioral_disengagement_index", "resource_access_count"
+        ])
+
+        # Feature values
         curr_att = float(base_df["attendance_percentage"].iloc[0]) if "attendance_percentage" in base_df else 75.0
         curr_fee_delay = float(base_df["fee_payment_delay_days"].iloc[0]) if "fee_payment_delay_days" in base_df else 0.0
         curr_backlogs = int(base_df["backlog_count"].iloc[0]) if "backlog_count" in base_df else 0
         curr_logins = float(base_df["lms_logins_per_week"].iloc[0]) if "lms_logins_per_week" in base_df else 4.0
         curr_cgpa = float(base_df["current_cgpa"].iloc[0]) if "current_cgpa" in base_df else 6.0
 
-        # Scenario 1: Attendance Remediation to 78% (clears 75% violation)
-        if curr_att < 78.0:
+        scenarios = []
+
+        # Scenario 1: Attendance Remediation to 80%
+        if curr_att < 78.0 or has_attendance_driver:
             target_att = 80.0
             s1_df = base_df.copy()
             s1_df["attendance_percentage"] = target_att
@@ -409,12 +445,15 @@ class CounterfactualRecourseEngine:
             s1_df["attendance_3m_trend"] = 3.5  # Improving slope
             s1_df["consecutive_absences"] = 1
             s1_df["attendance_risk_flag"] = 0
-            if "att_core1" in s1_df:
-                s1_df["att_core1"] = max(float(s1_df["att_core1"].iloc[0]), target_att)
+            for col in ["att_core1", "att_core2", "att_lab", "att_elective"]:
+                if col in s1_df:
+                    s1_df[col] = max(float(s1_df[col].iloc[0]), target_att)
             s1_df = build_engineered_features(s1_df)
             p1 = float(self.model.predict_proba(s1_df[self.feature_names])[:, 1][0])
             scenarios.append({
                 "name": "Attendance Recovery",
+                "pillar": "attendance",
+                "shap_alignment_score": 3 if has_attendance_driver else 1,
                 "prob": p1,
                 "delta": base_prob - p1,
                 "actions": [{
@@ -425,17 +464,56 @@ class CounterfactualRecourseEngine:
                 }]
             })
 
-        # Scenario 2: Fee Relief / Settlement (Delay -> 0 days + Emergency Scholarship)
-        if curr_fee_delay > 0:
+        # Scenario 2: Academic Remediation & Backlog Recovery Plan
+        if curr_backlogs > 0 or curr_cgpa < 6.0 or has_academic_driver:
+            target_backlogs = max(0, curr_backlogs - 2) if curr_backlogs >= 2 else max(0, curr_backlogs - 1)
             s2_df = base_df.copy()
-            s2_df["fee_payment_delay_days"] = 0
-            s2_df["has_scholarship"] = 1
+            s2_df["backlog_count"] = target_backlogs
+            s2_df["internal_exam_score_pct"] = min(95.0, float(s2_df.get("internal_exam_score_pct", [50.0])[0]) + 20.0)
+            s2_df["cgpa_delta"] = 0.40
+            s2_df["current_cgpa"] = min(10.0, curr_cgpa + 0.85)
+            s2_df["stem_core_fail_flag"] = 0
             s2_df = build_engineered_features(s2_df)
             p2 = float(self.model.predict_proba(s2_df[self.feature_names])[:, 1][0])
+            
+            cleared_count = curr_backlogs - target_backlogs
+            acad_actions = []
+            if cleared_count > 0:
+                acad_actions.append({
+                    "feature_name": "backlog_count",
+                    "current_value": curr_backlogs,
+                    "target_value": target_backlogs,
+                    "plain_language_action": f"Clear {cleared_count} uncleared subject backlog(s) in upcoming remedial supplementary exams."
+                })
+            acad_actions.append({
+                "feature_name": "internal_exam_score_pct",
+                "current_value": round(float(base_df.get("internal_exam_score_pct", [50.0])[0]), 1),
+                "target_value": round(float(s2_df["internal_exam_score_pct"].iloc[0]), 1),
+                "plain_language_action": "Attend departmental peer tutoring sessions to raise continuous evaluation internal marks by +20%."
+            })
+
             scenarios.append({
-                "name": "Fee Clearance & Scholarship",
+                "name": "Academic Remediation & Backlog Recovery",
+                "pillar": "academic",
+                "shap_alignment_score": 3 if has_academic_driver else 1,
                 "prob": p2,
                 "delta": base_prob - p2,
+                "actions": acad_actions
+            })
+
+        # Scenario 3: Fee Relief & Emergency Scholarship
+        if curr_fee_delay > 0 or has_financial_driver:
+            s3_df = base_df.copy()
+            s3_df["fee_payment_delay_days"] = 0
+            s3_df["has_scholarship"] = 1
+            s3_df = build_engineered_features(s3_df)
+            p3 = float(self.model.predict_proba(s3_df[self.feature_names])[:, 1][0])
+            scenarios.append({
+                "name": "Fee Clearance & Scholarship",
+                "pillar": "financial",
+                "shap_alignment_score": 3 if has_financial_driver else 1,
+                "prob": p3,
+                "delta": base_prob - p3,
                 "actions": [{
                     "feature_name": "fee_payment_delay_days",
                     "current_value": int(curr_fee_delay),
@@ -444,47 +522,29 @@ class CounterfactualRecourseEngine:
                 }]
             })
 
-        # Scenario 3: Backlog Clearance (Clear 1-2 backlogs)
-        if curr_backlogs > 0:
-            target_backlogs = max(0, curr_backlogs - 1)
-            s3_df = base_df.copy()
-            s3_df["backlog_count"] = target_backlogs
-            s3_df["internal_exam_score_pct"] = min(95.0, float(s3_df.get("internal_exam_score_pct", [50.0])[0]) + 15.0)
-            s3_df = build_engineered_features(s3_df)
-            p3 = float(self.model.predict_proba(s3_df[self.feature_names])[:, 1][0])
+        # Scenario 4: Digital Re-engagement (LMS)
+        if has_behavior_driver and not (has_academic_driver and curr_backlogs >= 2):
+            s4_df = base_df.copy()
+            s4_df["lms_logins_per_week"] = max(curr_logins, 7.5)
+            s4_df["days_since_last_lms_activity"] = 1
+            s4_df["assignment_submission_lag_days"] = min(0.0, float(s4_df.get("assignment_submission_lag_days", [0.0])[0]))
+            s4_df = build_engineered_features(s4_df)
+            p4 = float(self.model.predict_proba(s4_df[self.feature_names])[:, 1][0])
             scenarios.append({
-                "name": "Backlog Clearance",
-                "prob": p3,
-                "delta": base_prob - p3,
+                "name": "Digital LMS Engagement",
+                "pillar": "engagement",
+                "shap_alignment_score": 2 if has_behavior_driver else 0,
+                "prob": p4,
+                "delta": base_prob - p4,
                 "actions": [{
-                    "feature_name": "backlog_count",
-                    "current_value": curr_backlogs,
-                    "target_value": target_backlogs,
-                    "plain_language_action": f"Clear {curr_backlogs - target_backlogs} uncleared subject backlog(s) in upcoming remedial supplementary exams."
+                    "feature_name": "lms_logins_per_week",
+                    "current_value": round(curr_logins, 1),
+                    "target_value": 7.5,
+                    "plain_language_action": "Increase LMS logins to 7-8 times/week and submit assignments before due dates."
                 }]
             })
 
-        # Scenario 4: Digital Re-engagement (Daily LMS Logins + On-Time Submissions)
-        s4_df = base_df.copy()
-        s4_df["lms_logins_per_week"] = max(curr_logins, 7.5)
-        s4_df["days_since_last_lms_activity"] = 1
-        s4_df["assignment_submission_lag_days"] = min(0.0, float(s4_df.get("assignment_submission_lag_days", [0.0])[0]))
-        s4_df = build_engineered_features(s4_df)
-        p4 = float(self.model.predict_proba(s4_df[self.feature_names])[:, 1][0])
-        scenarios.append({
-            "name": "Digital LMS Engagement",
-            "prob": p4,
-            "delta": base_prob - p4,
-            "actions": [{
-                "feature_name": "lms_logins_per_week",
-                "current_value": round(curr_logins, 1),
-                "target_value": 7.5,
-                "plain_language_action": f"Increase LMS logins to 7-8 times/week and submit assignments before due dates."
-            }]
-        })
-
-        # Scenario 5: Comprehensive Institutional Support Package
-        # (Attendance Recovery + Academic Remediation + Financial Aid + Digital Re-engagement)
+        # Scenario 5: Comprehensive Multi-Pillar Support Package
         s5_df = base_df.copy()
         target_att_s5 = max(80.0, curr_att + 25.0)
         s5_df["attendance_percentage"] = target_att_s5
@@ -538,18 +598,29 @@ class CounterfactualRecourseEngine:
 
         scenarios.append({
             "name": "Comprehensive Multi-Pillar Support Package",
+            "pillar": "multi_pillar",
+            "shap_alignment_score": 2,
             "prob": p5,
             "delta": base_prob - p5,
             "actions": combined_actions
         })
 
-        # Pick the scenario that reaches target tier with minimal actions, or maximum risk drop
-        target_reaching = [s for s in scenarios if get_risk_tier(s["prob"]) == target_tier]
+        # SHAP-Aligned Champion Selection Strategy:
+        # 1. Filter to scenarios that reach the target tier or achieve a significant risk drop (>= 20%)
+        # 2. Prioritize scenarios with highest SHAP driver alignment score, breaking ties by maximum risk reduction (delta)
+        target_reaching = [s for s in scenarios if get_risk_tier(s["prob"]) == target_tier or (base_prob - s["prob"]) >= 0.20]
         if target_reaching:
-            best_scenario = sorted(target_reaching, key=lambda s: len(s["actions"]))[0]
+            best_scenario = sorted(
+                target_reaching,
+                key=lambda s: (s.get("shap_alignment_score", 0), s["delta"]),
+                reverse=True
+            )[0]
         else:
-            # Pick scenario with maximum risk reduction
-            best_scenario = sorted(scenarios, key=lambda s: s["delta"], reverse=True)[0]
+            best_scenario = sorted(
+                scenarios,
+                key=lambda s: (s.get("shap_alignment_score", 0), s["delta"]),
+                reverse=True
+            )[0]
 
         projected_prob = float(best_scenario["prob"])
         projected_tier = get_risk_tier(projected_prob)
