@@ -17,6 +17,8 @@ data/raw/*
 data/processed/*.csv
 !data/processed/.gitkeep
 !data/processed/feature_metadata.json
+data/synthetic/*.csv
+!data/synthetic/.gitkeep
 
 # Model Binary Artifacts (keep lightweight configs & .gitkeep)
 ml/artifacts/*.joblib
