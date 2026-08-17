@@ -81,60 +81,79 @@ def build_plain_language_sentence(
 ) -> str:
     """
     Translates numerical SHAP contribution into an actionable, counselor-friendly plain-language sentence.
-    Explicitly distinguishes overall attendance percentage from recent-month attendance.
+    Explicitly aligns descriptive adjectives (Elevated/Low/Consistent/Sharp) with actual feature values.
     """
     impact_dir = "increasing" if shap_val > 0 else "reducing"
     display = FEATURE_DISPLAY_NAMES.get(feature_name, feature_name.replace("_", " ").title())
 
     if feature_name == "attendance_percentage":
-        if shap_val > 0:
+        if feature_val < 75.0:
             return f"Low overall attendance ({feature_val:.1f}%) is increasing risk by {pct_impact:.1f} percentage points (violates 75% minimum requirement)."
         else:
-            return f"Consistent overall attendance ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            if shap_val <= 0:
+                return f"Consistent overall attendance ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Overall attendance ({feature_val:.1f}%) is contributing {pct_impact:.1f} percentage points to risk."
 
     elif feature_name == "attendance_month_3":
-        if shap_val > 0:
+        if feature_val < 75.0:
             return f"Low recent-month (Month 3) attendance ({feature_val:.1f}%) is increasing risk by {pct_impact:.1f} percentage points."
         else:
-            return f"High recent-month (Month 3) attendance ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            if shap_val <= 0:
+                return f"High recent-month (Month 3) attendance ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Recent-month (Month 3) attendance ({feature_val:.1f}%) is contributing {pct_impact:.1f} percentage points to risk."
 
     elif feature_name in ["attendance_month_1", "attendance_month_2"]:
         month_label = "Month 1 (2 months prior)" if feature_name == "attendance_month_1" else "Month 2 (last month)"
-        if shap_val > 0:
+        if feature_val < 75.0:
             return f"Low {month_label} attendance ({feature_val:.1f}%) is increasing risk by {pct_impact:.1f} percentage points."
         else:
-            return f"High {month_label} attendance ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            if shap_val <= 0:
+                return f"Strong {month_label} attendance ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"{month_label} attendance ({feature_val:.1f}%) is contributing {pct_impact:.1f} percentage points to risk."
 
     elif feature_name in ["att_core1", "att_core2", "att_lab", "att_elective"]:
         subj_name = FEATURE_DISPLAY_NAMES.get(feature_name, feature_name)
-        if shap_val > 0:
+        if feature_val < 75.0:
             return f"Lagging attendance in {subj_name} ({feature_val:.1f}%) is increasing risk by {pct_impact:.1f} percentage points."
         else:
-            return f"Strong attendance in {subj_name} ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            if shap_val <= 0:
+                return f"Strong attendance in {subj_name} ({feature_val:.1f}%) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Attendance in {subj_name} ({feature_val:.1f}%) is contributing {pct_impact:.1f} percentage points to risk."
 
     elif feature_name == "attendance_3m_trend":
-        if feature_val < 0:
+        if feature_val < -1.0:
             return f"Sharp attendance decline ({feature_val:+.1f}%/month over 3 months) is increasing risk by {pct_impact:.1f} percentage points."
-        else:
+        elif feature_val > 1.0:
             return f"Improving attendance trajectory ({feature_val:+.1f}%/month) is reducing risk by {pct_impact:.1f} percentage points."
+        else:
+            return f"Stable attendance trajectory ({feature_val:+.1f}%/month) is keeping risk low by {pct_impact:.1f} percentage points."
 
     elif feature_name == "consecutive_absences":
-        if shap_val > 0:
+        if feature_val >= 5:
             return f"Recent streak of {int(feature_val)} consecutive absent days is driving up risk by {pct_impact:.1f} percentage points."
         else:
-            return f"Minimal absence streaks ({int(feature_val)} days) are keeping risk low by {pct_impact:.1f} percentage points."
+            return f"Minimal absence streak ({int(feature_val)} days) is keeping risk low by {pct_impact:.1f} percentage points."
 
     elif feature_name == "current_cgpa":
-        if shap_val > 0:
+        if feature_val < 6.0:
             return f"Low current CGPA ({feature_val:.2f}/10.0) is increasing risk by {pct_impact:.1f} percentage points."
         else:
-            return f"Strong academic standing (CGPA {feature_val:.2f}/10.0) is lowering risk by {pct_impact:.1f} percentage points."
+            if shap_val <= 0:
+                return f"Strong academic standing (CGPA {feature_val:.2f}/10.0) is lowering risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Academic standing (CGPA {feature_val:.2f}/10.0) is contributing {pct_impact:.1f} percentage points to risk."
 
     elif feature_name == "cgpa_delta":
-        if feature_val < 0:
+        if feature_val < -0.30:
             return f"Drop in semester CGPA ({feature_val:+.2f} grade points) is increasing risk by {pct_impact:.1f} percentage points."
-        else:
+        elif feature_val > 0.30:
             return f"Positive semester grade progression ({feature_val:+.2f} points) is lowering risk by {pct_impact:.1f} percentage points."
+        else:
+            return f"Steady semester academic progression ({feature_val:+.2f} points) is maintaining stable risk by {pct_impact:.1f} percentage points."
 
     elif feature_name == "backlog_count":
         if feature_val > 0:
@@ -158,31 +177,44 @@ def build_plain_language_sentence(
         if feature_val > 7:
             return f"LMS digital inactivity for {int(feature_val)} consecutive days is increasing risk by {pct_impact:.1f} percentage points."
         else:
-            return f"Active daily LMS participation is lowering risk by {pct_impact:.1f} percentage points."
+            return f"Active daily LMS participation ({int(feature_val)} days since last activity) is lowering risk by {pct_impact:.1f} percentage points."
 
     elif feature_name == "lms_logins_per_week":
-        if shap_val > 0:
+        if feature_val < 5.0:
             return f"Infrequent LMS logins ({feature_val:.1f} times/week) are increasing risk by {pct_impact:.1f} percentage points."
         else:
-            return f"High digital engagement ({feature_val:.1f} logins/week) is reducing risk by {pct_impact:.1f} percentage points."
+            if shap_val <= 0:
+                return f"High digital engagement ({feature_val:.1f} logins/week) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Digital LMS logins ({feature_val:.1f} times/week) are contributing {pct_impact:.1f} percentage points to risk."
 
     elif feature_name == "assignment_submission_lag_days":
-        if feature_val > 0:
+        if feature_val > 1.0:
             return f"Submitting assignments {feature_val:.1f} days late on average is increasing risk by {pct_impact:.1f} percentage points."
         else:
             return f"Consistently submitting assignments on or before deadlines is reducing risk by {pct_impact:.1f} percentage points."
 
     elif feature_name == "behavioral_disengagement_index":
-        if shap_val > 0:
-            return f"High behavioral disengagement index ({feature_val:.2f}) is increasing risk by {pct_impact:.1f} percentage points."
+        if feature_val >= 0.40:
+            return f"Elevated behavioral disengagement index ({feature_val:.2f}) is increasing risk by {pct_impact:.1f} percentage points."
+        elif feature_val <= 0.20:
+            if shap_val <= 0:
+                return f"Low behavioral disengagement index ({feature_val:.2f}) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Digital engagement profile (disengagement index {feature_val:.2f}) is contributing {pct_impact:.1f} percentage points to risk."
         else:
-            return f"Low behavioral disengagement index ({feature_val:.2f}) is reducing risk by {pct_impact:.1f} percentage points."
+            return f"Moderate behavioral disengagement index ({feature_val:.2f}) is {impact_dir} risk by {pct_impact:.1f} percentage points."
 
     elif feature_name == "financial_stress_index":
-        if shap_val > 0:
-            return f"High financial stress index ({feature_val:.2f}) is increasing risk by {pct_impact:.1f} percentage points."
+        if feature_val >= 0.40:
+            return f"Elevated financial stress index ({feature_val:.2f}) is increasing risk by {pct_impact:.1f} percentage points."
+        elif feature_val <= 0.20:
+            if shap_val <= 0:
+                return f"Low financial stress index ({feature_val:.2f}) is reducing risk by {pct_impact:.1f} percentage points."
+            else:
+                return f"Financial vulnerability profile (stress index {feature_val:.2f}) is contributing {pct_impact:.1f} percentage points to risk."
         else:
-            return f"Low financial stress index ({feature_val:.2f}) is reducing risk by {pct_impact:.1f} percentage points."
+            return f"Moderate financial stress index ({feature_val:.2f}) is {impact_dir} risk by {pct_impact:.1f} percentage points."
 
     elif feature_name.startswith("interaction_"):
         return f"Compound risk factor ({display}) is {impact_dir} overall dropout risk by {pct_impact:.1f} percentage points."
@@ -194,21 +226,29 @@ def build_plain_language_sentence(
 class SHAPExplainerService:
     """
     Service for extracting and explaining SHAP contributions for the tree-based model.
+    Automatically invalidates cached explainer if the base model artifact is newer than the cache.
     """
 
-    def __init__(self, explainer_path: Path = SHAP_EXPLAINER_PATH):
+    def __init__(self, explainer_path: Path = SHAP_EXPLAINER_PATH, force_rebuild: bool = False):
         self.explainer_path = Path(explainer_path)
         self.explainer: Optional[shap.TreeExplainer] = None
         self.feature_names: List[str] = []
-        self._load_or_initialize()
+        self._load_or_initialize(force_rebuild=force_rebuild)
 
-    def _load_or_initialize(self):
+    def _load_or_initialize(self, force_rebuild: bool = False):
         # Load feature names
         if FEATURE_NAMES_PATH.exists():
             with open(FEATURE_NAMES_PATH, "r") as f:
                 self.feature_names = json.load(f)
 
-        if self.explainer_path.exists():
+        # Invalidation check: if base model is newer than explainer cache, invalidate
+        is_stale = False
+        if self.explainer_path.exists() and BASE_MODEL_PATH.exists():
+            if BASE_MODEL_PATH.stat().st_mtime > self.explainer_path.stat().st_mtime:
+                logger.info("Base model artifact is newer than SHAP explainer cache. Invalidating cache...")
+                is_stale = True
+
+        if not force_rebuild and not is_stale and self.explainer_path.exists():
             try:
                 self.explainer = joblib.load(self.explainer_path)
                 logger.info("Loaded pre-computed SHAP TreeExplainer from %s", self.explainer_path)
@@ -231,11 +271,11 @@ class SHAPExplainerService:
         if hasattr(base_model, "calibrated_classifiers_"):
             underlying_model = base_model.calibrated_classifiers_[0].estimator
 
-        logger.info("Fitting SHAP TreeExplainer on underlying XGBoost model...")
+        logger.info("Fitting fresh SHAP TreeExplainer on underlying XGBoost model...")
         self.explainer = shap.TreeExplainer(underlying_model)
         self.explainer_path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(self.explainer, self.explainer_path)
-        logger.info("Saved SHAP TreeExplainer artifact to %s", self.explainer_path)
+        logger.info("Saved fresh SHAP TreeExplainer artifact to %s", self.explainer_path)
 
     def explain_global(self, X_sample: pd.DataFrame, top_k: int = 15) -> List[Dict[str, Any]]:
         """

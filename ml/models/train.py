@@ -240,6 +240,11 @@ def train_pipeline() -> Tuple[XGBClassifier, Dict[str, Any], Dict[str, np.ndarra
         json.dump(test_metrics, f, indent=2)
     logger.info("Saved test metrics to %s", METRICS_REPORT_PATH)
 
+    # Synchronously rebuild and persist SHAP TreeExplainer for the newly trained model
+    from ml.models.explain_shap import SHAPExplainerService
+    shap_service = SHAPExplainerService(force_rebuild=True)
+    shap_service.build_and_save_explainer()
+
     split_indices = {
         "train_idx": idx_train,
         "val_idx": idx_val,
