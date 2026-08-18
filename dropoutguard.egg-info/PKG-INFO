@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: dropoutguard
+Version: 0.1.0
+Summary: AI-Powered Academic Dropout Prediction & Intervention System (SIH 2026 PSID 7-L / SDG 4)
+Requires-Python: >=3.11
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
+Requires-Dist: xgboost
+Requires-Dist: shap
+Requires-Dist: imbalanced-learn
+Requires-Dist: joblib
+Requires-Dist: ucimlrepo
+Requires-Dist: pytest
+Requires-Dist: requests
+Provides-Extra: backend
+Requires-Dist: fastapi>=0.115; extra == "backend"
+Requires-Dist: uvicorn[standard]>=0.30; extra == "backend"
+Requires-Dist: pydantic>=2.7; extra == "backend"
+Requires-Dist: pydantic-settings>=2.3; extra == "backend"
+Requires-Dist: sqlalchemy>=2.0; extra == "backend"
+Requires-Dist: alembic>=1.13; extra == "backend"
+Requires-Dist: psycopg[binary]>=3.1; extra == "backend"
+Requires-Dist: python-multipart>=0.0.9; extra == "backend"
+Requires-Dist: httpx>=0.27; extra == "backend"
