@@ -5,35 +5,13 @@ The database URL comes from backend settings (environment / .env), never from al
 so credentials are never committed.
 """
 
-import uuid
-import datetime
-import sqlite3
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool, event
-from sqlalchemy.engine import Engine
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import engine_from_config, pool
 
 from backend.app.core.config import get_settings
 from backend.app.db.base import Base
-
-# Custom compiler mapping JSONB to JSON on SQLite during migrations
-@compiles(JSONB, 'sqlite')
-def compile_jsonb_sqlite(element, compiler, **kw):
-    return "JSON"
-
-# Register SQLite connection functions for PostgreSQL mocks during DDL executions
-@event.listens_for(Engine, "connect")
-def register_sqlite_functions(dbapi_connection, connection_record):
-    if isinstance(dbapi_connection, sqlite3.Connection):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-        dbapi_connection.create_function("gen_random_uuid", 0, lambda: str(uuid.uuid4()))
-        dbapi_connection.create_function("clock_timestamp", 0, lambda: datetime.datetime.now().isoformat())
-        dbapi_connection.create_function("now", 0, lambda: datetime.datetime.now().isoformat())
 
 # Populates Base.metadata with every table. Required for autogenerate.
 import backend.app.models  # noqa: F401
