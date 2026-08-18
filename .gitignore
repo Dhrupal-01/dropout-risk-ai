@@ -38,3 +38,9 @@ frontend/.env.local
 .vscode/
 .idea/
 .env
+backend/.env
+*.env.local
+
+# Backend (Alembic migration versions ARE tracked — they are schema source of truth)
+.mypy_cache/
+.ruff_cache/
