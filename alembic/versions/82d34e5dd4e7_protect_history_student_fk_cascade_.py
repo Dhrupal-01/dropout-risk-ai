@@ -29,6 +29,9 @@ INTERVENTION_LOGS_FK = "intervention_logs_student_id_fkey"
 
 
 def upgrade() -> None:
+    if op.get_bind().dialect.name == "sqlite":
+        return
+
     op.drop_constraint(INTERVENTION_LOGS_FK, "intervention_logs", type_="foreignkey")
     op.create_foreign_key(
         INTERVENTION_LOGS_FK,
@@ -51,6 +54,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if op.get_bind().dialect.name == "sqlite":
+        return
+
     op.drop_constraint(PREDICTIONS_FK, "predictions", type_="foreignkey")
     op.create_foreign_key(
         PREDICTIONS_FK,
