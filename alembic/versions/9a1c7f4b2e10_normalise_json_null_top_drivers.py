@@ -25,10 +25,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("UPDATE predictions SET top_drivers = NULL WHERE top_drivers = 'null'::jsonb")
+    if op.get_bind().dialect.name == "sqlite":
+        op.execute("UPDATE predictions SET top_drivers = NULL WHERE top_drivers = 'null'")
+    else:
+        op.execute("UPDATE predictions SET top_drivers = NULL WHERE top_drivers = 'null'::jsonb")
 
 
 def downgrade() -> None:
     # Restore the previous (incorrect but original) representation so the migration is
     # reversible without data loss.
-    op.execute("UPDATE predictions SET top_drivers = 'null'::jsonb WHERE top_drivers IS NULL")
+    if op.get_bind().dialect.name == "sqlite":
+        op.execute("UPDATE predictions SET top_drivers = 'null' WHERE top_drivers IS NULL")
+    else:
+        op.execute("UPDATE predictions SET top_drivers = 'null'::jsonb WHERE top_drivers IS NULL")
