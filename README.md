@@ -8,9 +8,11 @@
 
 ## Quick Links & Documentation
 
-- [Detailed ML Architecture, Feature Selection & Backend Handover Spec](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/ml_architecture_and_pipeline.md)
-- [Ethics, Responsible AI & Algorithmic Fairness Audit Report](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/ethics_and_fairness.md)
-- [Implementation Plan & Phase Roadmap](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/dropout-prediction-implementation-plan.md)
+- **Phase 4 Developer Handover**: [Backend API Handover & Implementation Guide](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/backend_api_handover.md)
+- **Feature Data Dictionary**: [Official 37-Feature Data Dictionary & Schema](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/data_dictionary.md)
+- **ML Core Specifications**: [Detailed ML Architecture & Pipeline Spec](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/ml_architecture_and_pipeline.md)
+- **Fairness & Ethics Audit**: [Responsible AI & Algorithmic Fairness Report](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/ethics_and_fairness.md)
+- **Master Plan**: [Dropout Prediction Implementation Roadmap](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/dropout-prediction-implementation-plan.md)
 
 ---
 
