@@ -1,0 +1,13 @@
+[
+  "phd_tenure_months",
+  "fellowship_disbursement_delay_days",
+  "advisor_meeting_frequency_per_month",
+  "peer_reviewed_submissions",
+  "comprehensive_exam_attempts",
+  "research_stagnation_index",
+  "stipend_adequacy_ratio",
+  "lab_isolation_index",
+  "state_literacy_rate",
+  "district_mpi_pct",
+  "is_aspirational_district"
+]

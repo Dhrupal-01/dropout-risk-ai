@@ -1,0 +1,314 @@
+{
+  "interventions_by_tier": {
+    "PRE_10TH": [
+      {
+        "intervention_id": "INT_SCH_01",
+        "pillar": "attendance",
+        "title": "Community Attendance Mobilization & Mid-Day Meal Supplemental Ration",
+        "urgency": "HIGH",
+        "target_pillar": "Attendance & Nutrition",
+        "suggested_duration_days": 30,
+        "action_description": "Assign local village education committee (VEC) volunteer for daily attendance escort and provide supplemental dry nutritional ration kit to family.",
+        "recommended_for": ["attendance_percentage", "mid_day_meal_attendance_pct", "attendance_risk_flag"]
+      },
+      {
+        "intervention_id": "INT_SCH_02",
+        "pillar": "academic",
+        "title": "Foundational Literacy & Numeracy (FLN) Remedial After-School Camp",
+        "urgency": "HIGH",
+        "target_pillar": "Foundational Learning",
+        "suggested_duration_days": 60,
+        "action_description": "Enroll student in 1-hour daily community-led foundational math and reading catch-up bridge camp.",
+        "recommended_for": ["fln_score_pct"]
+      },
+      {
+        "intervention_id": "INT_SCH_03",
+        "pillar": "socio_economic",
+        "title": "State Free Bicycle Scheme & Commute Assistance Allocation",
+        "urgency": "HIGH",
+        "target_pillar": "Transit Access",
+        "suggested_duration_days": 14,
+        "action_description": "Fast-track provision of free government bicycle and organize peer travel clusters for students commuting >3 km.",
+        "recommended_for": ["distance_to_school_km"]
+      },
+      {
+        "intervention_id": "INT_SCH_04",
+        "pillar": "socio_economic",
+        "title": "Seasonal Harvest Flexible Schooling & Bridge Material Pack",
+        "urgency": "HIGH",
+        "target_pillar": "Seasonal Migration",
+        "suggested_duration_days": 90,
+        "action_description": "Issue take-home printed self-learning workbooks and flexible examination schedule during family seasonal agricultural migration.",
+        "recommended_for": ["seasonal_migration_flag"]
+      },
+      {
+        "intervention_id": "INT_SCH_05",
+        "pillar": "socio_economic",
+        "title": "School Sanitation & Girl Child Retention Incentive Support",
+        "urgency": "HIGH",
+        "target_pillar": "Sanitation & Hygiene",
+        "suggested_duration_days": 14,
+        "action_description": "Provide dedicated functional sanitation access and monthly hygiene kit allocation under Beti Bachao Beti Padhao.",
+        "recommended_for": ["toilets_available_flag", "sibling_count_under_5"]
+      },
+      {
+        "intervention_id": "INT_SCH_06",
+        "pillar": "academic",
+        "title": "Parental Engagement & Adult Literacy Awareness Counseling",
+        "urgency": "MEDIUM",
+        "target_pillar": "Family Mentorship",
+        "suggested_duration_days": 30,
+        "action_description": "Conduct home visit by school headmaster explaining long-term financial benefits of completing Class 10.",
+        "recommended_for": ["parental_literacy_years"]
+      }
+    ],
+    "HIGHER_SECONDARY": [
+      {
+        "intervention_id": "INT_HSC_01",
+        "pillar": "academic",
+        "title": "Stream Re-alignment & Career Aptitude Consultation",
+        "urgency": "HIGH",
+        "target_pillar": "Stream Fit & Career",
+        "suggested_duration_days": 21,
+        "action_description": "Conduct standardized psychometric aptitude test with state career counselor to evaluate switch to preferred academic or vocational stream.",
+        "recommended_for": ["stream_preference_match"]
+      },
+      {
+        "intervention_id": "INT_HSC_02",
+        "pillar": "academic",
+        "title": "Free Government Board Exam Mock Series & Remedial Coaching",
+        "urgency": "HIGH",
+        "target_pillar": "Board Exam Readiness",
+        "suggested_duration_days": 60,
+        "action_description": "Enroll student in district-level free coaching classes and provide chapter-wise mock test solution booklets.",
+        "recommended_for": ["mid_term_board_sim_score", "class_10_board_pct"]
+      },
+      {
+        "intervention_id": "INT_HSC_03",
+        "pillar": "financial",
+        "title": "Coaching Fee Hardship Grant & Digital Study Tablet Loan",
+        "urgency": "HIGH",
+        "target_pillar": "Financial Burden",
+        "suggested_duration_days": 14,
+        "action_description": "Disburse state coaching hardship stipend and issue pre-loaded educational tablet with offline video lectures.",
+        "recommended_for": ["coaching_financial_strain", "family_debt_pressure_flag"]
+      },
+      {
+        "intervention_id": "INT_HSC_04",
+        "pillar": "attendance",
+        "title": "Attendance Contract & Faculty Mentor Bi-Weekly Review",
+        "urgency": "HIGH",
+        "target_pillar": "Attendance Compliance",
+        "suggested_duration_days": 30,
+        "action_description": "Establish signed attendance recovery contract with guardian and mandatory bi-weekly progress review with class teacher.",
+        "recommended_for": ["attendance_percentage", "attendance_risk_flag", "consecutive_absences"]
+      },
+      {
+        "intervention_id": "INT_HSC_05",
+        "pillar": "academic",
+        "title": "ITI / Vocational Skill Lab Apprenticeship Bridge Program",
+        "urgency": "MEDIUM",
+        "target_pillar": "Practical Skills",
+        "suggested_duration_days": 45,
+        "action_description": "Pair student with district skill development center for hands-on vocational lab training and stipend-backed internship.",
+        "recommended_for": ["vocational_practical_att_pct"]
+      },
+      {
+        "intervention_id": "INT_HSC_06",
+        "pillar": "socio_economic",
+        "title": "Family Debt Mitigation & Student Counseling Desk Referral",
+        "urgency": "MEDIUM",
+        "target_pillar": "Socio-Economic Counseling",
+        "suggested_duration_days": 30,
+        "action_description": "Connect family to official district welfare officer for microfinance debt restructuring and welfare scheme enrollment.",
+        "recommended_for": ["family_debt_pressure_flag"]
+      }
+    ],
+    "UNDERGRADUATE": [
+      {
+        "intervention_id": "INT_UG_01",
+        "pillar": "attendance",
+        "title": "Mandatory Attendance Counseling & Faculty Mentor Check-in",
+        "urgency": "HIGH",
+        "target_pillar": "Attendance Dynamics",
+        "suggested_duration_days": 14,
+        "action_description": "Schedule a 1-on-1 mentor session to identify root causes of absenteeism and formulate a daily lecture catch-up plan.",
+        "recommended_for": ["attendance_percentage", "attendance_month_3", "attendance_risk_flag"]
+      },
+      {
+        "intervention_id": "INT_UG_02",
+        "pillar": "academic",
+        "title": "Backlog Clearance Action Plan & HOD Remedial Strategy Roadmap",
+        "urgency": "HIGH",
+        "target_pillar": "Academic Backlogs",
+        "suggested_duration_days": 45,
+        "action_description": "Formulate a customized semester study roadmap with the Head of Department prioritizing uncleared prerequisite backlogs.",
+        "recommended_for": ["backlog_count", "current_cgpa", "interaction_cgpa_x_backlog"]
+      },
+      {
+        "intervention_id": "INT_UG_03",
+        "pillar": "financial",
+        "title": "Institutional Fee-Waiver & Emergency Financial Aid Desk Referral",
+        "urgency": "HIGH",
+        "target_pillar": "Financial Arrears",
+        "suggested_duration_days": 7,
+        "action_description": "Fast-track application for institute emergency hardship funds, alumni tuition grants, and flexible installment fee payment schedules.",
+        "recommended_for": ["fee_payment_delay_days", "financial_stress_index", "interaction_att_x_fee"]
+      },
+      {
+        "intervention_id": "INT_UG_04",
+        "pillar": "behavioral",
+        "title": "Digital LMS Onboarding & Learning Resource Assistance",
+        "urgency": "MEDIUM",
+        "target_pillar": "Digital LMS Engagement",
+        "suggested_duration_days": 21,
+        "action_description": "Pair student with digital teaching assistant to walk through online LMS submission portals and courseware.",
+        "recommended_for": ["behavioral_disengagement_index", "days_since_last_lms_activity"]
+      },
+      {
+        "intervention_id": "INT_UG_05",
+        "pillar": "academic",
+        "title": "Department Peer Tutoring & Weekly Study Circle Assignment",
+        "urgency": "HIGH",
+        "target_pillar": "Peer Remediation",
+        "suggested_duration_days": 30,
+        "action_description": "Pair student with a high-performing senior departmental peer mentor for weekly problem-solving tutorials in core engineering subjects.",
+        "recommended_for": ["cgpa_delta", "stem_core_fail_flag"]
+      },
+      {
+        "intervention_id": "INT_UG_06",
+        "pillar": "behavioral",
+        "title": "Campus Mental Wellbeing & Counseling Consultation",
+        "urgency": "HIGH",
+        "target_pillar": "Mental Health",
+        "suggested_duration_days": 30,
+        "action_description": "Refer student to professional campus psychologist for confidential stress, anxiety, and exam trauma counseling.",
+        "recommended_for": ["interaction_att_x_cgpa_drop"]
+      }
+    ],
+    "POSTGRADUATE": [
+      {
+        "intervention_id": "INT_PG_01",
+        "pillar": "academic",
+        "title": "Master's Dissertation Sprint & Advisor Progress Review",
+        "urgency": "HIGH",
+        "target_pillar": "Dissertation Progress",
+        "suggested_duration_days": 30,
+        "action_description": "Establish bi-weekly thesis milestone review with department PG committee and assign dedicated research methodology mentor.",
+        "recommended_for": ["dissertation_milestone_pct"]
+      },
+      {
+        "intervention_id": "INT_PG_02",
+        "pillar": "academic",
+        "title": "PG Coursework Remedial Tutoring & CGPA Recovery Roadmap",
+        "urgency": "HIGH",
+        "target_pillar": "PG Academic Standing",
+        "suggested_duration_days": 45,
+        "action_description": "Customized credit recovery plan targeting advanced PG theory courses to restore CGPA above degree threshold.",
+        "recommended_for": ["current_pg_cgpa", "backlog_count"]
+      },
+      {
+        "intervention_id": "INT_PG_03",
+        "pillar": "financial",
+        "title": "Education Loan Moratorium Support & Financial Aid Restructuring",
+        "urgency": "HIGH",
+        "target_pillar": "Loan & Fee Debt",
+        "suggested_duration_days": 14,
+        "action_description": "Assist student with bank education loan moratorium certificate and provide institute graduate teaching assistantship (GTA) stipend.",
+        "recommended_for": ["education_loan_burden_inr", "fee_payment_delay_days"]
+      },
+      {
+        "intervention_id": "INT_PG_04",
+        "pillar": "behavioral",
+        "title": "Placement Cell Fast-Track Boot Camp & Industry Mock Interviews",
+        "urgency": "HIGH",
+        "target_pillar": "Career Readiness",
+        "suggested_duration_days": 30,
+        "action_description": "Enroll in intensive placement preparation module with alumni mock interviews to resolve career placement anxiety.",
+        "recommended_for": ["placement_readiness_score"]
+      },
+      {
+        "intervention_id": "INT_PG_05",
+        "pillar": "attendance",
+        "title": "Flexible Work-Study Schedule & Evening Lab Access Permission",
+        "urgency": "MEDIUM",
+        "target_pillar": "Work-Study Balance",
+        "suggested_duration_days": 30,
+        "action_description": "Authorize flexible laboratory hours and hybrid attendance for students supporting families with part-time employment.",
+        "recommended_for": ["part_time_work_hours_per_week", "attendance_percentage"]
+      },
+      {
+        "intervention_id": "INT_PG_06",
+        "pillar": "behavioral",
+        "title": "Postgraduate Peer Network & Research Writing Circle",
+        "urgency": "LOW",
+        "target_pillar": "Peer Engagement",
+        "suggested_duration_days": 60,
+        "action_description": "Connect student to departmental PG peer writing community for collective research drafting and literature review critique.",
+        "recommended_for": ["dissertation_milestone_pct"]
+      }
+    ],
+    "DOCTORATE": [
+      {
+        "intervention_id": "INT_PHD_01",
+        "pillar": "financial",
+        "title": "Emergency Fellowship Arrears Fast-Track & Dean Escalation",
+        "urgency": "HIGH",
+        "target_pillar": "Fellowship Arrears",
+        "suggested_duration_days": 7,
+        "action_description": "Direct Dean (R&D) intervention to release institutional contingency advance for delayed JRF/SRF/Institute fellowship stipends.",
+        "recommended_for": ["fellowship_disbursement_delay_days", "stipend_adequacy_ratio"]
+      },
+      {
+        "intervention_id": "INT_PHD_02",
+        "pillar": "academic",
+        "title": "Doctoral Advisory Committee (DAC) Guided Mentorship Reset",
+        "urgency": "HIGH",
+        "target_pillar": "Advisor Mentorship",
+        "suggested_duration_days": 21,
+        "action_description": "Convene an extraordinary DAC meeting to establish a formal weekly meeting cadence and clear research deliverables schedule.",
+        "recommended_for": ["advisor_meeting_frequency_per_month"]
+      },
+      {
+        "intervention_id": "INT_PHD_03",
+        "pillar": "academic",
+        "title": "Research Stagnation Diagnosis & Co-Guide Reallocation",
+        "urgency": "HIGH",
+        "target_pillar": "Research Velocity",
+        "suggested_duration_days": 30,
+        "action_description": "Audit experimental bottleneck with department research chair and assign an active co-guide or interdisciplinary collaborator.",
+        "recommended_for": ["research_stagnation_index", "phd_tenure_months"]
+      },
+      {
+        "intervention_id": "INT_PHD_04",
+        "pillar": "academic",
+        "title": "Journal Manuscript Writing Sprint & Editorial Support",
+        "urgency": "MEDIUM",
+        "target_pillar": "Publications",
+        "suggested_duration_days": 45,
+        "action_description": "Provide professional technical editing and publication charge sponsorship for pending journal submissions.",
+        "recommended_for": ["peer_reviewed_submissions"]
+      },
+      {
+        "intervention_id": "INT_PHD_05",
+        "pillar": "academic",
+        "title": "Comprehensive Examination Intensive Preparation Mentorship",
+        "urgency": "HIGH",
+        "target_pillar": "Qualifying Barrier",
+        "suggested_duration_days": 60,
+        "action_description": "Pair candidate with recently graduated postdocs for structured syllabus revision and mock viva simulations.",
+        "recommended_for": ["comprehensive_exam_attempts"]
+      },
+      {
+        "intervention_id": "INT_PHD_06",
+        "pillar": "behavioral",
+        "title": "Doctoral Mental Health & Scholar Community Retreat",
+        "urgency": "MEDIUM",
+        "target_pillar": "Scholar Isolation & Burnout",
+        "suggested_duration_days": 14,
+        "action_description": "Enroll candidate in PhD wellness group sessions and peer scholar network to address isolation and thesis burnout.",
+        "recommended_for": ["lab_isolation_index"]
+      }
+    ]
+  }
+}

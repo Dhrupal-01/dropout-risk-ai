@@ -1,0 +1,503 @@
+cohort_metadata:
+  target_base_rate:
+    value: 0.355
+    source: "TODO(citation)"
+    notes: "Placeholder baseline cohort dropout rate for Indian collegiate technical education."
+
+risk_coefficients:
+  current_cgpa:
+    value: -0.61497
+    source: "estimated_from_uci"
+    notes: "Estimated from UCI ID 697 cu_1st_sem_grade rescaled to 0-10 CGPA (beta_std=-0.8917, cohort SD=1.45)."
+  backlog_count:
+    value: 1.79296
+    source: "estimated_from_uci"
+    notes: "Estimated from UCI ID 697 unapproved units (beta_std=2.2412, cohort SD=1.25)."
+  has_scholarship:
+    value: -1.03867
+    source: "estimated_from_uci"
+    notes: "Estimated from UCI ID 697 scholarship_holder (beta_std=-0.4674, cohort SD=0.45)."
+  fee_payment_delay_days:
+    value: 0.03410
+    source: "estimated_from_uci"
+    notes: "Estimated from UCI ID 697 tuition fee default / debtor status (beta_std=0.8355, cohort SD=24.5)."
+  is_first_generation:
+    value: -0.01500
+    source: "estimated_from_uci"
+    notes: "Estimated from UCI ID 697 parents qualification (beta_std=-0.0072, cohort SD=0.48)."
+  is_hosteler:
+    value: 0.13340
+    source: "estimated_from_uci"
+    notes: "Estimated from UCI ID 697 displaced status (beta_std=0.0667, cohort SD=0.50)."
+  lms_logins_per_week:
+    value: -0.07018
+    source: "estimated_from_oulad"
+    notes: "Estimated from OULAD ID 349 weekly clicks at snapshot t=56 (beta_std=-0.1544, cohort SD=2.20)."
+  days_since_last_lms_activity:
+    value: 0.01017
+    source: "estimated_from_oulad"
+    notes: "Estimated from OULAD ID 349 inactivity recency at snapshot t=56 (beta_std=0.1220, cohort SD=12.0)."
+  assignment_submission_lag_days:
+    value: 0.12440
+    source: "estimated_from_oulad"
+    notes: "Estimated from OULAD ID 349 assignment submission delay at snapshot t=56 (beta_std=0.3110, cohort SD=2.50)."
+  attendance_percentage:
+    value: -0.04000
+    source: "indian_regulation"
+    notes: "Penalty for attendance deficit below statutory 75% rule (log-odds increase of 0.040 per percentage deficit)."
+  attendance_3m_trend:
+    value: -0.08000
+    source: "assumption"
+    notes: "Deteriorating attendance trajectory slope over 3-month observation window."
+  consecutive_absences:
+    value: 0.07500
+    source: "assumption"
+    notes: "Log-odds penalty per consecutive absent day indicating prolonged absence spell."
+  cgpa_delta:
+    value: -0.40000
+    source: "assumption"
+    notes: "Acute academic decline log-odds penalty per unit semester-over-semester CGPA drop."
+  stem_core_fail_flag:
+    value: 0.35000
+    source: "assumption"
+    notes: "Prerequisite gatekeeping failure penalty in core foundational course."
+  gender_male:
+    value: 0.0
+    source: "assumption"
+    notes: "Protected attribute coefficient strictly zero to prevent algorithmic gender bias."
+  category_obc:
+    value: 0.0
+    source: "assumption"
+    notes: "Protected demographic category coefficient strictly zero."
+  category_sc:
+    value: 0.0
+    source: "assumption"
+    notes: "Protected demographic category coefficient strictly zero."
+  category_st:
+    value: 0.0
+    source: "assumption"
+    notes: "Protected demographic category coefficient strictly zero."
+  category_ews:
+    value: 0.0
+    source: "assumption"
+    notes: "Protected demographic category coefficient strictly zero."
+  interaction_low_att_high_fee:
+    value: 0.35000
+    source: "assumption"
+    notes: "Compound interaction for concurrent attendance crisis (<70%) and chronic fee delay (>20d)."
+  interaction_low_cgpa_high_backlogs:
+    value: 0.35000
+    source: "assumption"
+    notes: "Compound interaction for severe academic distress (CGPA < 5.0 and backlogs >= 2)."
+  idiosyncratic_noise_std:
+    value: 0.85000
+    source: "assumption"
+    notes: "Standard deviation of unobserved idiosyncratic Gaussian noise in latent risk score."
+
+regulations_and_thresholds:
+  mandatory_attendance_threshold:
+    value: 75.0
+    source: "indian_regulation"
+    notes: "Statutory 75% attendance threshold for semester examination eligibility."
+  stem_core_pass_mark:
+    value: 42.0
+    source: "indian_regulation"
+    notes: "Passing threshold out of 100 for academic credit in foundational STEM courses."
+  dual_crisis_att_threshold:
+    value: 70.0
+    source: "assumption"
+    notes: "Threshold below which attendance crisis compounds with fee delay."
+  dual_crisis_fee_threshold:
+    value: 20.0
+    source: "assumption"
+    notes: "Threshold above which fee payment delay compounds with attendance crisis."
+  academic_crisis_cgpa_threshold:
+    value: 5.0
+    source: "assumption"
+    notes: "Threshold below which low CGPA triggers year-down / detaining risk."
+  academic_crisis_backlog_threshold:
+    value: 2.0
+    source: "assumption"
+    notes: "Threshold for minimum backlogs compounding low CGPA."
+
+demographics_distribution:
+  student_id_prefix:
+    value: "IND_2026_"
+    source: "assumption"
+    notes: "Identifier prefix formatted with year and sequential 4-digit student index."
+  gender_proportions:
+    value:
+      Male: 0.58
+      Female: 0.42
+    source: "TODO(citation)"
+    notes: "Estimated gender distribution in Indian STEM technical collegiate degree programs."
+  category_proportions:
+    value:
+      General: 0.35
+      OBC: 0.32
+      SC: 0.18
+      ST: 0.09
+      EWS: 0.06
+    source: "indian_regulation"
+    notes: "Central educational institution statutory reservation allocation proportions."
+  age_mean:
+    value: 20.1
+    source: "assumption"
+    notes: "Mean student age in 2nd/3rd collegiate year."
+  age_std:
+    value: 1.3
+    source: "assumption"
+    notes: "Standard deviation of collegiate student age."
+  age_min:
+    value: 17.5
+    source: "indian_regulation"
+    notes: "Statutory minimum age for admission to degree programs."
+  age_max:
+    value: 27.0
+    source: "assumption"
+    notes: "Upper bound of typical undergraduate student age distribution."
+  hostel_status_proportions:
+    value:
+      Hosteler: 0.45
+      Day Scholar: 0.55
+    source: "assumption"
+    notes: "Collegiate residential distribution between on-campus hostel and local commute."
+  commute_hosteler_km:
+    value: 0.5
+    source: "assumption"
+    notes: "Fixed nominal commute distance for residential hostel students."
+  commute_day_scholar_shape:
+    value: 2.5
+    source: "assumption"
+    notes: "Gamma distribution shape parameter for day scholar commute distance."
+  commute_day_scholar_scale:
+    value: 4.0
+    source: "assumption"
+    notes: "Gamma distribution scale parameter for day scholar commute distance."
+  commute_day_scholar_min_km:
+    value: 1.0
+    source: "assumption"
+    notes: "Minimum commute distance for day scholar students."
+  commute_day_scholar_max_km:
+    value: 45.0
+    source: "assumption"
+    notes: "Maximum commute distance for day scholar students."
+  commute_day_scholar_shift_km:
+    value: 1.5
+    source: "assumption"
+    notes: "Constant baseline shift added to Gamma-drawn day scholar commute distance."
+
+socioeconomic_distribution:
+  income_slab_labels:
+    value:
+      - "<2 LPA"
+      - "2-5 LPA"
+      - "5-8 LPA"
+      - ">8 LPA"
+    source: "assumption"
+    notes: "Standard family income categorization brackets in Indian collegiate admissions."
+  income_slab_proportions:
+    value:
+      - 0.22
+      - 0.38
+      - 0.25
+      - 0.15
+    source: "TODO(citation)"
+    notes: "Income bracket distribution in state-affiliated technical colleges."
+  first_gen_probs_by_slab:
+    value:
+      - 0.65
+      - 0.45
+      - 0.20
+      - 0.08
+    source: "assumption"
+    notes: "Probability of first-generation learner status conditioned on income bracket index."
+  scholarship_quota_prob:
+    value: 0.65
+    source: "indian_regulation"
+    notes: "Post-matric and merit-cum-means scholarship coverage for SC/ST/EWS or <2 LPA income."
+  scholarship_mid_prob:
+    value: 0.25
+    source: "assumption"
+    notes: "Scholarship coverage probability for 2-5 LPA income slab."
+  scholarship_high_prob:
+    value: 0.05
+    source: "assumption"
+    notes: "Merit scholarship coverage probability for higher income brackets."
+  fee_delay_with_scholarship_choices:
+    value: [0, 5, 15, 30]
+    source: "assumption"
+    notes: "Discrete fee delay day choices for scholarship recipients."
+  fee_delay_with_scholarship_probs:
+    value: [0.75, 0.15, 0.07, 0.03]
+    source: "assumption"
+    notes: "Probabilities of fee delay days for scholarship recipients."
+  fee_delay_slab0_choices:
+    value: [0, 15, 30, 45, 60, 90, 120]
+    source: "assumption"
+    notes: "Discrete fee delay day choices for low income <2 LPA students without scholarship."
+  fee_delay_slab0_probs:
+    value: [0.15, 0.20, 0.25, 0.20, 0.10, 0.07, 0.03]
+    source: "assumption"
+    notes: "Probabilities of fee delay days for low income <2 LPA students."
+  fee_delay_slab1_choices:
+    value: [0, 10, 20, 30, 45, 60]
+    source: "assumption"
+    notes: "Discrete fee delay day choices for 2-5 LPA students without scholarship."
+  fee_delay_slab1_probs:
+    value: [0.45, 0.25, 0.15, 0.08, 0.05, 0.02]
+    source: "assumption"
+    notes: "Probabilities of fee delay days for 2-5 LPA students."
+  fee_delay_high_slab_choices:
+    value: [0, 5, 15]
+    source: "assumption"
+    notes: "Discrete fee delay day choices for >5 LPA students without scholarship."
+  fee_delay_high_slab_probs:
+    value: [0.85, 0.12, 0.03]
+    source: "assumption"
+    notes: "Probabilities of fee delay days for >5 LPA students."
+  fee_delay_jitter_max:
+    value: 5
+    source: "assumption"
+    notes: "Maximum uniform integer jitter added to base fee delay days."
+
+attendance_distribution:
+  latent_alpha:
+    value: 5.0
+    source: "assumption"
+    notes: "Beta distribution alpha parameter for latent student attendance discipline."
+  latent_beta:
+    value: 1.8
+    source: "assumption"
+    notes: "Beta distribution beta parameter for latent student attendance discipline."
+  core1_noise_std:
+    value: 6.0
+    source: "assumption"
+    notes: "Core subject 1 attendance random variation standard deviation."
+  core2_noise_std:
+    value: 5.5
+    source: "assumption"
+    notes: "Core subject 2 attendance random variation standard deviation."
+  lab_boost:
+    value: 4.0
+    source: "assumption"
+    notes: "Attendance percentage shift for mandatory practical lab sessions."
+  lab_noise_std:
+    value: 4.0
+    source: "assumption"
+    notes: "Practical lab attendance random variation standard deviation."
+  elective_penalty:
+    value: 2.0
+    source: "assumption"
+    notes: "Attendance percentage shift for elective courses."
+  elective_noise_std:
+    value: 7.0
+    source: "assumption"
+    notes: "Elective course attendance random variation standard deviation."
+  month_weights:
+    value:
+      - 0.25
+      - 0.35
+      - 0.40
+    source: "assumption"
+    notes: "Recency weights applied to 3-month attendance records (Month 1, Month 2, Month 3)."
+  commute_long_threshold_km:
+    value: 25.0
+    source: "assumption"
+    notes: "Distance threshold triggering severe commute-related attendance penalty."
+  commute_long_penalty:
+    value: 0.08
+    source: "assumption"
+    notes: "Attendance penalty applied for commute exceeding long distance threshold."
+  commute_medium_threshold_km:
+    value: 15.0
+    source: "assumption"
+    notes: "Distance threshold triggering moderate commute-related attendance penalty."
+  commute_medium_penalty:
+    value: 0.04
+    source: "assumption"
+    notes: "Attendance penalty applied for commute exceeding medium distance threshold."
+  attendance_min:
+    value: 10.0
+    source: "assumption"
+    notes: "Floor percentage for attendance metrics."
+  attendance_max:
+    value: 100.0
+    source: "assumption"
+    notes: "Ceiling percentage for attendance metrics."
+  latent_attendance_min_clip:
+    value: 0.15
+    source: "assumption"
+    notes: "Lower clipping bound for commute-adjusted latent attendance factor."
+  latent_attendance_max_clip:
+    value: 0.98
+    source: "assumption"
+    notes: "Upper clipping bound for commute-adjusted latent attendance factor."
+  attendance_slope_noise_std:
+    value: 4.5
+    source: "assumption"
+    notes: "Standard deviation of latent monthly attendance trend slope."
+  consecutive_absence_thresholds:
+    value: [50.0, 65.0, 75.0]
+    source: "assumption"
+    notes: "Attendance tier cutoffs determining consecutive absence days window."
+  consecutive_absence_ranges:
+    value:
+      - [8, 25]
+      - [4, 12]
+      - [2, 7]
+      - [0, 3]
+    source: "assumption"
+    notes: "Min and max integer bounds for consecutive absence day draws by attendance tier."
+
+academic_distribution:
+  prior_cgpa_mean:
+    value: 7.2
+    source: "assumption"
+    notes: "Mean prior academic ability CGPA score on 10-point scale."
+  prior_cgpa_std:
+    value: 1.4
+    source: "assumption"
+    notes: "Standard deviation of prior academic ability CGPA score."
+  cgpa_noise_std:
+    value: 0.45
+    source: "assumption"
+    notes: "Semester-over-semester random academic shock standard deviation."
+  attendance_cgpa_slope:
+    value: 0.025
+    source: "assumption"
+    notes: "CGPA impact per percentage point deviation from 75% attendance benchmark."
+  backlog_base_lambda:
+    value: 4.5
+    source: "assumption"
+    notes: "Base multiplier for Poisson backlog rate function."
+  backlog_cgpa_decay:
+    value: 0.8
+    source: "assumption"
+    notes: "Exponential decay coefficient of backlog rate with respect to current CGPA."
+  backlog_attendance_boost:
+    value: 1.8
+    source: "assumption"
+    notes: "Additive backlog Poisson rate increase when attendance drops below 65%."
+  backlog_max:
+    value: 7
+    source: "indian_regulation"
+    notes: "Statutory academic limit of active uncleared backlogs before student is detained."
+  internal_exam_cgpa_multiplier:
+    value: 9.5
+    source: "assumption"
+    notes: "Linear multiplier converting 10-point CGPA to 100-point internal examination score."
+  internal_exam_noise_std:
+    value: 5.0
+    source: "assumption"
+    notes: "Standard deviation of internal examination evaluation noise."
+  stem_exam_att_weight:
+    value: 0.45
+    source: "assumption"
+    notes: "Weight of attendance in STEM core exam score simulation."
+  stem_exam_cgpa_weight:
+    value: 4.8
+    source: "assumption"
+    notes: "Weight of CGPA in STEM core exam score simulation."
+  stem_exam_noise_std:
+    value: 11.0
+    source: "assumption"
+    notes: "Noise standard deviation in STEM core exam score simulation."
+  cgpa_min:
+    value: 2.50
+    source: "assumption"
+    notes: "Floor bounding for current semester CGPA."
+  cgpa_max:
+    value: 10.00
+    source: "indian_regulation"
+    notes: "Statutory 10-point maximum ceiling for Indian university CGPA."
+  prev_cgpa_min:
+    value: 3.50
+    source: "assumption"
+    notes: "Floor bounding for previous semester CGPA."
+  prev_cgpa_max:
+    value: 9.95
+    source: "assumption"
+    notes: "Ceiling bounding for previous semester CGPA."
+  internal_exam_min:
+    value: 15.0
+    source: "assumption"
+    notes: "Floor percentage for internal examination score."
+  internal_exam_max:
+    value: 99.0
+    source: "assumption"
+    notes: "Ceiling percentage for internal examination score."
+  core1_exam_score_min:
+    value: 5.0
+    source: "assumption"
+    notes: "Floor percentage bounding for core 1 exam score simulation."
+  core1_exam_score_max:
+    value: 98.0
+    source: "assumption"
+    notes: "Ceiling percentage bounding for core 1 exam score simulation."
+
+learning_behavior_distribution:
+  lms_mean_multiplier:
+    value: 9.0
+    source: "assumption"
+    notes: "Multiplier converting engagement score to weekly LMS login frequency."
+  lms_noise_std:
+    value: 2.0
+    source: "assumption"
+    notes: "Standard deviation of weekly LMS logins."
+  lms_max_weekly:
+    value: 14.0
+    source: "assumption"
+    notes: "Upper bound cap on weekly LMS logins."
+  submission_lag_base_scale:
+    value: 6.0
+    source: "assumption"
+    notes: "Sensitivity of assignment submission lag in days to student disengagement."
+  submission_lag_offset:
+    value: 2.5
+    source: "assumption"
+    notes: "Baseline submission timeliness offset in days."
+  submission_lag_noise_std:
+    value: 2.2
+    source: "assumption"
+    notes: "Standard deviation of assignment submission lag."
+  resource_lognormal_mean:
+    value: 2.8
+    source: "assumption"
+    notes: "Base parameter mu for lognormal digital resource access distribution."
+  resource_lognormal_slope:
+    value: 1.2
+    source: "assumption"
+    notes: "Linear effect of engagement on lognormal resource access mean."
+  resource_lognormal_sigma:
+    value: 0.45
+    source: "assumption"
+    notes: "Dispersion parameter sigma for lognormal resource access distribution."
+  resource_access_min:
+    value: 2
+    source: "assumption"
+    notes: "Minimum resource access count."
+  resource_access_max:
+    value: 220
+    source: "assumption"
+    notes: "Maximum resource access count."
+  inactivity_scale:
+    value: 25.0
+    source: "assumption"
+    notes: "Maximum baseline LMS inactivity days due to disengagement."
+  inactivity_exp_scale:
+    value: 3.0
+    source: "assumption"
+    notes: "Exponential distribution scale for inactivity recency noise in days."
+  inactivity_max_days:
+    value: 60
+    source: "assumption"
+    notes: "Maximum inactivity recency in days."
+  forum_base_lambda:
+    value: 4.0
+    source: "assumption"
+    notes: "Multiplier for Poisson discussion forum participation frequency."
+  forum_participation_max:
+    value: 25
+    source: "assumption"
+    notes: "Maximum discussion forum participation count."

@@ -192,7 +192,8 @@ def generate_uci_standin(target_path: Path = UCI_CSV_PATH, n_samples: int = 4424
         "Unemployment rate": np.round(unemployment, 1),
         "Inflation rate": np.round(inflation, 1),
         "GDP": np.round(gdp, 2),
-        "Target": target
+        "Target": target,
+        "is_synthetic": 1
     })
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,7 +202,7 @@ def generate_uci_standin(target_path: Path = UCI_CSV_PATH, n_samples: int = 4424
     return df
 
 
-def load_clean_uci_data(force_download: bool = False) -> pd.DataFrame:
+def load_clean_uci_data(force_download: bool = False, allow_synthetic_standin: bool = False) -> pd.DataFrame:
     """
     Loads and standardizes UCI dataset.
     Returns clean DataFrame with standardized column names and binary target.
@@ -222,7 +223,16 @@ def load_clean_uci_data(force_download: bool = False) -> pd.DataFrame:
         df = download_uci_dataset(UCI_CSV_PATH)
 
     if df is None:
+        if not allow_synthetic_standin:
+            raise RuntimeError(
+                "Failed to download UCI dataset (id=697). Manual download instructions: "
+                "Download the dataset zip from https://archive.ics.uci.edu/static/public/697/predict+students+dropout+and+academic+success.zip "
+                "and extract 'data.csv' to data/raw/uci_dropout.csv, or call with allow_synthetic_standin=True to generate a synthetic stand-in."
+            )
         df = generate_uci_standin(UCI_CSV_PATH)
+
+    if "is_synthetic" not in df.columns:
+        df["is_synthetic"] = 0
 
     # Standardize column names
     df = df.rename(columns=lambda col: col.strip())

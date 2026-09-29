@@ -1,0 +1,16 @@
+[
+  "distance_to_school_km",
+  "attendance_percentage",
+  "attendance_risk_flag",
+  "mid_day_meal_attendance_pct",
+  "parental_literacy_years",
+  "seasonal_migration_flag",
+  "fln_score_pct",
+  "sibling_count_under_5",
+  "toilets_available_flag",
+  "state_literacy_rate",
+  "district_mpi_pct",
+  "is_aspirational_district",
+  "district_rurality_pct",
+  "district_ptr_ratio"
+]

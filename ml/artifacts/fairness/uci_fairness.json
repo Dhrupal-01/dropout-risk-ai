@@ -1,0 +1,691 @@
+{
+  "evaluation_type": "fairness_and_bias_audit",
+  "top_k_pct": 0.2,
+  "n_samples": 3630,
+  "n_bootstraps": 1000,
+  "attributes": {
+    "gender": {
+      "attribute_name": "gender",
+      "reference_group": "Male",
+      "n_total": 3630,
+      "n_audited": 3630,
+      "top_k_pct": 0.2,
+      "selection_threshold": 0.9561,
+      "groups": {
+        "Female": {
+          "n_samples": 2381,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.3024,
+          "selection_rate": 0.1399,
+          "true_positives": 329,
+          "false_negatives": 391,
+          "true_negatives": 1657,
+          "false_positives": 4,
+          "tpr_recall": 0.4569,
+          "fnr_miss_rate": 0.5431,
+          "fpr_alarm_rate": 0.0024,
+          "precision": 0.988,
+          "within_group_ece": 0.0181,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.4217,
+              0.4931
+            ],
+            "fnr": [
+              0.5069,
+              0.5783
+            ],
+            "fpr": [
+              0.0006,
+              0.0053
+            ],
+            "selection_rate": [
+              0.1262,
+              0.1531
+            ],
+            "ece": [
+              0.0143,
+              0.0324
+            ]
+          }
+        },
+        "Male": {
+          "n_samples": 1249,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.5612,
+          "selection_rate": 0.3147,
+          "true_positives": 390,
+          "false_negatives": 311,
+          "true_negatives": 545,
+          "false_positives": 3,
+          "tpr_recall": 0.5563,
+          "fnr_miss_rate": 0.4437,
+          "fpr_alarm_rate": 0.0055,
+          "precision": 0.9924,
+          "within_group_ece": 0.0385,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.5199,
+              0.5939
+            ],
+            "fnr": [
+              0.4061,
+              0.4801
+            ],
+            "fpr": [
+              0.0,
+              0.0127
+            ],
+            "selection_rate": [
+              0.2896,
+              0.3412
+            ],
+            "ece": [
+              0.0263,
+              0.0567
+            ]
+          }
+        }
+      },
+      "gaps_vs_reference": {
+        "Female": {
+          "is_reference": false,
+          "status": "ok",
+          "fnr_gap": 0.0994,
+          "tpr_gap": -0.0994,
+          "selection_rate_gap": -0.1748,
+          "disparate_impact_ratio": 0.4446,
+          "confidence_intervals_95": {
+            "fnr_gap": [
+              0.0478,
+              0.1534
+            ],
+            "tpr_gap": [
+              -0.1534,
+              -0.0478
+            ],
+            "selection_rate_gap": [
+              -0.2054,
+              -0.1467
+            ],
+            "disparate_impact": [
+              0.3867,
+              0.5054
+            ]
+          }
+        },
+        "Male": {
+          "is_reference": true,
+          "status": "reference_group",
+          "fnr_gap": 0.0,
+          "tpr_gap": 0.0,
+          "selection_rate_gap": 0.0,
+          "disparate_impact_ratio": 1.0
+        }
+      }
+    },
+    "scholarship_holder": {
+      "attribute_name": "scholarship_holder",
+      "reference_group": "No Scholarship",
+      "n_total": 3630,
+      "n_audited": 3630,
+      "top_k_pct": 0.2,
+      "selection_threshold": 0.9561,
+      "groups": {
+        "No Scholarship": {
+          "n_samples": 2661,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.4837,
+          "selection_rate": 0.2552,
+          "true_positives": 673,
+          "false_negatives": 614,
+          "true_negatives": 1368,
+          "false_positives": 6,
+          "tpr_recall": 0.5229,
+          "fnr_miss_rate": 0.4771,
+          "fpr_alarm_rate": 0.0044,
+          "precision": 0.9912,
+          "within_group_ece": 0.0205,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.4974,
+              0.551
+            ],
+            "fnr": [
+              0.449,
+              0.5026
+            ],
+            "fpr": [
+              0.0014,
+              0.0084
+            ],
+            "selection_rate": [
+              0.239,
+              0.2716
+            ],
+            "ece": [
+              0.0158,
+              0.0343
+            ]
+          }
+        },
+        "Scholarship": {
+          "n_samples": 969,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.1383,
+          "selection_rate": 0.0485,
+          "true_positives": 46,
+          "false_negatives": 88,
+          "true_negatives": 834,
+          "false_positives": 1,
+          "tpr_recall": 0.3433,
+          "fnr_miss_rate": 0.6567,
+          "fpr_alarm_rate": 0.0012,
+          "precision": 0.9787,
+          "within_group_ece": 0.055,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.2692,
+              0.4183
+            ],
+            "fnr": [
+              0.5817,
+              0.7308
+            ],
+            "fpr": [
+              0.0,
+              0.0045
+            ],
+            "selection_rate": [
+              0.0352,
+              0.0622
+            ],
+            "ece": [
+              0.043,
+              0.0738
+            ]
+          }
+        }
+      },
+      "gaps_vs_reference": {
+        "No Scholarship": {
+          "is_reference": true,
+          "status": "reference_group",
+          "fnr_gap": 0.0,
+          "tpr_gap": 0.0,
+          "selection_rate_gap": 0.0,
+          "disparate_impact_ratio": 1.0
+        },
+        "Scholarship": {
+          "is_reference": false,
+          "status": "ok",
+          "fnr_gap": 0.1796,
+          "tpr_gap": -0.1796,
+          "selection_rate_gap": -0.2067,
+          "disparate_impact_ratio": 0.19,
+          "confidence_intervals_95": {
+            "fnr_gap": [
+              0.0982,
+              0.2575
+            ],
+            "tpr_gap": [
+              -0.2575,
+              -0.0982
+            ],
+            "selection_rate_gap": [
+              -0.2273,
+              -0.1848
+            ],
+            "disparate_impact": [
+              0.1384,
+              0.2473
+            ]
+          }
+        }
+      }
+    },
+    "debtor": {
+      "attribute_name": "debtor",
+      "reference_group": "Non-Debtor",
+      "n_total": 3630,
+      "n_audited": 3630,
+      "top_k_pct": 0.2,
+      "selection_threshold": 0.9561,
+      "groups": {
+        "Debtor": {
+          "n_samples": 413,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.7554,
+          "selection_rate": 0.4479,
+          "true_positives": 183,
+          "false_negatives": 129,
+          "true_negatives": 99,
+          "false_positives": 2,
+          "tpr_recall": 0.5865,
+          "fnr_miss_rate": 0.4135,
+          "fpr_alarm_rate": 0.0198,
+          "precision": 0.9892,
+          "within_group_ece": 0.0678,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.5327,
+              0.6446
+            ],
+            "fnr": [
+              0.3554,
+              0.4673
+            ],
+            "fpr": [
+              0.0,
+              0.0517
+            ],
+            "selection_rate": [
+              0.399,
+              0.4987
+            ],
+            "ece": [
+              0.0506,
+              0.1006
+            ]
+          }
+        },
+        "Non-Debtor": {
+          "n_samples": 3217,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.3447,
+          "selection_rate": 0.1682,
+          "true_positives": 536,
+          "false_negatives": 573,
+          "true_negatives": 2103,
+          "false_positives": 5,
+          "tpr_recall": 0.4833,
+          "fnr_miss_rate": 0.5167,
+          "fpr_alarm_rate": 0.0024,
+          "precision": 0.9908,
+          "within_group_ece": 0.0102,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.4559,
+              0.5118
+            ],
+            "fnr": [
+              0.4882,
+              0.5441
+            ],
+            "fpr": [
+              0.0005,
+              0.0047
+            ],
+            "selection_rate": [
+              0.1563,
+              0.1809
+            ],
+            "ece": [
+              0.0095,
+              0.0238
+            ]
+          }
+        }
+      },
+      "gaps_vs_reference": {
+        "Debtor": {
+          "is_reference": false,
+          "status": "ok",
+          "fnr_gap": -0.1032,
+          "tpr_gap": 0.1032,
+          "selection_rate_gap": 0.2797,
+          "disparate_impact_ratio": 2.6629,
+          "confidence_intervals_95": {
+            "fnr_gap": [
+              -0.1667,
+              -0.0435
+            ],
+            "tpr_gap": [
+              0.0435,
+              0.1667
+            ],
+            "selection_rate_gap": [
+              0.2289,
+              0.3301
+            ],
+            "disparate_impact": [
+              2.3323,
+              3.0171
+            ]
+          }
+        },
+        "Non-Debtor": {
+          "is_reference": true,
+          "status": "reference_group",
+          "fnr_gap": 0.0,
+          "tpr_gap": 0.0,
+          "selection_rate_gap": 0.0,
+          "disparate_impact_ratio": 1.0
+        }
+      }
+    },
+    "displaced": {
+      "attribute_name": "displaced",
+      "reference_group": "Non-Displaced",
+      "n_total": 3630,
+      "n_audited": 3630,
+      "top_k_pct": 0.2,
+      "selection_threshold": 0.9561,
+      "groups": {
+        "Displaced": {
+          "n_samples": 1993,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.3357,
+          "selection_rate": 0.1335,
+          "true_positives": 262,
+          "false_negatives": 407,
+          "true_negatives": 1320,
+          "false_positives": 4,
+          "tpr_recall": 0.3916,
+          "fnr_miss_rate": 0.6084,
+          "fpr_alarm_rate": 0.003,
+          "precision": 0.985,
+          "within_group_ece": 0.0152,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.356,
+              0.4298
+            ],
+            "fnr": [
+              0.5702,
+              0.644
+            ],
+            "fpr": [
+              0.0007,
+              0.0068
+            ],
+            "selection_rate": [
+              0.1195,
+              0.1488
+            ],
+            "ece": [
+              0.0127,
+              0.0346
+            ]
+          }
+        },
+        "Non-Displaced": {
+          "n_samples": 1637,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.4594,
+          "selection_rate": 0.281,
+          "true_positives": 457,
+          "false_negatives": 295,
+          "true_negatives": 882,
+          "false_positives": 3,
+          "tpr_recall": 0.6077,
+          "fnr_miss_rate": 0.3923,
+          "fpr_alarm_rate": 0.0034,
+          "precision": 0.9935,
+          "within_group_ece": 0.0239,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.5728,
+              0.6435
+            ],
+            "fnr": [
+              0.3565,
+              0.4272
+            ],
+            "fpr": [
+              0.0,
+              0.0079
+            ],
+            "selection_rate": [
+              0.2598,
+              0.3029
+            ],
+            "ece": [
+              0.0184,
+              0.0399
+            ]
+          }
+        }
+      },
+      "gaps_vs_reference": {
+        "Displaced": {
+          "is_reference": false,
+          "status": "ok",
+          "fnr_gap": 0.2161,
+          "tpr_gap": -0.2161,
+          "selection_rate_gap": -0.1475,
+          "disparate_impact_ratio": 0.4751,
+          "confidence_intervals_95": {
+            "fnr_gap": [
+              0.165,
+              0.2676
+            ],
+            "tpr_gap": [
+              -0.2676,
+              -0.165
+            ],
+            "selection_rate_gap": [
+              -0.174,
+              -0.1215
+            ],
+            "disparate_impact": [
+              0.412,
+              0.5437
+            ]
+          }
+        },
+        "Non-Displaced": {
+          "is_reference": true,
+          "status": "reference_group",
+          "fnr_gap": 0.0,
+          "tpr_gap": 0.0,
+          "selection_rate_gap": 0.0,
+          "disparate_impact_ratio": 1.0
+        }
+      }
+    },
+    "age_group": {
+      "attribute_name": "age_group",
+      "reference_group": "<=20",
+      "n_total": 3630,
+      "n_audited": 3630,
+      "top_k_pct": 0.2,
+      "selection_threshold": 0.9561,
+      "groups": {
+        "21-25": {
+          "n_samples": 646,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.4567,
+          "selection_rate": 0.2384,
+          "true_positives": 152,
+          "false_negatives": 143,
+          "true_negatives": 349,
+          "false_positives": 2,
+          "tpr_recall": 0.5153,
+          "fnr_miss_rate": 0.4847,
+          "fpr_alarm_rate": 0.0057,
+          "precision": 0.987,
+          "within_group_ece": 0.0138,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.4594,
+              0.5764
+            ],
+            "fnr": [
+              0.4236,
+              0.5406
+            ],
+            "fpr": [
+              0.0,
+              0.0149
+            ],
+            "selection_rate": [
+              0.2074,
+              0.2704
+            ],
+            "ece": [
+              0.0194,
+              0.05
+            ]
+          }
+        },
+        "<=20": {
+          "n_samples": 2080,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.2606,
+          "selection_rate": 0.0976,
+          "true_positives": 201,
+          "false_negatives": 341,
+          "true_negatives": 1536,
+          "false_positives": 2,
+          "tpr_recall": 0.3708,
+          "fnr_miss_rate": 0.6292,
+          "fpr_alarm_rate": 0.0013,
+          "precision": 0.9901,
+          "within_group_ece": 0.0137,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.3327,
+              0.4098
+            ],
+            "fnr": [
+              0.5902,
+              0.6673
+            ],
+            "fpr": [
+              0.0,
+              0.0033
+            ],
+            "selection_rate": [
+              0.0857,
+              0.1097
+            ],
+            "ece": [
+              0.0122,
+              0.0313
+            ]
+          }
+        },
+        ">25": {
+          "n_samples": 904,
+          "insufficient_sample": false,
+          "status": "ok",
+          "base_rate": 0.646,
+          "selection_rate": 0.4082,
+          "true_positives": 366,
+          "false_negatives": 218,
+          "true_negatives": 317,
+          "false_positives": 3,
+          "tpr_recall": 0.6267,
+          "fnr_miss_rate": 0.3733,
+          "fpr_alarm_rate": 0.0094,
+          "precision": 0.9919,
+          "within_group_ece": 0.0316,
+          "confidence_intervals_95": {
+            "tpr": [
+              0.5883,
+              0.6649
+            ],
+            "fnr": [
+              0.3351,
+              0.4117
+            ],
+            "fpr": [
+              0.0,
+              0.0214
+            ],
+            "selection_rate": [
+              0.378,
+              0.4395
+            ],
+            "ece": [
+              0.0267,
+              0.0554
+            ]
+          }
+        }
+      },
+      "gaps_vs_reference": {
+        "21-25": {
+          "is_reference": false,
+          "status": "ok",
+          "fnr_gap": -0.1445,
+          "tpr_gap": 0.1445,
+          "selection_rate_gap": 0.1408,
+          "disparate_impact_ratio": 2.4426,
+          "confidence_intervals_95": {
+            "fnr_gap": [
+              -0.2211,
+              -0.0778
+            ],
+            "tpr_gap": [
+              0.0778,
+              0.2211
+            ],
+            "selection_rate_gap": [
+              0.1087,
+              0.1762
+            ],
+            "disparate_impact": [
+              2.0481,
+              2.9565
+            ]
+          }
+        },
+        "<=20": {
+          "is_reference": true,
+          "status": "reference_group",
+          "fnr_gap": 0.0,
+          "tpr_gap": 0.0,
+          "selection_rate_gap": 0.0,
+          "disparate_impact_ratio": 1.0
+        },
+        ">25": {
+          "is_reference": false,
+          "status": "ok",
+          "fnr_gap": -0.2559,
+          "tpr_gap": 0.2559,
+          "selection_rate_gap": 0.3106,
+          "disparate_impact_ratio": 4.1824,
+          "confidence_intervals_95": {
+            "fnr_gap": [
+              -0.3129,
+              -0.2027
+            ],
+            "tpr_gap": [
+              0.2027,
+              0.3129
+            ],
+            "selection_rate_gap": [
+              0.2782,
+              0.3443
+            ],
+            "disparate_impact": [
+              3.6448,
+              4.8752
+            ]
+          }
+        }
+      }
+    }
+  },
+  "feature_count": 25,
+  "feature_set": "END_OF_SEM1 (Protected attributes strictly excluded)",
+  "excluded_protected_attributes": [
+    "gender",
+    "scholarship_holder",
+    "debtor",
+    "displaced",
+    "age_at_enrollment"
+  ]
+}

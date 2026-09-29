@@ -24,6 +24,7 @@ from ml.config import (
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
     RANDOM_SEED,
+    METRICS_REPORT_PATH,
     get_risk_tier
 )
 
@@ -202,6 +203,33 @@ def run_calibration_pipeline() -> Tuple[CalibratedClassifierCV, Dict[str, Any]]:
     MODEL_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(calibrated_model, MODEL_ARTIFACT_PATH)
     logger.info("Saved calibrated model artifact to %s", MODEL_ARTIFACT_PATH)
+
+    # Persist calibrated test set evaluation metrics to METRICS_REPORT_PATH
+    from sklearn.metrics import recall_score, precision_score, f1_score, accuracy_score, roc_auc_score, confusion_matrix
+    test_preds = (test_probs >= 0.50).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y_test, test_preds).ravel()
+    if METRICS_REPORT_PATH.exists():
+        with open(METRICS_REPORT_PATH, "r", encoding="utf-8") as f:
+            mm = json.load(f)
+    else:
+        mm = {}
+
+    mm["accuracy"] = float(accuracy_score(y_test, test_preds))
+    mm["recall_at_risk_minority"] = float(recall_score(y_test, test_preds, pos_label=1))
+    mm["precision_at_risk_minority"] = float(precision_score(y_test, test_preds, pos_label=1))
+    mm["f1_at_risk_minority"] = float(f1_score(y_test, test_preds, pos_label=1))
+    mm["f1_macro"] = float(f1_score(y_test, test_preds, average="macro"))
+    mm["roc_auc"] = float(roc_auc_score(y_test, test_probs))
+    mm["brier_score"] = float(test_calibration_diag["brier_score"])
+    mm["confusion_matrix"] = {
+        "true_negatives": int(tn),
+        "false_positives": int(fp),
+        "false_negatives": int(fn),
+        "true_positives": int(tp)
+    }
+    with open(METRICS_REPORT_PATH, "w", encoding="utf-8") as f:
+        json.dump(mm, f, indent=2)
+    logger.info("Updated %s with calibrated model evaluation metrics", METRICS_REPORT_PATH)
 
     return calibrated_model, report
 

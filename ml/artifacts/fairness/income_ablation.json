@@ -1,0 +1,144 @@
+{
+  "benchmark": "simulated_income_ablation",
+  "n_samples": 2000,
+  "all_features_count": 37,
+  "ablated_features_count": 35,
+  "ablated_features_list": [
+    "income_slab_idx",
+    "financial_stress_index"
+  ],
+  "overall_performance": {
+    "with_income": {
+      "roc_auc": 0.929,
+      "pr_auc": 0.9078,
+      "accuracy": 0.8815,
+      "f1": 0.8206,
+      "recall": 0.771,
+      "precision": 0.877,
+      "brier_score": 0.0914
+    },
+    "without_income": {
+      "roc_auc": 0.9292,
+      "pr_auc": 0.908,
+      "accuracy": 0.8825,
+      "f1": 0.8224,
+      "recall": 0.7738,
+      "precision": 0.8774,
+      "brier_score": 0.0913
+    }
+  },
+  "slabs_summary": {
+    "<2 LPA": {
+      "income_slab_idx": 0,
+      "n_samples": 432,
+      "n_dropouts": 149,
+      "base_rate": 0.3449,
+      "with_income_features": {
+        "tpr": 0.5503,
+        "fnr": 0.4497,
+        "selection_rate": 0.1921,
+        "precision": 0.988,
+        "within_group_ece": 0.027
+      },
+      "without_income_features": {
+        "tpr": 0.5638,
+        "fnr": 0.4362,
+        "selection_rate": 0.1968,
+        "precision": 0.9882,
+        "within_group_ece": 0.0215
+      },
+      "fnr_delta_without_minus_with": -0.0135
+    },
+    "2-5 LPA": {
+      "income_slab_idx": 1,
+      "n_samples": 774,
+      "n_dropouts": 281,
+      "base_rate": 0.363,
+      "with_income_features": {
+        "tpr": 0.5694,
+        "fnr": 0.4306,
+        "selection_rate": 0.2093,
+        "precision": 0.9877,
+        "within_group_ece": 0.0418
+      },
+      "without_income_features": {
+        "tpr": 0.5623,
+        "fnr": 0.4377,
+        "selection_rate": 0.2067,
+        "precision": 0.9875,
+        "within_group_ece": 0.0385
+      },
+      "fnr_delta_without_minus_with": 0.0071
+    },
+    "5-8 LPA": {
+      "income_slab_idx": 2,
+      "n_samples": 509,
+      "n_dropouts": 180,
+      "base_rate": 0.3536,
+      "with_income_features": {
+        "tpr": 0.5444,
+        "fnr": 0.4556,
+        "selection_rate": 0.1984,
+        "precision": 0.9703,
+        "within_group_ece": 0.0408
+      },
+      "without_income_features": {
+        "tpr": 0.5444,
+        "fnr": 0.4556,
+        "selection_rate": 0.1984,
+        "precision": 0.9703,
+        "within_group_ece": 0.0373
+      },
+      "fnr_delta_without_minus_with": 0.0
+    },
+    ">8 LPA": {
+      "income_slab_idx": 3,
+      "n_samples": 285,
+      "n_dropouts": 93,
+      "base_rate": 0.3263,
+      "with_income_features": {
+        "tpr": 0.5591,
+        "fnr": 0.4409,
+        "selection_rate": 0.1895,
+        "precision": 0.963,
+        "within_group_ece": 0.0364
+      },
+      "without_income_features": {
+        "tpr": 0.5591,
+        "fnr": 0.4409,
+        "selection_rate": 0.1895,
+        "precision": 0.963,
+        "within_group_ece": 0.0421
+      },
+      "fnr_delta_without_minus_with": 0.0
+    }
+  },
+  "comparison_table": [
+    {
+      "configuration": "With Income Features (37 features)",
+      "n_features": 37,
+      "roc_auc": 0.929,
+      "pr_auc": 0.9078,
+      "f1": 0.8206,
+      "recall": 0.771,
+      "precision": 0.877,
+      "brier_score": 0.0914,
+      "fnr_lowest_slab": 0.4497,
+      "fnr_highest_slab": 0.4409,
+      "fnr_gap_low_vs_high": 0.0088
+    },
+    {
+      "configuration": "Without Income Features (35 features)",
+      "n_features": 35,
+      "roc_auc": 0.9292,
+      "pr_auc": 0.908,
+      "f1": 0.8224,
+      "recall": 0.7738,
+      "precision": 0.8774,
+      "brier_score": 0.0913,
+      "fnr_lowest_slab": 0.4362,
+      "fnr_highest_slab": 0.4409,
+      "fnr_gap_low_vs_high": -0.0047
+    }
+  ]
+}

@@ -64,8 +64,8 @@ Captures non-academic institutional barriers, financial distress, and commuter f
 
 | Feature Name | Display Title | Type | Scale / Range | Institutional Source | Definition & Rationale |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `family_income_slab` | Family Income Bracket | Categorical | `<2 LPA, 2-5 LPA, 5-8 LPA, >8 LPA` | Admissions ERP | Annual family household income in Indian Lakhs Per Annum (LPA). |
-| `income_slab_idx` | Income Bracket Level | Integer | `0, 1, 2, 3` | Encoded Categorical | Ordinal encoding (`0` = `<2 LPA` Economically Weaker Section, `3` = `>8 LPA` High Income). |
+| `family_income_slab` | Family Income Bracket | Categorical | `<2 LPA, 2-5 LPA, 5-8 LPA, >8 LPA` | Admissions ERP | Annual family household income in Indian Lakhs Per Annum (LPA). Excluded from direct model training as a raw duplicate string label to avoid categorical redundancy. |
+| `income_slab_idx` | Income Bracket Level | Integer | `0, 1, 2, 3` | Encoded Categorical | Ordinal encoding (`0` = `<2 LPA` Economically Weaker Section, `3` = `>8 LPA` High Income). **Active Model Input Feature** — used as an objective need signal for routing institutional financial support/fee-waivers, and directly feeds `financial_stress_index`. |
 | `fee_payment_delay_days` | Tuition Fee Payment Overdue Days | Integer | `0 – 120 days` | Accounts & Fee Desk | Days tuition fee payment is delayed beyond the semester due date. Overdue $>45$ days indicates severe financial distress. |
 | `has_scholarship` | Financial Scholarship Buffer | Binary | `{0, 1}` | Scholarship Desk / NSP | Indicates active government or institutional merit/means scholarship (e.g., Post-Matric, Pragati, PMSS). |
 | `is_first_generation` | First-Generation College Learner | Binary | `{0, 1}` | Admissions ERP | Student whose parents have not completed higher education. Often lacks informal at-home academic mentorship. |

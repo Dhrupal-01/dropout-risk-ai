@@ -22,23 +22,7 @@ RAW_DATA_DIR = BASE_DIR / "data" / "raw"
 OULAD_CSV_PATH = RAW_DATA_DIR / "oulad_processed.csv"
 
 
-def download_oulad_summary(target_path: Path = OULAD_CSV_PATH) -> Optional[pd.DataFrame]:
-    """
-    Attempts to download pre-aggregated or raw OULAD tables from public mirror.
-    """
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    oulad_url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/oulad_student_engagement.csv"
-    try:
-        logger.info("Attempting to fetch OULAD dataset from public repository: %s", oulad_url)
-        resp = requests.get(oulad_url, timeout=12)
-        if resp.status_code == 200:
-            df = pd.read_csv(io.StringIO(resp.text))
-            df.to_csv(target_path, index=False)
-            logger.info("Saved OULAD data to %s", target_path)
-            return df
-    except Exception as e:
-        logger.warning("Could not fetch OULAD directly: %s", e)
-    return None
+OULAD_RAW_DIR = RAW_DATA_DIR / "oulad"
 
 
 def generate_oulad_standin(target_path: Path = OULAD_CSV_PATH, n_students: int = 32593, seed: int = 42) -> pd.DataFrame:
@@ -123,7 +107,8 @@ def generate_oulad_standin(target_path: Path = OULAD_CSV_PATH, n_students: int =
         "quiz_attempts": quiz_attempts,
         "forum_clicks": forum_clicks,
         "days_since_last_activity": days_since_last_activity,
-        "final_result": final_result
+        "final_result": final_result,
+        "is_synthetic": 1
     })
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,7 +117,7 @@ def generate_oulad_standin(target_path: Path = OULAD_CSV_PATH, n_students: int =
     return df
 
 
-def load_clean_oulad_data(force_download: bool = False) -> pd.DataFrame:
+def load_clean_oulad_data(force_download: bool = False, allow_synthetic_standin: bool = False) -> pd.DataFrame:
     """
     Loads and standardizes OULAD behavioral dataset.
     Returns clean DataFrame with behavioral signals and binary withdrawal flag.
@@ -147,10 +132,17 @@ def load_clean_oulad_data(force_download: bool = False) -> pd.DataFrame:
             df = None
 
     if df is None:
-        df = download_oulad_summary(OULAD_CSV_PATH)
-
-    if df is None:
+        if not allow_synthetic_standin:
+            raise RuntimeError(
+                "Failed to download OULAD dataset. Manual download instructions: "
+                "Download OULAD tables from https://analyse.kmi.open.ac.uk/open_dataset or UCI (ID 349) "
+                "and place processed CSV at data/raw/oulad_processed.csv (or raw tables in data/raw/oulad/), "
+                "or call with allow_synthetic_standin=True to generate a synthetic stand-in."
+            )
         df = generate_oulad_standin(OULAD_CSV_PATH, n_students=5000)
+
+    if "is_synthetic" not in df.columns:
+        df["is_synthetic"] = 0
 
     # Standardize column names
     df.columns = [c.strip().lower() for c in df.columns]

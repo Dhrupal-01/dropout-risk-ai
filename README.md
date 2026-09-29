@@ -2,13 +2,15 @@
 
 > **Smart India Hackathon 2026 (PSID 7-L)**  
 > **UN Sustainable Development Goal 4 (SDG 4: Quality Education)**  
-> Production-grade predictive intelligence, explainable SHAP attributions, prescriptive institutional interventions, and algorithmic fairness for higher education.
+> Predictive intelligence, explainable SHAP attributions, prescriptive institutional interventions, and algorithmic fairness for higher education.
 
 ---
 
 ## Quick Links & Documentation
 
-- [**Frontend API Handover**](docs/frontend_api_handover.md) - every endpoint, request/response, error codes
+- [**Master Architecture & System Documentation**](docs/project_architecture_and_system_documentation.md) — Comprehensive end-to-end technical documentation
+- [**SIH Presentation Master Blueprint**](docs/presentation/sih_presentation_master_blueprint.md) & [PowerPoint Deck (.pptx)](docs/presentation/COGNITEX_PS7_DropoutGuard.pptx)
+- [**Frontend API Handover**](docs/frontend_api_handover.md) — Endpoint specifications, schemas & error codes
 - [Backend Architecture & Feature Contract](backend/README.md)
 - [ML Architecture, Feature Engineering & Pipeline Spec](docs/ml_architecture_and_pipeline.md)
 - [Feature Data Dictionary](docs/data_dictionary.md)
@@ -40,16 +42,20 @@ DropoutGuard continuously ingests multi-source student data across **4 Core Pill
 
 ---
 
-## Key Performance Highlights (Held-Out Test Set $N=300$)
+## Pipeline validation on simulated data (Held-Out Test Set $N=300$)
 
-- **At-Risk Recall (Sensitivity)**: `83.96%` (Minimizes missed vulnerable students)
-- **At-Risk Precision**: `89.90%` (Prevents mentor alert fatigue)
-- **Minority Class F1 Score**: `0.8683`
-- **Macro-Averaged F1 Score**: `0.9000`
-- **ROC-AUC**: `0.9752`
-- **Overall Accuracy**: `91.00%`
-- **Brier Calibration Score**: `0.0689`
-- **Demographic Disparity**: Gender FNR gap $4.70\text{ pp}$, Economic proxy gap $3.11\text{ pp}$, First-Gen gap $2.35\text{ pp}$
+The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target labels are derived from a known mathematical formula parameterized in that script. Consequently, these metrics demonstrate that the data ingestion, feature engineering, training, calibration, and fairness auditing pipelines function cohesively end-to-end, and they should not be construed as empirical evidence of real-world predictive accuracy.
+
+<!-- METRICS:START -->
+- **At-Risk Recall (Sensitivity)**: `78.10%` (Minimizes missed vulnerable students)
+- **At-Risk Precision**: `82.83%` (Prevents mentor alert fatigue)
+- **Minority Class F1 Score**: `0.8039`
+- **Macro-Averaged F1 Score**: `0.8515`
+- **ROC-AUC**: `0.9283`
+- **Overall Accuracy**: `86.67%`
+- **Brier Calibration Score**: `0.0997`
+- **Demographic Disparity**: Gender FNR gap $0.00\text{ pp}$, Economic proxy gap $0.00\text{ pp}$, First-Gen gap $0.00\text{ pp}$
+<!-- METRICS:END -->
 
 ---
 
@@ -219,7 +225,7 @@ CORS_ORIGINS=https://your-frontend.example.com
 ```
 dropout-risk-ai/
 ├── data/
-│   ├── raw/                       # Raw benchmark datasets (UCI, OULAD)
+│   ├── raw/                       # Reference benchmark datasets (UCI, OULAD)
 │   └── processed/                 # Standardized features.csv & feature_metadata.json
 ├── docs/
 │   ├── ml_architecture_and_pipeline.md  # Comprehensive ML & Backend handover guide
@@ -242,6 +248,14 @@ dropout-risk-ai/
 ├── pyproject.toml
 └── README.md
 ```
+
+---
+
+## Limitations
+
+- **Simulated Data Cohort**: The model is trained and evaluated exclusively on synthetic data generated via domain-informed rules and logistic formulas (`generate_synthetic_indian.py`). While the pipeline models Indian higher education patterns (attendance thresholds, backlogs, fee arrears), it has not been validated on real institutional student records.
+- **Absence of Temporal Validation**: The current validation uses static held-out and cross-validation splits rather than time-split validation across sequential academic terms. Temporal degradation and concept drift have not yet been evaluated across multi-semester horizons.
+- **Fairness Metrics Reflect Generator Assumptions**: The demographic parity and equalized opportunity evaluations reflect the distributions and functional dependencies programmed into the synthetic data generator rather than the systemic disparities observed in real-world educational institutions.
 
 ---
 
