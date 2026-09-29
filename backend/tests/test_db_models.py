@@ -26,7 +26,12 @@ from backend.tests.conftest import requires_db
 
 class TestSchemaShape:
     def test_all_three_tables_registered(self):
-        assert set(Base.metadata.tables) == {"students", "predictions", "intervention_logs"}
+        assert set(Base.metadata.tables) == {
+            "students",
+            "predictions",
+            "intervention_logs",
+            "latest_predictions",
+        }
 
     def test_students_columns(self):
         cols = {c.name: c for c in Student.__table__.columns}

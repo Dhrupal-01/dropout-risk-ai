@@ -1,42 +1,29 @@
 """
-Mentor triage queue.
+Mentor triage queue service.
+Context: DropoutGuard Phase 5 SQL-Native Queue & Database Optimization.
 
-Ranking is delegated to `ml.intervention.engine.build_prioritized_mentor_queue`, which
-remains the correct interface: it sorts by calibrated risk descending, breaks ties by
-backlog count then attendance deficit, and stamps `queue_rank`. This module's job is to
-get the right rows out of PostgreSQL and shape them into the columns that function reads.
-
-LATEST PREDICTION ONLY
-`predictions` is append-only, so a student scored five times has five rows. The queue must
-rank each student once, on their most recent score. That is done in SQL with
-`DISTINCT ON (student_id) ... ORDER BY student_id, evaluated_at DESC`, served by
-ix_predictions_student_id_evaluated_at.
-
-NO GROUND TRUTH IN RANKING
-`build_prioritized_mentor_queue` picks its sort column as
-`calibrated_prob`, else `ground_truth_risk_prob`, else none. Ranking students by a
-ground-truth label would be both a leak and ethically indefensible, so this module always
-supplies `calibrated_prob` and never places any label column in the frame. The invariant
-is asserted before the call rather than assumed.
+Performance Optimization:
+- Pure SQL filtering, ordering, and pagination.
+- Zero pandas in request path.
+- Served by `latest_predictions` materialized pointer table and composite indexes.
+- Keyset cursor pagination (optional) + traditional limit/offset pagination.
+- Total count computed from COUNT query on identical filter predicates.
 """
 
+import base64
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
-from sqlalchemy import Select, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.app.models.intervention_log import InterventionLog
+from backend.app.models.latest_prediction import LatestPrediction
 from backend.app.models.prediction import Prediction
 from backend.app.models.student import Student
-from backend.app.services.ml_service import LABEL_COLUMNS
 
 logger = logging.getLogger(__name__)
 
-# Tie-breaker columns build_prioritized_mentor_queue sorts on, plus the fields the
-# dashboard shows. Sourced from the prediction's own input snapshot so every number
-# displayed belongs to the score displayed beside it.
 SNAPSHOT_FIELDS = (
     "attendance_percentage",
     "current_cgpa",
@@ -45,24 +32,30 @@ SNAPSHOT_FIELDS = (
 )
 
 
-def _latest_prediction_subquery() -> Select:
-    """One row per student: their most recent prediction."""
-    return (
-        select(Prediction)
-        .distinct(Prediction.student_id)
-        .order_by(Prediction.student_id, Prediction.evaluated_at.desc())
-        .subquery()
-    )
+def _encode_cursor(priority_score: float, student_id: str) -> str:
+    raw = f"{float(priority_score).hex()}::{student_id}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii")
 
 
-def _latest_intervention_map(db: Session, student_ids: List[Any]) -> Dict[Any, InterventionLog]:
-    """Most recently updated intervention log per student, for the given students."""
-    if not student_ids:
+def _decode_cursor(cursor_str: str) -> Optional[Tuple[float, str]]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor_str.encode("ascii")).decode("utf-8")
+        parts = raw.split("::", 1)
+        if len(parts) == 2:
+            return float.fromhex(parts[0]), parts[1]
+    except Exception:
+        pass
+    return None
+
+
+def _latest_intervention_map(db: Session, student_uuids: List[Any]) -> Dict[Any, InterventionLog]:
+    """Most recently updated intervention log per student for the page."""
+    if not student_uuids:
         return {}
     rows = (
         db.execute(
             select(InterventionLog)
-            .where(InterventionLog.student_id.in_(student_ids))
+            .where(InterventionLog.student_id.in_(student_uuids))
             .order_by(InterventionLog.student_id, InterventionLog.updated_at.desc())
         )
         .scalars()
@@ -80,120 +73,199 @@ def build_queue(
     department: Optional[str] = None,
     risk_tier: Optional[str] = None,
     assigned_mentor_id: Optional[str] = None,
+    search: Optional[str] = None,
+    cursor: Optional[str] = None,
     limit: int = 25,
     offset: int = 0,
-) -> Tuple[List[Dict[str, Any]], int]:
+    return_cursor: bool = False,
+) -> Union[Tuple[List[Dict[str, Any]], int], Tuple[List[Dict[str, Any]], int, Optional[str]]]:
     """
-    Return (page_of_rows, total_matching).
-
-    Filtering happens in SQL to keep the working set small; ranking then runs through the
-    existing ML function over the filtered set, so `priority_rank` is a true cohort-wide
-    rank rather than a per-page artefact. Pagination slices after ranking.
+    Return (page_of_rows, total_matching) or (page_of_rows, total_matching, next_cursor).
+    Executes entirely in PostgreSQL using indexes on latest_predictions and students.
     """
-    latest = _latest_prediction_subquery()
-
-    stmt = select(Student, latest).join(latest, Student.id == latest.c.student_id)
+    # Base filter criteria
+    filters = []
     if department:
-        stmt = stmt.where(func.lower(Student.department) == department.lower())
+        filters.append(func.lower(LatestPrediction.department) == department.lower())
     if assigned_mentor_id:
-        stmt = stmt.where(Student.assigned_mentor_id == assigned_mentor_id)
+        filters.append(LatestPrediction.assigned_mentor_id == assigned_mentor_id)
     if risk_tier:
-        stmt = stmt.where(func.lower(latest.c.risk_tier) == risk_tier.lower())
+        filters.append(func.lower(LatestPrediction.risk_tier) == risk_tier.lower())
+    if search and search.strip():
+        escaped = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                Student.student_id.ilike(pattern, escape="\\"),
+                Student.name.ilike(pattern, escape="\\"),
+            )
+        )
 
-    rows = db.execute(stmt).all()
+    # 1. Total matching count query
+    count_stmt = (
+        select(func.count())
+        .select_from(LatestPrediction)
+        .join(Student, Student.id == LatestPrediction.student_id)
+    )
+    if filters:
+        count_stmt = count_stmt.where(and_(*filters))
+
+    total = db.scalar(count_stmt) or 0
+    if total == 0:
+        return ([], 0, None) if return_cursor else ([], 0)
+
+    # 2. Main paginated query
+    query = (
+        select(
+            Student.id.label("student_uuid"),
+            Student.student_id.label("student_id"),
+            Student.name.label("name"),
+            LatestPrediction.department.label("department"),
+            LatestPrediction.assigned_mentor_id.label("assigned_mentor_id"),
+            LatestPrediction.calibrated_risk_probability.label("calibrated_prob"),
+            LatestPrediction.risk_tier.label("risk_tier"),
+            LatestPrediction.priority_score.label("priority_score"),
+            LatestPrediction.evaluated_at.label("evaluated_at"),
+            Prediction.risk_score_percentage.label("risk_score_percentage"),
+            Prediction.input_features.label("input_features"),
+        )
+        .join(Student, Student.id == LatestPrediction.student_id)
+        .join(Prediction, Prediction.id == LatestPrediction.prediction_id)
+    )
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    # Determine starting rank offset
+    rank_offset = offset
+
+    # Keyset cursor pagination
+    decoded_cursor = _decode_cursor(cursor) if cursor else None
+    if decoded_cursor:
+        c_score, c_sid = decoded_cursor
+        query = query.where(
+            or_(
+                LatestPrediction.priority_score < c_score,
+                and_(
+                    LatestPrediction.priority_score == c_score,
+                    Student.student_id > c_sid,
+                ),
+            )
+        )
+        # Compute exact rank offset before cursor for consistent continuous priority_rank
+        rank_count_stmt = count_stmt.where(
+            or_(
+                LatestPrediction.priority_score > c_score,
+                and_(
+                    LatestPrediction.priority_score == c_score,
+                    Student.student_id <= c_sid,
+                ),
+            )
+        )
+        rank_offset = db.scalar(rank_count_stmt) or 0
+    else:
+        query = query.offset(offset)
+
+    query = query.order_by(
+        desc(LatestPrediction.priority_score),
+        Student.student_id.asc(),
+    ).limit(limit)
+
+    rows = db.execute(query).all()
     if not rows:
-        return [], 0
+        return ([], total, None) if return_cursor else ([], total)
 
-    students = [row[0] for row in rows]
-    intervention_by_student = _latest_intervention_map(db, [s.id for s in students])
+    # 3. Fetch latest interventions only for this page
+    student_uuids = [row.student_uuid for row in rows]
+    intervention_by_student = _latest_intervention_map(db, student_uuids)
 
-    records: List[Dict[str, Any]] = []
-    for row in rows:
-        student = row[0]
-        snapshot = row._mapping["input_features"] or {}
-        log = intervention_by_student.get(student.id)
+    # 4. Format page results
+    results: List[Dict[str, Any]] = []
+    last_score: Optional[float] = None
+    last_sid: Optional[str] = None
 
-        records.append(
+    for idx, row in enumerate(rows):
+        snapshot = row.input_features or {}
+        log = intervention_by_student.get(row.student_uuid)
+        current_rank = rank_offset + idx + 1
+        last_score = row.priority_score
+        last_sid = row.student_id
+
+        results.append(
             {
-                "student_id": student.student_id,
-                "name": student.name,
-                "department": student.department,
-                "assigned_mentor_id": student.assigned_mentor_id,
-                # The column name build_prioritized_mentor_queue sorts on.
-                "calibrated_prob": float(row._mapping["calibrated_risk_probability"]),
-                "risk_tier": row._mapping["risk_tier"],
-                "risk_score_percentage": float(row._mapping["risk_score_percentage"]),
-                "evaluated_at": row._mapping["evaluated_at"],
-                "model_version": row._mapping["model_version"],
-                "attendance_percentage": _snapshot_value(snapshot, "attendance_percentage"),
-                "current_cgpa": _snapshot_value(snapshot, "current_cgpa"),
-                "backlog_count": _snapshot_value(snapshot, "backlog_count"),
-                "fee_payment_delay_days": _snapshot_value(snapshot, "fee_payment_delay_days"),
+                "priority_rank": int(current_rank),
+                "student_id": row.student_id,
+                "name": row.name,
+                "department": row.department,
+                "assigned_mentor_id": row.assigned_mentor_id,
+                "risk_probability": round(float(row.calibrated_prob), 4),
+                "risk_tier": row.risk_tier,
+                "risk_score_percentage": round(float(row.risk_score_percentage), 2),
+                "attendance": _snapshot_value(snapshot, "attendance_percentage"),
+                "cgpa": _snapshot_value(snapshot, "current_cgpa"),
+                "backlogs": _snapshot_int(snapshot, "backlog_count"),
+                "fee_delay_days": _snapshot_int(snapshot, "fee_payment_delay_days"),
                 "primary_intervention": log.intervention_id if log else None,
                 "intervention_status": log.status if log else None,
                 "intervention_outcome_status": log.outcome_status if log else None,
+                "evaluated_at": row.evaluated_at,
             }
         )
 
-    frame = pd.DataFrame(records)
+    next_cursor = None
+    if len(rows) == limit and last_score is not None and last_sid is not None:
+        next_cursor = _encode_cursor(last_score, last_sid)
 
-    # Guard the ML function's fallback: it would rank by ground_truth_risk_prob if
-    # calibrated_prob were missing. Neither condition may ever hold.
-    assert "calibrated_prob" in frame.columns, "calibrated_prob missing - ranking would fall back"
-    leaked = LABEL_COLUMNS.intersection(frame.columns)
-    if leaked:
-        raise RuntimeError(f"Label column(s) {sorted(leaked)} must never enter the mentor queue")
-
-    from ml.intervention.engine import build_prioritized_mentor_queue
-
-    # Filters were already applied in SQL; passing None avoids re-filtering the same data.
-    ranked = build_prioritized_mentor_queue(frame)
-
-    total = len(ranked)
-    page = ranked.iloc[offset : offset + limit]
-
-    # Read ONLY the ordering back out of pandas, then emit from the original Python
-    # dicts. Round-tripping values through a DataFrame silently coerces None to NaN in
-    # mixed columns -- a student with no name would come back as float('nan') and fail
-    # Optional[str] validation. Keeping the native records avoids every such dtype
-    # surprise for display fields.
-    by_student_id = {record["student_id"]: record for record in records}
-
-    results: List[Dict[str, Any]] = []
-    for student_id, queue_rank in zip(page["student_id"], page["queue_rank"]):
-        record = by_student_id[student_id]
-        results.append(
-            {
-                "priority_rank": int(queue_rank),
-                "student_id": record["student_id"],
-                "name": record["name"],
-                "department": record["department"],
-                "assigned_mentor_id": record["assigned_mentor_id"],
-                "risk_probability": round(record["calibrated_prob"], 4),
-                "risk_tier": record["risk_tier"],
-                "risk_score_percentage": round(record["risk_score_percentage"], 2),
-                "attendance": _optional_float(record["attendance_percentage"]),
-                "cgpa": _optional_float(record["current_cgpa"]),
-                "backlogs": _optional_int(record["backlog_count"]),
-                "fee_delay_days": _optional_int(record["fee_payment_delay_days"]),
-                "primary_intervention": record["primary_intervention"],
-                "intervention_status": record["intervention_status"],
-                "intervention_outcome_status": record["intervention_outcome_status"],
-                "evaluated_at": record["evaluated_at"],
-            }
-        )
-
+    if return_cursor:
+        return results, total, next_cursor
     return results, total
 
 
 def _snapshot_value(snapshot: Dict[str, Any], key: str) -> Optional[float]:
-    value = snapshot.get(key)
-    return None if value is None else float(value)
+    val = snapshot.get(key)
+    if val is None or val == "":
+        return None
+    try:
+        return round(float(val), 2)
+    except (ValueError, TypeError):
+        return None
 
 
-def _optional_float(value: Any) -> Optional[float]:
-    return None if value is None or pd.isna(value) else round(float(value), 2)
+def _snapshot_int(snapshot: Dict[str, Any], key: str) -> Optional[int]:
+    val = snapshot.get(key)
+    if val is None or val == "":
+        return None
+    try:
+        return int(float(val))
+    except (ValueError, TypeError):
+        return None
 
 
-def _optional_int(value: Any) -> Optional[int]:
-    return None if value is None or pd.isna(value) else int(value)
+def get_filters(db: Session) -> Dict[str, List[str]]:
+    """Return distinct, non-null, sorted departments and assigned mentor IDs."""
+    dept_rows = (
+        db.execute(
+            select(LatestPrediction.department)
+            .where(LatestPrediction.department.isnot(None), LatestPrediction.department != "")
+            .distinct()
+        )
+        .scalars()
+        .all()
+    )
+    departments = sorted(dept_rows)
+
+    mentor_rows = (
+        db.execute(
+            select(LatestPrediction.assigned_mentor_id)
+            .where(LatestPrediction.assigned_mentor_id.isnot(None), LatestPrediction.assigned_mentor_id != "")
+            .distinct()
+        )
+        .scalars()
+        .all()
+    )
+    mentor_ids = sorted(mentor_rows)
+
+    return {
+        "departments": departments,
+        "mentor_ids": mentor_ids,
+    }

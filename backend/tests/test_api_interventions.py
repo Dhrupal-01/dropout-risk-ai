@@ -48,7 +48,12 @@ class TestCatalog:
         import backend.app.models  # noqa: F401
         from backend.app.db.base import Base
 
-        assert set(Base.metadata.tables) == {"students", "predictions", "intervention_logs"}
+        assert set(Base.metadata.tables) == {
+            "students",
+            "predictions",
+            "intervention_logs",
+            "latest_predictions",
+        }
         assert "interventions" not in Base.metadata.tables
 
 
