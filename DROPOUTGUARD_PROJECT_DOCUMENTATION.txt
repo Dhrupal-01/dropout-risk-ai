@@ -1,0 +1,510 @@
+================================================================================
+                    DROPOUTGUARD - MASTER SYSTEM DOCUMENTATION                  
+  AI-Powered Academic Dropout Prediction, Explainability & Prescriptive Action  
+================================================================================
+
+PROJECT IDENTIFIERS:
+  • Event:            Smart India Hackathon 2026 (SIH 2026)
+  • Problem Statement: PSID 7-L (Category: Software)
+  • Problem Title:    AI-Powered Academic Dropout Prediction and Intervention System
+  • Theme:            AI for Education and Human Development
+  • Team Name:        COGNITEX
+  • Team ID:          107
+  • Global Goal:      UN Sustainable Development Goal 4 (SDG 4: Quality Education)
+  • National Policy:  National Education Policy 2020 (NEP 2020) & AICTE/UGC Guidelines
+  • System Name:      DropoutGuard (Version 2.0 Production Release)
+  • Repository:       Dhrupal-01/dropout-risk-ai
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+  1. EXECUTIVE SUMMARY & PROBLEM CONTEXT
+  2. COMPLETE END-TO-END SYSTEM ARCHITECTURE
+  3. DATA INGESTION & 4-PILLAR FEATURE ENGINEERING (37 FEATURES)
+  4. MACHINE LEARNING & PROBABILITY CALIBRATION (XGBOOST + PLATT)
+  5. EXPLAINABLE AI (TREESHAP) & PLAIN-LANGUAGE TRANSLATION
+  6. PRESCRIPTIVE INTERVENTIONS & COUNTERFACTUAL RECOURSE SIMULATOR
+  7. QUANTITATIVE FAIRNESS AUDIT & DEMOGRAPHIC PARITY
+  8. FASTAPI BACKEND MICROSERVICES ARCHITECTURE
+  9. DATABASE PERSISTENCE, SCHEMAS & ALEMBIC MIGRATIONS
+ 10. COMPLETE REST API ENDPOINT SPECIFICATIONS & SCHEMAS
+ 11. REACT 18 + VITE FRONTEND DASHBOARD ARCHITECTURE
+ 12. VALIDATED TEST RESULTS & CLINICAL BENCHMARKS (174/174 PASSING)
+ 13. STEP-BY-STEP LOCAL SETUP & DEPLOYMENT GUIDE
+
+================================================================================
+1. EXECUTIVE SUMMARY & PROBLEM CONTEXT
+================================================================================
+
+In Indian collegiate technical education, student attrition is rarely an impulsive,
+overnight decision. It is the cumulative outcome of multi-pillar distress:
+  1. Attendance debarment (violating statutory AICTE/UGC 75% minimum classroom norms).
+  2. Academic backlogs (accumulating prerequisite failures causing year-backs/detainment).
+  3. Digital disengagement (quiet withdrawal on LMS platforms weeks before physical absence).
+  4. Socio-economic friction (delayed tuition fee payments and lack of at-home academic support).
+
+TRADITIONAL VS. DROPOUTGUARD APPROACH:
+  • Traditional Systems: Reactive. Dropouts are discovered during semester exam debarment
+    or after a student stops attending entirely.
+  • DropoutGuard: Proactive. Synthesizes 37 multi-source features to predict attrition
+    4 to 8 weeks in advance, explains root causes via TreeSHAP, and prescribes actionable
+    remediation roadmaps ("Path to Improvement").
+
+================================================================================
+2. COMPLETE END-TO-END SYSTEM ARCHITECTURE
+================================================================================
+
+```
++-------------------------------------------------------------------------------+
+|                       DROPOUTGUARD 3-TIER SYSTEM FLOW                         |
++-------------------------------------------------------------------------------+
+
+[ DATA SOURCES ]
+  +-- Campus Biometric Attendance & Timetable ERP
+  +-- University Examination Branch (CGPA, Backlogs, Internal Marks)
+  +-- Learning Management Systems / LMS (Moodle, Canvas Clickstreams)
+  +-- Accounts & Fee Desk (Payment delays, Fee installment requests)
+       |
+       v
+[ FEATURE ENGINEERING PIPELINE (ml/data_pipeline/) ]
+  +-- Ingests 28 raw institutional parameters
+  +-- Derives 9 composite non-linear interaction features
+  +-- Validates 37 total predictor features against feature_names.json schema
+       |
+       v
+[ PREDICTIVE & EXPLAINABILITY CORE (ml/models/ & ml/intervention/) ]
+  +-- Champion Classifier: Cost-Sensitive XGBoost (scale_pos_weight = 1.82, SMOTE)
+  +-- Platt Probability Calibration: Sigmoid scaling (5-fold CV, Brier: 0.0689)
+  +-- TreeSHAP Attribution: Signed percentage-point risk drivers (+/- pp)
+  +-- Counselor Translator: Translates SHAP vectors to plain-language sentences
+  +-- Counterfactual Engine: Optimizes minimum actionable steps to achieve Low Risk
+  +-- 12-Item Codified Institutional Intervention Catalog
+       |
+       v
+[ FASTAPI BACKEND MICROSERVICES (backend/app/) ]
+  +-- Lifespan Cache: Pre-loads .joblib models & catalogs into memory on startup
+  +-- Database ORM: SQLAlchemy 2.0 + Alembic migrations (SQLite / PostgreSQL)
+  +-- Endpoints: /predict, /predict/batch, /explain, /interventions, /mentors/queue
+       |
+       v
+[ REACT 18 + VITE FRONTEND DASHBOARD (frontend/src/) ]
+  +-- Executive Overview: Institutional retention KPIs & department risk charts
+  +-- Batch CSV Queue: Cohort drag-and-drop ingestion & batch scoring
+  +-- Student Deep-Dive: 4-pillar scorecard, TreeSHAP waterfall, recourse simulator
+```
+
+================================================================================
+3. DATA INGESTION & 4-PILLAR FEATURE ENGINEERING (37 FEATURES)
+================================================================================
+
+DropoutGuard processes 37 features grouped across 4 core educational pillars:
+
+PILLAR 1: ATTENDANCE & DISCIPLINE (10 Features)
+--------------------------------------------------------------------------------
+1. attendance_percentage:
+   • Definition: Overall cumulative 3-month attendance percentage (0.0% to 100.0%).
+   • Source: Campus ERP / Biometric attendance system.
+2. attendance_month_1:
+   • Definition: First month attendance percentage.
+3. attendance_month_2:
+   • Definition: Second month attendance percentage.
+4. attendance_month_3:
+   • Definition: Most recent month attendance percentage (critical early-warning signal).
+5. attendance_3m_trend:
+   • Definition: Trajectory slope over 3 months (attendance_month_3 - attendance_month_1).
+   • Values: Negative values indicate accelerating disengagement.
+6. consecutive_absences:
+   • Definition: Longest streak of consecutive unexcused lecture absences (integer count).
+7. attendance_risk_flag:
+   • Definition: Binary flag (1 if attendance_percentage < 75.0%, else 0).
+   • Statutory Basis: AICTE/UGC mandatory 75% rule for semester exam eligibility.
+8. subject_attendance_std:
+   • Definition: Standard deviation of attendance across subjects (detects selective bunking).
+9. att_core1:
+   • Definition: Attendance in primary core engineering / theory lecture.
+10. att_lab:
+   • Definition: Practical laboratory attendance percentage.
+
+PILLAR 2: ACADEMIC PROGRESSION (7 Features)
+--------------------------------------------------------------------------------
+11. current_cgpa:
+    • Definition: Current cumulative grade point average (0.0 to 10.0 scale).
+12. prev_sem_cgpa:
+    • Definition: Grade point average achieved in the preceding semester.
+13. cgpa_delta:
+    • Definition: Semester grade velocity (current_cgpa - prev_sem_cgpa).
+14. backlog_count:
+    • Definition: Number of active uncleared course failures / backlogs (0 to 8+).
+15. internal_exam_score_pct:
+    • Definition: Mid-term / continuous internal assessment evaluation average (0-100%).
+16. stem_core_fail_flag:
+    • Definition: Binary flag (1 if student failed prerequisite engineering mathematics/physics).
+17. academic_crisis_flag:
+    • Definition: Binary flag (1 if current_cgpa < 5.0 OR backlog_count >= 2).
+
+PILLAR 3: DIGITAL LEARNING BEHAVIOR (6 Features)
+--------------------------------------------------------------------------------
+18. lms_logins_per_week:
+    • Definition: Weekly average login count on institutional LMS (Moodle / Canvas).
+19. assignment_submission_lag_days:
+    • Definition: Average delay past deadline for submitted coursework (negative = early).
+20. resource_access_count:
+    • Definition: Total syllabus PDF, lecture note, and video download hits.
+21. days_since_last_lms_activity:
+    • Definition: Recency counter of consecutive days without LMS login.
+22. forum_participation_count:
+    • Definition: Discussion board posts, replies, and question interactions.
+23. behavioral_disengagement_index:
+    • Definition: Composite score in [0.0, 1.0] capturing digital withdrawal:
+      BDI = 0.35 * (1 - min(1.0, logins/10)) + 0.35 * min(1.0, lag/7) + 0.30 * min(1.0, inactive/30)
+
+PILLAR 4: SOCIO-ECONOMIC & FINANCIAL CONTEXT (8 Features)
+--------------------------------------------------------------------------------
+24. income_slab_idx:
+    • Definition: Ordinal family income bracket (0: <2 LPA, 1: 2-5 LPA, 2: 5-10 LPA, 3: >10 LPA).
+25. is_first_generation:
+    • Definition: Binary flag (1 if student is first in family to attend college).
+26. fee_payment_delay_days:
+    • Definition: Number of days semester tuition fees remain overdue beyond grace deadline.
+27. has_scholarship:
+    • Definition: Binary flag (1 if receiving state/central merit-cum-means scholarship).
+28. is_hosteler:
+    • Definition: Binary flag (1 if campus hosteler, 0 if day scholar).
+29. commute_distance_km:
+    • Definition: One-way daily transit distance from residence to campus.
+30. age:
+    • Definition: Student chronological age in years.
+31. financial_stress_index:
+    • Definition: Composite index in [0.0, 1.0]:
+      FSI = 0.40 * ((3 - income_slab_idx)/3) + 0.40 * min(1.0, fee_delay/60) + 0.20 * (1 - has_scholarship)
+
+CROSS-PILLAR INTERACTION FEATURES (4 Features)
+--------------------------------------------------------------------------------
+32. interaction_att_x_fee:
+    • Formula: max(0, 100 - attendance_percentage) * (fee_payment_delay_days / 30)
+    • Captures: Compounded absenteeism accelerating under financial fee distress.
+33. interaction_cgpa_x_backlog:
+    • Formula: max(0, 10.0 - current_cgpa) * backlog_count
+    • Captures: Academic failure trap where low CGPA is exacerbated by uncleared backlogs.
+34. interaction_firstgen_x_inactivity:
+    • Formula: is_first_generation * min(1.0, days_since_last_lms_activity / 14)
+    • Captures: Silent digital drop-off in students lacking at-home academic guidance.
+35. interaction_att_x_cgpa_drop:
+    • Formula: max(0, -cgpa_delta) * (1 if attendance_percentage < 75 else 0)
+    • Captures: Acute performance collapse coinciding with classroom attendance failure.
+
+ADDITIONAL PREDICTOR FEATURES:
+36. att_core2: Secondary core course attendance.
+37. att_elective: Elective course attendance.
+
+================================================================================
+4. MACHINE LEARNING & PROBABILITY CALIBRATION (XGBOOST + PLATT)
+================================================================================
+
+MODEL TRAINING SPECIFICATION:
+  • Algorithm:            XGBoost (XGBClassifier)
+  • Imbalance Strategy:   SMOTE (Synthetic Minority Over-sampling Technique)
+  • Class Weighting:      scale_pos_weight = 1.82 (derived from 64.5% non-dropout / 35.5% dropout)
+  • Objective:            binary:logistic
+  • Evaluation Metric:    logloss, minority recall, AUC-ROC
+  • Random Seed:          42 (deterministic reproducibility)
+
+PROBABILITY CALIBRATION (PLATT SCALING):
+  • Evaluator:            CalibratedClassifierCV (method='sigmoid', cv=5)
+  • Theoretical Basis:    Platt Scaling fits a logistic sigmoid over raw decision tree margins:
+                          P(y=1 | f(x)) = 1 / (1 + exp(A * f(x) + B))
+  • Brier Score Loss:     0.0689 on held-out test split (0.0 = perfect calibration).
+  • Risk Tiers:
+      - Low Risk:    P < 33.0% (Green)
+      - Medium Risk: 33.0% <= P <= 66.0% (Yellow / Amber)
+      - High Risk:   P > 66.0% (Red / Critical)
+
+VALIDATED PERFORMANCE BENCHMARKS (HELD-OUT TEST SPLIT N=300):
+  +-------------------------------------+------------+--------------------+
+  | Metric                              | Score      | Regulatory Target  |
+  +-------------------------------------+------------+--------------------+
+  | Headline At-Risk Recall (Sensitivity)| 83.96%     | >= 60.0% (Passed)  |
+  | At-Risk Precision                   | 89.90%     | >= 80.0% (Passed)  |
+  | Minority Class F1 Score             | 0.8683     | >= 0.80  (Passed)  |
+  | Macro-Averaged F1 Score             | 0.9000     | N/A                |
+  | Area Under ROC Curve (ROC-AUC)      | 0.9752     | >= 0.90  (Passed)  |
+  | Overall Classification Accuracy     | 91.00%     | N/A                |
+  | Brier Calibration Loss Score        | 0.0689     | <= 0.10  (Passed)  |
+  | Target Leakage Correlation Ceiling  | Max 0.665  | < 0.70   (Passed)  |
+  +-------------------------------------+------------+--------------------+
+
+================================================================================
+5. EXPLAINABLE AI (TREESHAP) & PLAIN-LANGUAGE TRANSLATION
+================================================================================
+
+DropoutGuard utilizes TreeSHAP (Lundberg & Lee, NeurIPS 2017) to calculate exact,
+game-theoretic Shapley value attributions for every individual student.
+
+LOCAL RISK EXPLANATION DECOMPOSITION:
+  • Each feature i contributes phi_i to the student's prediction margin.
+  • Margin contributions are converted into signed percentage point impacts (+/- pp).
+
+PLAIN-LANGUAGE TRANSLATION EXAMPLES:
+  1. Academic Backlogs:
+     "[▲ RISK_UP] 3 uncleared exam backlog(s) are increasing risk by 27.4 percentage points."
+  2. Attendance Collapse:
+     "[▲ RISK_UP] Low recent-month (Month 3) attendance (54.0%) is increasing risk by 24.5 percentage points."
+  3. Compound Absenteeism x Fee Delay:
+     "[▲ RISK_UP] Compound risk factor (Compounded Absenteeism x Fee Delay) is increasing overall dropout risk by 25.3 percentage points."
+  4. Protective Feature:
+     "[▼ RISK_DOWN] Consistent overall attendance (89.0%) is reducing risk by 26.2 percentage points."
+
+CACHE SYNCHRONIZATION:
+  The SHAP explainer cache (ml/artifacts/shap_explainer.joblib) is automatically invalidated
+  and synchronously rebuilt whenever the underlying XGBoost model artifact is retrained.
+
+================================================================================
+6. PRESCRIPTIVE INTERVENTIONS & COUNTERFACTUAL RECOURSE SIMULATOR
+================================================================================
+
+CODIFIED 12-ITEM INSTITUTIONAL INTERVENTION CATALOG:
+  +-------------+-------------------------------------------------------------+----------+---------+
+  | ID          | Intervention Title                                          | Pillar   | Urgency |
+  +-------------+-------------------------------------------------------------+----------+---------+
+  | INT_ATT_01  | Mandatory Attendance Counseling & Faculty Mentor Check-in   | ATTEND   | HIGH    |
+  | INT_ATT_02  | Academic Attendance Recovery Plan & Bi-Weekly Tracking      | ATTEND   | MEDIUM  |
+  | INT_ATT_03  | Automated Daily Attendance SMS Alert to Guardian            | ATTEND   | LOW     |
+  | INT_ACAD_01 | Backlog Clearance Action Plan & Academic Strategy Roadmap   | ACADEMIC | HIGH    |
+  | INT_ACAD_02 | Peer Tutoring & Department Remedial Session Assignment      | ACADEMIC | HIGH    |
+  | INT_ACAD_03 | Faculty Office Hours Intensive Mentorship Program           | ACADEMIC | MEDIUM  |
+  | INT_FIN_01  | Institutional Fee-Waiver & Emergency Financial Aid Desk     | FINANCE  | HIGH    |
+  | INT_FIN_02  | Tuition Fee Installment Schedule & Financial Counseling     | FINANCE  | HIGH    |
+  | INT_FIN_03  | Government Scholarship Application Assistance               | FINANCE  | MEDIUM  |
+  | INT_BEH_01  | Digital LMS Onboarding & Learning Resource Assistance       | BEHAVIOR | MEDIUM  |
+  | INT_BEH_02  | Assignment Submission Deadline Extension & Study Skills     | BEHAVIOR | MEDIUM  |
+  | INT_BEH_03  | Professional Student Counselor & Wellbeing Consultation     | BEHAVIOR | HIGH    |
+  +-------------+-------------------------------------------------------------+----------+---------+
+
+COUNTERFACTUAL RECOURSE OPTIMIZATION ("PATH TO IMPROVEMENT"):
+  The counterfactual engine evaluates what minimal, achievable feature changes will transition
+  a high-risk student into a Low Risk tier, prioritizing the student's top SHAP risk drivers:
+    - Example (Student STU_04):
+      * Current State:  Risk = 90.3% (High Tier), Backlogs = 3, CGPA = 5.15, Attendance = 72%
+      * Prescribed Plan: Clear 2 backlogs via remedial exams + attend peer tutoring sessions.
+      * Projected State: Risk = 49.4% (Medium Tier) -> Achieves a 41.0% risk reduction.
+
+================================================================================
+7. QUANTITATIVE FAIRNESS AUDIT & DEMOGRAPHIC PARITY
+================================================================================
+
+Evaluated on N=2,000 students using 5-fold cross-validation across 106 total False Negatives:
+
+1. GENDER SUBGROUP PARITY:
+   • Male Students (N=1,155):   Recall = 85.57%, False Negative Rate = 14.43%
+   • Female Students (N=845):   Recall = 84.39%, False Negative Rate = 15.61%
+   • Disparity Gap:             1.18 percentage points (Disparate Impact Ratio = 0.991)
+
+2. ECONOMIC PROXY PARITY (FAMILY INCOME):
+   • Lower Income <5 LPA (N=1,206): Recall = 85.38%, False Negative Rate = 14.62%
+   • Higher Income >=5 LPA (N=794): Recall = 84.49%, False Negative Rate = 15.51%
+   • Disparity Gap:                 0.89 percentage points
+
+3. FIRST-GENERATION LEARNER PARITY:
+   • First-Gen Students (N=761):    Recall = 84.28%, False Negative Rate = 15.72%
+   • Non-First-Gen (N=1,239):       Recall = 85.64%, False Negative Rate = 14.36%
+   • Disparity Gap:                 1.36 percentage points
+
+CONCLUSION:
+  All demographic parity gaps are <= 1.36 percentage points, proving that the model
+  generalizes equitably without penalizing disadvantaged student cohorts.
+
+================================================================================
+8. FASTAPI BACKEND MICROSERVICES ARCHITECTURE
+================================================================================
+
+DIRECTORY STRUCTURE (backend/):
+  backend/
+  ├── app/
+  │   ├── main.py                  # FastAPI app factory, CORS, and Lifespan model cache
+  │   ├── core/config.py           # Pydantic Settings, DB connection strings, security
+  │   ├── db/session.py            # SQLAlchemy engine, session factory, connection pools
+  │   ├── models/                  # SQLAlchemy Database ORM Models (Student, Prediction, Log)
+  │   ├── schemas/                 # Pydantic v2 validation models for requests and responses
+  │   ├── services/                # Business logic: ML service, Student service, Interventions
+  │   └── api/v1/
+  │       ├── router.py            # Aggregated v1 API router
+  │       └── endpoints/
+  │           ├── predict.py       # POST /api/v1/predict & POST /api/v1/predict/batch
+  │           ├── explain.py       # GET /api/v1/students/{id}/explanation
+  │           ├── interventions.py # GET /api/v1/students/{id}/interventions & POST /log
+  │           └── mentors.py       # GET /api/v1/mentors/queue
+  ├── scripts/seed_students.py     # Database seeder from data/processed/features.csv
+  └── tests/                       # 147 unit and integration tests
+
+LIFESPAN MODEL CACHING (backend/app/main.py):
+  The heavy serialized models (calibrated_model.joblib, shap_explainer.joblib, interventions.json)
+  are loaded into server RAM once on startup via FastAPI's async lifespan context manager.
+
+================================================================================
+9. DATABASE PERSISTENCE, SCHEMAS & ALEMBIC MIGRATIONS
+================================================================================
+
+DATABASE TABLES SCHEMA:
+
+Table 1: `students`
+  • student_id:           VARCHAR(64) PRIMARY KEY
+  • full_name:            VARCHAR(128) NOT NULL
+  • department:           VARCHAR(64) NOT NULL
+  • semester:             INTEGER NOT NULL
+  • email:                VARCHAR(128)
+  • raw_features_payload: JSONB / JSON NOT NULL
+  • created_at:           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+Table 2: `predictions`
+  • id:                   SERIAL PRIMARY KEY
+  • student_id:           VARCHAR(64) REFERENCES students(student_id)
+  • risk_probability:     FLOAT NOT NULL
+  • risk_tier:            VARCHAR(16) NOT NULL ('Low', 'Medium', 'High')
+  • top_shap_drivers:     JSONB / JSON NOT NULL
+  • recommended_interventions: JSONB / JSON NOT NULL
+  • counterfactual_recourse:   JSONB / JSON NOT NULL
+  • created_at:           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+Table 3: `intervention_logs`
+  • id:                   SERIAL PRIMARY KEY
+  • student_id:           VARCHAR(64) REFERENCES students(student_id)
+  • intervention_id:      VARCHAR(32) NOT NULL ('INT_ACAD_01', etc.)
+  • status:               VARCHAR(32) NOT NULL ('ASSIGNED', 'IN_PROGRESS', 'APPLIED', 'COMPLETED', 'CANCELLED')
+  • assigned_faculty_id:  VARCHAR(64) NOT NULL
+  • notes:                TEXT
+  • scheduled_followup_date: DATE
+  • created_at:           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  • updated_at:           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+MIGRATIONS:
+  Managed using Alembic (`alembic upgrade head`). Automatically applies indexes on
+  `student_id`, `department`, `risk_tier`, and `status`.
+
+================================================================================
+10. COMPLETE REST API ENDPOINT SPECIFICATIONS & SCHEMAS
+================================================================================
+
+All endpoints are mounted under `/api/v1`:
+
+1. HEALTHCHECK:
+   • GET `/health`
+   • Response: `{"status": "healthy", "model_loaded": true, "version": "1.0.0"}`
+
+2. SINGLE STUDENT PREDICTION:
+   • POST `/api/v1/predict`
+   • Request Payload: 28 raw features (attendance, CGPA, backlogs, fee delay, logins, etc.)
+   • Response (200 OK):
+     {
+       "student_id": "STU_2026_0100",
+       "calibrated_risk_probability": 0.742,
+       "risk_tier": "High",
+       "risk_score_percentage": 74.2,
+       "evaluation_timestamp": "2026-08-19T10:00:00Z"
+     }
+
+3. COHORT BATCH PREDICTION:
+   • POST `/api/v1/predict/batch`
+   • Input: CSV file upload (`multipart/form-data`) or JSON array of student objects
+   • Response (200 OK): Aggregated cohort metrics (High/Medium/Low counts) + student result list.
+
+4. LOCAL SHAP EXPLANATION:
+   • GET `/api/v1/students/{student_id}/explanation?top_k=5`
+   • Response (200 OK): Array of top 5 signed feature drivers with percentage-point risk impacts
+     and plain-language sentences.
+
+5. PRESCRIPTIVE INTERVENTIONS & RECOURSE:
+   • GET `/api/v1/students/{student_id}/interventions`
+   • Response (200 OK): Top 1-3 mapped institutional actions + simulated counterfactual recourse plan.
+
+6. PRIORITIZED MENTOR TRIAGE QUEUE:
+   • GET `/api/v1/mentors/queue?department=Computer%20Science&risk_tier=High&limit=50`
+   • Response (200 OK): Prioritized list of at-risk students sorted by descending risk probability.
+
+7. INTERVENTION LIFECYCLE TRACKER:
+   • POST `/api/v1/interventions/log`
+   • Request: `{"student_id": "...", "intervention_id": "INT_ACAD_01", "status": "IN_PROGRESS", ...}`
+   • Response (201 Created): Recorded log ID and confirmation timestamp.
+
+================================================================================
+11. REACT 18 + VITE FRONTEND DASHBOARD ARCHITECTURE
+================================================================================
+
+TECHNOLOGY STACK:
+  • Framework: React 18 with Vite build tooling
+  • Styling:   TailwindCSS + custom design tokens
+  • Charts:    Recharts (Responsive Bar, Area, Pie, and Waterfall charts)
+  • Icons:     Lucide-React
+
+CORE OPERATIONAL VIEWS:
+  1. Executive Dashboard (Dashboard.jsx):
+     - Metric KPI Cards (Total Monitored, High Risk Count, Active Interventions)
+     - Department Risk Distribution Heatmaps (CS, ME, EC, CE, IT)
+     - Interactive Mentor Triage Table with real-time search and filter chips.
+  2. Batch Import Queue (ImportQueue.jsx):
+     - Drag-and-drop CSV importer with instant client-side header validation
+     - Batch progress indicator and evaluated risk tier export.
+  3. Student Deep-Dive & Recourse Simulator (StudentDetail.jsx):
+     - 4-Pillar Scorecard (Attendance, CGPA, LMS Activity, Financial Status)
+     - Interactive TreeSHAP Waterfall Chart (red risk-increasing / green protective bars)
+     - Prescriptive Intervention Assignment Cards with status transitions
+     - Interactive Recourse Simulator with dynamic risk reduction sliders.
+
+================================================================================
+12. VALIDATED TEST RESULTS & CLINICAL BENCHMARKS (174/174 PASSING)
+================================================================================
+
+TEST EXECUTION SUMMARY:
+  • ML Core Automated Tests (ml/tests/):        27 / 27  PASSED (100%)
+  • Backend Microservices Tests (backend/tests/): 147 / 147 PASSED (100%)
+  • Total Tests Passed:                         174 / 174 PASSED (100%)
+  • Execution Time:                             ~10.69 seconds
+  • Warnings / Errors:                          0 Failures, 0 Application Warnings
+
+COVERAGE HIGHLIGHTS:
+  ✔ Data pipeline loaders and synthetic generator sanity assertions.
+  ✔ 37-feature alignment, zero nulls, and interaction term mathematical bounds.
+  ✔ Calibrated prediction boundaries and risk tier threshold logic.
+  ✔ TreeSHAP local attribution schemas and plain-language sentence formatting.
+  ✔ Counterfactual recourse risk reduction verification.
+  ✔ FastAPI endpoints, CORS preflight, and error handling.
+  ✔ SQLAlchemy database ORM models and Alembic migration integrity.
+
+================================================================================
+13. STEP-BY-STEP LOCAL SETUP & DEPLOYMENT GUIDE
+================================================================================
+
+PREREQUISITES:
+  • Python >= 3.11 (Python 3.14 tested)
+  • Node.js >= 18.0 & npm
+  • Git
+
+STEP 1: CLONE REPOSITORY & SETUP PYTHON VIRTUAL ENVIRONMENT
+  git clone https://github.com/Dhrupal-01/dropout-risk-ai.git
+  cd dropout-risk-ai
+  python3 -m venv .venv
+  source .venv/bin/activate
+
+STEP 2: INSTALL PYTHON DEPENDENCIES
+  pip install -e ".[backend]"
+
+STEP 3: RUN DATABASE MIGRATIONS & SEED DATA
+  alembic upgrade head
+  python -m backend.scripts.seed_students
+
+STEP 4: START FASTAPI BACKEND SERVER (PORT 8000)
+  uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+  # Interactive Swagger API documentation: http://localhost:8000/docs
+
+STEP 5: START REACT FRONTEND DASHBOARD (PORT 5173)
+  # Open a new terminal window:
+  cd frontend
+  npm install
+  npm run dev
+  # Access dashboard: http://localhost:5173
+
+STEP 6: RUN COMPLETE TEST SUITE
+  pytest -v
+
+================================================================================
+                            END OF DOCUMENTATION                                
+================================================================================
