@@ -32,11 +32,15 @@ FEATURE_NAMES_PATH = ARTIFACTS_DIR / "feature_names.json"
 METRICS_REPORT_PATH = ARTIFACTS_DIR / "model_metrics.json"
 SHAP_EXPLAINER_PATH = ARTIFACTS_DIR / "shap_explainer.joblib"
 FAIRNESS_REPORT_PATH = DOCS_DIR / "ethics_and_fairness.md"
+FAIRNESS_METRICS_PATH = ARTIFACTS_DIR / "fairness_metrics.json"
 
 # Random Seed for Reproducibility
 RANDOM_SEED = int(os.getenv("RANDOM_SEED", "42"))
 
-# Feature Exclusions for Model Training (IDs, targets, protected raw strings)
+# Feature Exclusions for Model Training (IDs, targets, protected raw strings).
+# NOTE: Income IS used as a model input via `income_slab_idx` (serving as an objective
+# need signal for routing institutional financial support and feeding `financial_stress_index`).
+# Only its duplicate raw string label `family_income_slab` is excluded here to avoid categorical redundancy.
 EXCLUDED_FEATURES = [
     "student_id",
     "gender",

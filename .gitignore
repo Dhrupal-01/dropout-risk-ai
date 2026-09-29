@@ -10,15 +10,20 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+*.egg-info/
+*.db
 
 # Data & Heavy Processed Datasets (keep directories via .gitkeep)
 data/raw/*
 !data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
 data/processed/*.csv
 !data/processed/.gitkeep
 !data/processed/feature_metadata.json
 data/synthetic/*.csv
 !data/synthetic/.gitkeep
+*.parquet
 
 # Model Binary Artifacts (keep lightweight configs & .gitkeep)
 ml/artifacts/*.joblib

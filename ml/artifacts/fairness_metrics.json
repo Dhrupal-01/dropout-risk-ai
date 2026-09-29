@@ -1,0 +1,192 @@
+{
+  "status": "completed",
+  "phase": "Phase 4 - Fairness Audit & Mitigations",
+  "uci_higher_ed": {
+    "n_samples": 3630,
+    "base_rate": 0.3209,
+    "selection_rate_top20": 0.2,
+    "attributes_audited": [
+      "gender",
+      "scholarship_holder",
+      "debtor",
+      "displaced",
+      "age_group"
+    ],
+    "mitigations_comparison": [
+      {
+        "strategy": "None (Unmitigated)",
+        "roc_auc": 0.9392,
+        "pr_auc": 0.9349,
+        "recall": 0.8216,
+        "precision": 0.8794,
+        "brier_score": 0.0834,
+        "max_fnr_gap": 0.0424
+      },
+      {
+        "strategy": "Sample Reweighing",
+        "roc_auc": 0.9407,
+        "pr_auc": 0.9351,
+        "recall": 0.8568,
+        "precision": 0.843,
+        "brier_score": 0.0881,
+        "max_fnr_gap": 0.052
+      },
+      {
+        "strategy": "Group-Specific Thresholds (FNR Parity)",
+        "roc_auc": 0.9392,
+        "pr_auc": 0.9349,
+        "recall": 0.8169,
+        "precision": 0.8678,
+        "brier_score": 0.0834,
+        "max_fnr_gap": 0.0229
+      },
+      {
+        "strategy": "Fairlearn ExponentiatedGradient",
+        "roc_auc": 0.8944,
+        "pr_auc": 0.8468,
+        "recall": 0.7089,
+        "precision": 0.9069,
+        "brier_score": 0.1055,
+        "max_fnr_gap": 0.029
+      }
+    ]
+  },
+  "oulad_learning_analytics": {
+    "n_samples_holdout": 15092,
+    "base_rate": 0.1543,
+    "attributes_audited": [
+      "gender",
+      "age_band",
+      "disability",
+      "imd_band",
+      "highest_education",
+      "region",
+      "imd_x_gender"
+    ]
+  },
+  "generator_sanity_check": {
+    "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
+    "test_split_fnr_gaps": {
+      "gender": 0.0793,
+      "economic_proxy": 0.146,
+      "first_generation": 0.2067
+    },
+    "cross_validation_fnr_gaps": {
+      "gender": 0.008,
+      "economic_proxy": 0.0494,
+      "first_generation": 0.009
+    }
+  },
+  "income_ablation": {
+    "comparison_table": [
+      {
+        "configuration": "With Income Features (37 features)",
+        "n_features": 37,
+        "roc_auc": 0.929,
+        "pr_auc": 0.9078,
+        "f1": 0.8206,
+        "recall": 0.771,
+        "precision": 0.877,
+        "brier_score": 0.0914,
+        "fnr_lowest_slab": 0.4497,
+        "fnr_highest_slab": 0.4409,
+        "fnr_gap_low_vs_high": 0.0088
+      },
+      {
+        "configuration": "Without Income Features (35 features)",
+        "n_features": 35,
+        "roc_auc": 0.9292,
+        "pr_auc": 0.908,
+        "f1": 0.8224,
+        "recall": 0.7738,
+        "precision": 0.8774,
+        "brier_score": 0.0913,
+        "fnr_lowest_slab": 0.4362,
+        "fnr_highest_slab": 0.4409,
+        "fnr_gap_low_vs_high": -0.0047
+      }
+    ]
+  },
+  "gender": {
+    "male": {
+      "n_samples": 176,
+      "base_rate": 0.3636,
+      "selection_rate": 0.3239,
+      "true_positives": 48,
+      "false_negatives": 16,
+      "true_negatives": 103,
+      "false_positives": 9,
+      "tpr_recall": 0.75,
+      "fnr_miss_rate": 0.25,
+      "fpr_alarm_rate": 0.0804
+    },
+    "female": {
+      "n_samples": 124,
+      "base_rate": 0.3306,
+      "selection_rate": 0.3387,
+      "true_positives": 34,
+      "false_negatives": 7,
+      "true_negatives": 75,
+      "false_positives": 8,
+      "tpr_recall": 0.8293,
+      "fnr_miss_rate": 0.1707,
+      "fpr_alarm_rate": 0.0964
+    },
+    "fnr_disparity": 0.0793,
+    "disparate_impact_ratio": 1.046
+  },
+  "economic_proxy": {
+    "lower_income_under_5lpa": {
+      "n_samples": 173,
+      "base_rate": 0.3121,
+      "selection_rate": 0.3584,
+      "true_positives": 46,
+      "false_negatives": 8,
+      "true_negatives": 103,
+      "false_positives": 16,
+      "tpr_recall": 0.8519,
+      "fnr_miss_rate": 0.1481,
+      "fpr_alarm_rate": 0.1345
+    },
+    "higher_income_above_5lpa": {
+      "n_samples": 127,
+      "base_rate": 0.4016,
+      "selection_rate": 0.2913,
+      "true_positives": 36,
+      "false_negatives": 15,
+      "true_negatives": 75,
+      "false_positives": 1,
+      "tpr_recall": 0.7059,
+      "fnr_miss_rate": 0.2941,
+      "fpr_alarm_rate": 0.0132
+    },
+    "fnr_disparity": 0.146
+  },
+  "first_generation": {
+    "first_gen": {
+      "n_samples": 102,
+      "base_rate": 0.2941,
+      "selection_rate": 0.2745,
+      "true_positives": 19,
+      "false_negatives": 11,
+      "true_negatives": 63,
+      "false_positives": 9,
+      "tpr_recall": 0.6333,
+      "fnr_miss_rate": 0.3667,
+      "fpr_alarm_rate": 0.125
+    },
+    "non_first_gen": {
+      "n_samples": 198,
+      "base_rate": 0.3788,
+      "selection_rate": 0.3586,
+      "true_positives": 63,
+      "false_negatives": 12,
+      "true_negatives": 115,
+      "false_positives": 8,
+      "tpr_recall": 0.84,
+      "fnr_miss_rate": 0.16,
+      "fpr_alarm_rate": 0.065
+    },
+    "fnr_disparity": 0.2067
+  }
+}

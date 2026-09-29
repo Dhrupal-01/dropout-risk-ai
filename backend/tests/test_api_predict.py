@@ -53,28 +53,40 @@ def low_risk_features(sample_raw_features):
 @pytest.fixture
 def medium_risk_features():
     """
-    A genuine Medium-tier profile taken from the real cohort (calibrated p = 0.5023):
-    slipping attendance just under the 75% bar, flat CGPA, no backlogs, fees clear.
-    Medium is a narrow band (92 of 2000 students), so this is drawn from real data
-    rather than hand-tuned.
+    A genuine Medium-tier profile taken from the calibrated cohort (calibrated p = 0.4536):
+    high attendance (93.5%) balanced by low academic performance (CGPA 4.99, 1 backlog).
+    Medium is a narrow band, so this is drawn from real data rather than hand-tuned.
     """
     return {
-        "age": 20.7,
-        "commute_distance_km": 0.5,
-        "income_slab_idx": 0,
-        "is_first_generation": 1,
-        "has_scholarship": 1,
-        "fee_payment_delay_days": 0,
-        "att_core1": 63.1, "att_core2": 75.6, "att_lab": 73.7, "att_elective": 62.4,
-        "attendance_month_1": 81.4, "attendance_month_2": 73.3, "attendance_month_3": 65.7,
-        "attendance_percentage": 72.3, "attendance_3m_trend": -7.89,
-        "consecutive_absences": 2, "attendance_risk_flag": 1,
-        "prev_sem_cgpa": 6.32, "current_cgpa": 6.25, "cgpa_delta": -0.07,
-        "backlog_count": 0, "internal_exam_score_pct": 46.2, "stem_core_fail_flag": 0,
-        "lms_logins_per_week": 6.6, "assignment_submission_lag_days": -2.1,
-        "resource_access_count": 36, "days_since_last_lms_activity": 9,
+        "age": 22.4,
+        "commute_distance_km": 11.1,
+        "income_slab_idx": 3,
+        "is_first_generation": 0,
+        "has_scholarship": 0,
+        "fee_payment_delay_days": 4,
+        "att_core1": 91.8,
+        "att_core2": 92.1,
+        "att_lab": 85.7,
+        "att_elective": 96.2,
+        "attendance_month_1": 85.3,
+        "attendance_month_2": 92.1,
+        "attendance_month_3": 100.0,
+        "attendance_percentage": 93.5,
+        "attendance_3m_trend": 7.37,
+        "consecutive_absences": 0,
+        "attendance_risk_flag": 0,
+        "prev_sem_cgpa": 4.83,
+        "current_cgpa": 4.99,
+        "cgpa_delta": 0.16,
+        "backlog_count": 1,
+        "internal_exam_score_pct": 46.3,
+        "stem_core_fail_flag": 0,
+        "lms_logins_per_week": 7.9,
+        "assignment_submission_lag_days": -1.0,
+        "resource_access_count": 33,
+        "days_since_last_lms_activity": 8,
         "forum_participation_count": 3,
-        "hostel_status": "Hosteler",
+        "hostel_status": "Day Scholar",
     }
 
 

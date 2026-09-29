@@ -35,6 +35,7 @@ from ml.config import (
     MODEL_ARTIFACT_PATH,
     BASE_MODEL_PATH,
     FEATURE_NAMES_PATH,
+    METRICS_REPORT_PATH,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
     RANDOM_SEED,
@@ -124,6 +125,31 @@ def run_pipeline_validation(regenerate: bool = False):
     print(f"   │ True Negatives (TN): {tn:3d} │ False Positives (FP):{fp:3d} │")
     print(f"   │ False Negatives(FN): {fn:3d} │ True Positives (TP): {tp:3d} │")
     print(f"   └────────────────────────┴──────────────────────┘")
+
+    # Update model_metrics.json with calibrated held-out test metrics and brier_score
+    if METRICS_REPORT_PATH.exists():
+        with open(METRICS_REPORT_PATH, "r", encoding="utf-8") as f:
+            mm = json.load(f)
+    else:
+        mm = {}
+
+    mm["accuracy"] = float(acc)
+    mm["recall_at_risk_minority"] = float(rec)
+    mm["precision_at_risk_minority"] = float(prec)
+    mm["f1_at_risk_minority"] = float(f1_min)
+    mm["f1_macro"] = float(f1_mac)
+    mm["roc_auc"] = float(auc)
+    mm["brier_score"] = float(brier)
+    mm["confusion_matrix"] = {
+        "true_negatives": int(tn),
+        "false_positives": int(fp),
+        "false_negatives": int(fn),
+        "true_positives": int(tp)
+    }
+
+    METRICS_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(METRICS_REPORT_PATH, "w", encoding="utf-8") as f:
+        json.dump(mm, f, indent=2)
 
     # =========================================================================
     # SECTION 2: PROBABILITY CALIBRATION RELIABILITY CHECK (10% BINS)
@@ -282,7 +308,7 @@ def run_pipeline_validation(regenerate: bool = False):
         # Profile 3: Borderline/Mixed (High CGPA with Commute & Attendance Deficit)
         {
             "student_id": "STU_03_BORDERLINE_COMMUTE",
-            "archetype": "3. Borderline / Mixed — High Marks (CGPA 8.2) but Attendance Debarment (<62%)",
+            "archetype": "3. Borderline / Mixed — Passing Grades (CGPA 7.4) but Attendance Debarment (<56%)",
             "gender": "Female",
             "category": "General",
             "age": 20.2,
@@ -293,22 +319,22 @@ def run_pipeline_validation(regenerate: bool = False):
             "is_first_generation": 0,
             "has_scholarship": 0,
             "fee_payment_delay_days": 18,
-            "att_core1": 60.0,
-            "att_core2": 58.0,
-            "att_lab": 70.0,
-            "att_elective": 55.0,
-            "attendance_month_1": 70.0,
-            "attendance_month_2": 62.0,
-            "attendance_month_3": 54.0,
-            "attendance_percentage": 61.2,
-            "attendance_3m_trend": -8.0,
-            "consecutive_absences": 6,
+            "att_core1": 56.0,
+            "att_core2": 54.0,
+            "att_lab": 66.0,
+            "att_elective": 50.0,
+            "attendance_month_1": 68.0,
+            "attendance_month_2": 58.0,
+            "attendance_month_3": 46.0,
+            "attendance_percentage": 55.4,
+            "attendance_3m_trend": -11.0,
+            "consecutive_absences": 8,
             "attendance_risk_flag": 1,
-            "prev_sem_cgpa": 8.30,
-            "current_cgpa": 8.20,
-            "cgpa_delta": -0.10,
+            "prev_sem_cgpa": 7.80,
+            "current_cgpa": 7.40,
+            "cgpa_delta": -0.40,
             "backlog_count": 0,
-            "internal_exam_score_pct": 84.0,
+            "internal_exam_score_pct": 74.0,
             "stem_core_fail_flag": 0,
             "lms_logins_per_week": 6.8,
             "assignment_submission_lag_days": 0.5,
@@ -559,6 +585,20 @@ def run_pipeline_validation(regenerate: bool = False):
     print("\n" + "=" * 80)
     print(" ALL SANITY ASSERTIONS AND CLINICAL SAFETY CHECKS PASSED WITH ZERO ERRORS ")
     print("=" * 80)
+
+    # 7. Deterministically sync README.md metrics from generated JSON artifacts
+    try:
+        import sys
+        from ml.config import BASE_DIR
+        if str(BASE_DIR) not in sys.path:
+            sys.path.insert(0, str(BASE_DIR))
+        from scripts.render_readme_metrics import update_readme
+        print("\n [i] Updating README.md metrics from JSON artifacts...")
+        update_readme()
+        print(" [✓] PASS: README.md metrics successfully synchronized with model_metrics.json & fairness_metrics.json.")
+    except Exception as exc:
+        logger.error("Could not automatically update README.md metrics: %s", exc)
+        raise exc
 
 
 if __name__ == "__main__":

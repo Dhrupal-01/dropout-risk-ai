@@ -5,7 +5,7 @@ import {
   Search, FilterX, Users, AlertOctagon, AlertTriangle, CheckCircle, 
   ChevronLeft, ChevronRight, Eye, AlertCircle
 } from 'lucide-react';
-import { getMentorQueue } from '../api/endpoints';
+import { getMentorQueue, getMentorFilters, getStatsSummary } from '../api/endpoints';
 import RiskTierChip from '../components/RiskTierChip';
 
 // Helper hook to debounce input search queries
@@ -82,46 +82,26 @@ const Dashboard = () => {
       department,
       risk_tier: riskTier || undefined,
       assigned_mentor_id: assignedMentorId || undefined,
+      search: debouncedSearch || undefined,
       limit,
       offset,
-      // Search parameter is handled client-side if API doesn't support search,
-      // but we send it or apply it appropriately.
     }),
     keepPreviousData: true,
   });
 
-  // KPI metadata queries to show totals (using limit=1 for optimal performance)
-  const { data: totalHigh } = useQuery({
-    queryKey: ['kpi-high'],
-    queryFn: () => getMentorQueue({ risk_tier: 'High', limit: 1 }),
-  });
-  const { data: totalMedium } = useQuery({
-    queryKey: ['kpi-medium'],
-    queryFn: () => getMentorQueue({ risk_tier: 'Medium', limit: 1 }),
-  });
-  const { data: totalLow } = useQuery({
-    queryKey: ['kpi-low'],
-    queryFn: () => getMentorQueue({ risk_tier: 'Low', limit: 1 }),
-  });
-  const { data: totalStudents } = useQuery({
-    queryKey: ['kpi-total'],
-    queryFn: () => getMentorQueue({ limit: 1 }),
+  // Single SQL GROUP BY query for cohort stats summary
+  const { data: statsData } = useQuery({
+    queryKey: ['stats-summary'],
+    queryFn: getStatsSummary,
   });
 
-  // Common departments and mentors list for filters (static mock lists for demo selectors)
-  const DEPARTMENTS = [
-    'Computer Science & Engineering',
-    'Information Technology',
-    'Electronics & Communication Engineering',
-    'Mechanical Engineering',
-    'Electrical Engineering'
-  ];
-  const MENTORS = [
-    { id: 'FAC_001', name: 'Dr. A. Sharma' },
-    { id: 'FAC_007', name: 'Prof. Meera Nair (FAC_007)' },
-    { id: 'FAC_012', name: 'Dr. R. Patel' },
-    { id: 'FAC_015', name: 'Prof. S. Das' },
-  ];
+  // Dynamic departments and mentors list from backend filters endpoint
+  const { data: filtersData, isLoading: isFiltersLoading } = useQuery({
+    queryKey: ['mentor-filters'],
+    queryFn: getMentorFilters,
+  });
+  const departments = filtersData?.departments || [];
+  const mentorIds = filtersData?.mentor_ids || [];
 
   // Pagination page count helpers
   const totalItems = queueData?.total || 0;
@@ -183,28 +163,28 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {renderKpiCard(
           'High Risk outreach', 
-          totalHigh?.total, 
+          statsData?.by_tier?.High, 
           <AlertOctagon className="w-5 h-5 text-risk-high" />, 
           'bg-red-50 dark:bg-red-950/20', 
           'border-red-200 dark:border-red-900/40'
         )}
         {renderKpiCard(
           'Medium Risk watchlist', 
-          totalMedium?.total, 
+          statsData?.by_tier?.Medium, 
           <AlertTriangle className="w-5 h-5 text-risk-medium" />, 
           'bg-amber-50 dark:bg-amber-950/20', 
           'border-amber-200 dark:border-amber-900/40'
         )}
         {renderKpiCard(
           'Low Risk monitor', 
-          totalLow?.total, 
+          statsData?.by_tier?.Low, 
           <CheckCircle className="w-5 h-5 text-risk-low" />, 
           'bg-green-50 dark:bg-green-950/20', 
           'border-green-200 dark:border-green-900/40'
         )}
         {renderKpiCard(
           'Total Students scored', 
-          totalStudents?.total, 
+          statsData?.total, 
           <Users className="w-5 h-5 text-accent" />, 
           'bg-blue-50 dark:bg-blue-950/20', 
           'border-blue-200 dark:border-blue-900/40'
@@ -219,11 +199,12 @@ const Dashboard = () => {
             <select
               value={department}
               onChange={(e) => handleFilterChange('department', e.target.value)}
-              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
+              disabled={isFiltersLoading}
+              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors disabled:opacity-50"
               aria-label="Filter by department"
             >
               <option value="">All Departments</option>
-              {DEPARTMENTS.map(dept => (
+              {departments.map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
@@ -245,12 +226,13 @@ const Dashboard = () => {
             <select
               value={assignedMentorId}
               onChange={(e) => handleFilterChange('assigned_mentor_id', e.target.value)}
-              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
+              disabled={isFiltersLoading}
+              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors disabled:opacity-50"
               aria-label="Filter by assigned mentor"
             >
               <option value="">All Mentors</option>
-              {MENTORS.map(mentor => (
-                <option key={mentor.id} value={mentor.id}>{mentor.name}</option>
+              {mentorIds.map(mId => (
+                <option key={mId} value={mId}>{mId}</option>
               ))}
             </select>
 

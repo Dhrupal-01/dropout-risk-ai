@@ -32,14 +32,19 @@ async def lifespan(app: FastAPI):
 
     if ml_service.load():
         logger.info(
-            "ML artifacts ready (version=%s, features=%d)",
+            "Collegiate ML artifacts ready (version=%s, features=%d)",
             ml_service.model_version,
             len(ml_service.feature_names),
         )
     else:
-        # Deliberately non-fatal: the service still starts so /health can report the
-        # failure, rather than crash-looping with no diagnostics.
-        logger.error("Starting WITHOUT ML artifacts: %s", ml_service.load_error)
+        logger.error("Starting WITHOUT collegiate ML artifacts: %s", ml_service.load_error)
+
+    try:
+        from ml.models.universal_engine import universal_engine
+        universal_engine.load_all_artifacts()
+        logger.info("Universal Multi-Tier ML Engine loaded successfully (5 Stages: Pre-10th to PhD).")
+    except Exception as e:
+        logger.error("Error loading Universal Multi-Tier ML Engine: %s", e)
 
     yield
 

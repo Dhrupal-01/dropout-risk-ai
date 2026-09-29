@@ -371,6 +371,19 @@ class MLService:
         self._validate_frame(frame)
         return self._explainer_service.explain_local_student(frame.iloc[0], top_k=top_k)
 
+    def explain_batch_from_snapshots(
+        self, model_features_list: List[Dict[str, Any]], top_k: int = 5
+    ) -> List[List[Dict[str, Any]]]:
+        """
+        Explain a batch of PERSISTED 37-feature snapshots in a SINGLE TreeExplainer call.
+        """
+        self._require_loaded()
+        if not model_features_list:
+            return []
+        frame = pd.DataFrame(model_features_list).reindex(columns=self._feature_names)
+        self._validate_frame(frame)
+        return self._explainer_service.explain_local_batch(frame, top_k=top_k)
+
     def explain(self, raw_features: Dict[str, Any], top_k: int = 5) -> List[Dict[str, Any]]:
         """Top-k local SHAP drivers with counselor-facing plain-language sentences."""
         self._require_loaded()

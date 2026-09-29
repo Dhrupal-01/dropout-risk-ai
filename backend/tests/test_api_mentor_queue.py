@@ -183,6 +183,19 @@ class TestPagination:
         assert client.get(f"{QUEUE_URL}?limit=500").status_code == 422
         assert client.get(f"{QUEUE_URL}?offset=-1").status_code == 422
 
+    def test_cursor_pagination_matches_offset(self, client, seeded_queue):
+        page1 = client.get(f"{QUEUE_URL}?limit=2").json()
+        assert len(page1["items"]) == 2
+        assert page1.get("next_cursor") is not None
+
+        cursor = page1["next_cursor"]
+        page2_cursor = client.get(f"{QUEUE_URL}?limit=2&cursor={cursor}").json()
+        page2_offset = client.get(f"{QUEUE_URL}?limit=2&offset=2").json()
+
+        assert [i["student_id"] for i in page2_cursor["items"]] == [
+            i["student_id"] for i in page2_offset["items"]
+        ]
+
 
 @requires_db
 class TestQueueFields:
@@ -283,3 +296,82 @@ class TestRankingSafety:
         disclaimer = client.get(f"{QUEUE_URL}?limit=1").json()["disclaimer"].lower()
         assert "not" in disclaimer
         assert "punitive" in disclaimer or "support" in disclaimer
+
+
+@requires_db
+class TestSearchFilter:
+    def test_search_by_exact_student_id(self, client, seeded_queue):
+        res = client.get(f"{QUEUE_URL}?search=Q_CSE_H1&limit=200").json()
+        assert res["total"] == 1
+        assert res["items"][0]["student_id"] == "Q_CSE_H1"
+
+    def test_search_by_name_case_insensitive(self, client, seeded_queue):
+        # Name in fixture is "Student Q_CSE_H1"
+        res = client.get(f"{QUEUE_URL}?search=student q_cse_h1&limit=200").json()
+        assert res["total"] == 1
+        assert res["items"][0]["student_id"] == "Q_CSE_H1"
+
+    def test_search_partial_name(self, client, seeded_queue):
+        res = client.get(f"{QUEUE_URL}?search=mech&limit=200").json()
+        assert res["total"] == 2
+        assert all("MECH" in i["student_id"] for i in res["items"])
+
+    def test_search_no_match(self, client, seeded_queue):
+        res = client.get(f"{QUEUE_URL}?search=NonexistentStudentXYZ&limit=200").json()
+        assert res["total"] == 0
+        assert res["items"] == []
+
+    def test_search_escapes_percent_wildcard(self, client, db_engine, high_risk_features):
+        # Create one student with a literal '%' in ID, and another with 'X'
+        client.post(PREDICT_URL, json=body("Q_TEST%PCT", high_risk_features, name="Student Pct"))
+        client.post(PREDICT_URL, json=body("Q_TESTXPCT", high_risk_features, name="Student XPct"))
+
+        res = client.get(f"{QUEUE_URL}?search=TEST%25PCT&limit=200").json()
+        student_ids = [i["student_id"] for i in res["items"]]
+        assert "Q_TEST%PCT" in student_ids
+        assert "Q_TESTXPCT" not in student_ids
+
+    def test_search_escapes_underscore_wildcard(self, client, db_engine, high_risk_features):
+        # In SQL LIKE, '_' matches any single character.
+        # Searching for 'ST_1' should match 'ST_1' literally, not 'STX1'
+        client.post(PREDICT_URL, json=body("ST_1", high_risk_features, name="Student Underscore"))
+        client.post(PREDICT_URL, json=body("STX1", high_risk_features, name="Student X"))
+
+        res = client.get(f"{QUEUE_URL}?search=ST_1&limit=200").json()
+        student_ids = [i["student_id"] for i in res["items"]]
+        assert "ST_1" in student_ids
+        assert "STX1" not in student_ids
+
+
+@requires_db
+class TestMentorFiltersEndpoint:
+    def test_filters_returns_distinct_sorted_values(self, client, seeded_queue):
+        res = client.get("/api/v1/mentors/filters")
+        assert res.status_code == 200
+        data = res.json()
+        assert "departments" in data
+        assert "mentor_ids" in data
+
+        departments = data["departments"]
+        mentor_ids = data["mentor_ids"]
+
+        # Non-null, non-empty
+        assert len(departments) >= 2
+        assert len(mentor_ids) >= 2
+        assert all(isinstance(d, str) and d for d in departments)
+        assert all(isinstance(m, str) and m for m in mentor_ids)
+
+        # Distinct
+        assert len(departments) == len(set(departments))
+        assert len(mentor_ids) == len(set(mentor_ids))
+
+        # Sorted
+        assert departments == sorted(departments)
+        assert mentor_ids == sorted(mentor_ids)
+
+        # Expected fixtures present
+        assert "Computer Science & Engineering" in departments
+        assert "Mechanical Engineering" in departments
+        assert "FAC_Q1" in mentor_ids
+        assert "FAC_Q2" in mentor_ids
+

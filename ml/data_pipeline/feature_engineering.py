@@ -19,8 +19,6 @@ from typing import Optional, Tuple, List, Dict
 import numpy as np
 import pandas as pd
 
-from ml.data_pipeline.load_uci import load_clean_uci_data
-from ml.data_pipeline.load_oulad import load_clean_oulad_data
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -197,18 +195,13 @@ def generate_processed_feature_dataset(
 ) -> pd.DataFrame:
     """
     Executes the end-to-end data pipeline:
-    1. Loads / standardizes UCI and OULAD source layers
-    2. Generates the realistic Indian Higher Education cohort layer
-    3. Computes 4-pillar engineered features and interaction terms
-    4. Validates schema and exports final data/processed/features.csv
+    1. Generates the realistic Indian Higher Education cohort layer
+    2. Computes 4-pillar engineered features and interaction terms
+    3. Validates schema and exports final data/processed/features.csv
     """
     logger.info("Starting end-to-end feature engineering pipeline...")
     
-    # 1. Ensure source datasets are downloaded/available
-    uci_df = load_clean_uci_data()
-    oulad_df = load_clean_oulad_data()
-    
-    # 2. Generate the primary Indian collegiate cohort
+    # 1. Generate the primary Indian collegiate cohort
     raw_cohort = generate_indian_student_cohort(n_students=n_students, seed=seed)
     
     # 3. Apply feature engineering transformations

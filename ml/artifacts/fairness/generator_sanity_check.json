@@ -1,0 +1,176 @@
+{
+  "benchmark": "generator_sanity_check_simulated_cohort",
+  "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
+  "test_split_n300": {
+    "evaluation_scope": "Held-Out Test Set (N = 300 students, unseen 15% split)",
+    "total_false_negatives": 23,
+    "gender": {
+      "male": {
+        "n_samples": 176,
+        "base_rate": 0.3636,
+        "selection_rate": 0.3239,
+        "true_positives": 48,
+        "false_negatives": 16,
+        "true_negatives": 103,
+        "false_positives": 9,
+        "tpr_recall": 0.75,
+        "fnr_miss_rate": 0.25,
+        "fpr_alarm_rate": 0.0804
+      },
+      "female": {
+        "n_samples": 124,
+        "base_rate": 0.3306,
+        "selection_rate": 0.3387,
+        "true_positives": 34,
+        "false_negatives": 7,
+        "true_negatives": 75,
+        "false_positives": 8,
+        "tpr_recall": 0.8293,
+        "fnr_miss_rate": 0.1707,
+        "fpr_alarm_rate": 0.0964
+      },
+      "fnr_disparity": 0.0793,
+      "disparate_impact_ratio": 1.046
+    },
+    "economic_proxy": {
+      "lower_income_under_5lpa": {
+        "n_samples": 173,
+        "base_rate": 0.3121,
+        "selection_rate": 0.3584,
+        "true_positives": 46,
+        "false_negatives": 8,
+        "true_negatives": 103,
+        "false_positives": 16,
+        "tpr_recall": 0.8519,
+        "fnr_miss_rate": 0.1481,
+        "fpr_alarm_rate": 0.1345
+      },
+      "higher_income_above_5lpa": {
+        "n_samples": 127,
+        "base_rate": 0.4016,
+        "selection_rate": 0.2913,
+        "true_positives": 36,
+        "false_negatives": 15,
+        "true_negatives": 75,
+        "false_positives": 1,
+        "tpr_recall": 0.7059,
+        "fnr_miss_rate": 0.2941,
+        "fpr_alarm_rate": 0.0132
+      },
+      "fnr_disparity": 0.146
+    },
+    "first_generation": {
+      "first_gen": {
+        "n_samples": 102,
+        "base_rate": 0.2941,
+        "selection_rate": 0.2745,
+        "true_positives": 19,
+        "false_negatives": 11,
+        "true_negatives": 63,
+        "false_positives": 9,
+        "tpr_recall": 0.6333,
+        "fnr_miss_rate": 0.3667,
+        "fpr_alarm_rate": 0.125
+      },
+      "non_first_gen": {
+        "n_samples": 198,
+        "base_rate": 0.3788,
+        "selection_rate": 0.3586,
+        "true_positives": 63,
+        "false_negatives": 12,
+        "true_negatives": 115,
+        "false_positives": 8,
+        "tpr_recall": 0.84,
+        "fnr_miss_rate": 0.16,
+        "fpr_alarm_rate": 0.065
+      },
+      "fnr_disparity": 0.2067
+    }
+  },
+  "cross_validation_n2000": {
+    "evaluation_scope": "5-Fold Stratified Cross-Validation (N = 2000 out-of-fold samples)",
+    "total_false_negatives": 159,
+    "gender": {
+      "male": {
+        "n_samples": 1155,
+        "base_rate": 0.3584,
+        "selection_rate": 0.329,
+        "true_positives": 319,
+        "false_negatives": 95,
+        "true_negatives": 680,
+        "false_positives": 61,
+        "tpr_recall": 0.7705,
+        "fnr_miss_rate": 0.2295,
+        "fpr_alarm_rate": 0.0823
+      },
+      "female": {
+        "n_samples": 845,
+        "base_rate": 0.342,
+        "selection_rate": 0.3124,
+        "true_positives": 225,
+        "false_negatives": 64,
+        "true_negatives": 517,
+        "false_positives": 39,
+        "tpr_recall": 0.7785,
+        "fnr_miss_rate": 0.2215,
+        "fpr_alarm_rate": 0.0701
+      },
+      "fnr_disparity": 0.008,
+      "disparate_impact_ratio": 0.95
+    },
+    "economic_proxy": {
+      "lower_income_under_5lpa": {
+        "n_samples": 1206,
+        "base_rate": 0.3566,
+        "selection_rate": 0.3358,
+        "true_positives": 341,
+        "false_negatives": 89,
+        "true_negatives": 712,
+        "false_positives": 64,
+        "tpr_recall": 0.793,
+        "fnr_miss_rate": 0.207,
+        "fpr_alarm_rate": 0.0825
+      },
+      "higher_income_above_5lpa": {
+        "n_samples": 794,
+        "base_rate": 0.3438,
+        "selection_rate": 0.301,
+        "true_positives": 203,
+        "false_negatives": 70,
+        "true_negatives": 485,
+        "false_positives": 36,
+        "tpr_recall": 0.7436,
+        "fnr_miss_rate": 0.2564,
+        "fpr_alarm_rate": 0.0691
+      },
+      "fnr_disparity": 0.0494
+    },
+    "first_generation": {
+      "first_gen": {
+        "n_samples": 761,
+        "base_rate": 0.3456,
+        "selection_rate": 0.3193,
+        "true_positives": 205,
+        "false_negatives": 58,
+        "true_negatives": 460,
+        "false_positives": 38,
+        "tpr_recall": 0.7795,
+        "fnr_miss_rate": 0.2205,
+        "fpr_alarm_rate": 0.0763
+      },
+      "non_first_gen": {
+        "n_samples": 1239,
+        "base_rate": 0.3551,
+        "selection_rate": 0.3236,
+        "true_positives": 339,
+        "false_negatives": 101,
+        "true_negatives": 737,
+        "false_positives": 62,
+        "tpr_recall": 0.7705,
+        "fnr_miss_rate": 0.2295,
+        "fpr_alarm_rate": 0.0776
+      },
+      "fnr_disparity": 0.009
+    }
+  }
+}

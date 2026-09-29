@@ -8,17 +8,20 @@ Generates ~2,000 realistic student records across the 4 core pillars:
 3. Learning Behavior: LMS login frequency, assignment submission lag (days), digital resource views, forum activity, inactivity recency.
 4. Socio-Economic Indicators: Family income slab, first-generation learner status, hostel vs day-scholar status, fee payment delay (days), scholarship status, commute distance.
 
-Target Generation Logic:
-A mathematically rigorous and defensible logistic model combining non-linear risk factors,
-interaction terms, and realistic noise is used to simulate the Ground-Truth Dropout Risk probability.
+All structural coefficients, distribution parameters, and policy thresholds are loaded dynamically
+from ml/simulation/assumptions.yaml without hardcoded constants in Python.
+The baseline intercept beta_0 is solved numerically at generation time to calibrate the expected cohort
+dropout rate exactly to the target base rate, and binary labels are drawn via Bernoulli trials.
 """
 
-import os
 import logging
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import pandas as pd
+from scipy.optimize import brentq
+import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -26,241 +29,344 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 SYNTHETIC_DATA_DIR = BASE_DIR / "data" / "synthetic"
 DEFAULT_OUTPUT_PATH = SYNTHETIC_DATA_DIR / "indian_college_students.csv"
+ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
+
+
+def load_simulation_assumptions(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Loads simulation parameters and assumptions from YAML specification."""
+    yaml_path = path or ASSUMPTIONS_PATH
+    if not yaml_path.exists():
+        raise FileNotFoundError(f"Simulation assumptions file not found at: {yaml_path}")
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data
+
+
+def get_param(assumptions: Dict[str, Any], section: str, key: str) -> Any:
+    """Helper to safely retrieve parameter values from structured assumptions."""
+    try:
+        return assumptions[section][key]["value"]
+    except KeyError as exc:
+        raise KeyError(f"Parameter '{section}.{key}' missing from assumptions.yaml") from exc
+
+
+def solve_intercept_for_base_rate(z_uncentered: np.ndarray, target_rate: float) -> float:
+    """
+    Solves for beta_0 such that mean(sigmoid(beta_0 + z_uncentered)) == target_rate.
+    Since mean(sigmoid(beta_0 + z)) is strictly monotonically increasing in beta_0,
+    Brent's root finding algorithm guarantees rapid and exact numerical convergence.
+    """
+    def obj(b: float) -> float:
+        p = 1.0 / (1.0 + np.exp(-np.clip(b + z_uncentered, -25.0, 25.0)))
+        return float(np.mean(p) - target_rate)
+
+    b_min, b_max = -20.0, 20.0
+    if obj(b_min) > 0:
+        b_min = -50.0
+    if obj(b_max) < 0:
+        b_max = 50.0
+
+    beta_0 = float(brentq(obj, b_min, b_max, xtol=1e-6))
+    return beta_0
 
 
 def generate_indian_student_cohort(
     n_students: int = 2000,
     seed: int = 42,
-    output_path: Optional[Path] = DEFAULT_OUTPUT_PATH
+    output_path: Optional[Path] = DEFAULT_OUTPUT_PATH,
+    assumptions_path: Optional[Path] = None,
 ) -> pd.DataFrame:
     """
-    Generates a realistic cohort of Indian collegiate students.
-    
-    =============================================================================
-    DOCUMENTATION OF GROUND-TRUTH RISK LOGIC & WEIGHTS
-    =============================================================================
-    The log-odds of dropout z_i for student i is modeled as:
-    
-    z = beta_0 
-        + beta_att * (75.0 - attendance_pct) / 10.0           # Attendance penalty below 75% rule
-        + beta_att_slope * (-attendance_3m_trend)            # Deteriorating attendance slope
-        + beta_absences * (consecutive_absences / 5.0)       # Long absence streaks
-        + beta_cgpa * (6.5 - current_cgpa)                   # Low academic standing (<6.5)
-        + beta_cgpa_drop * (-cgpa_delta)                     # Declining semester trajectory
-        + beta_backlog * backlog_count                       # Heavy weight on accumulated failed papers
-        + beta_fee_delay * (fee_payment_delay_days / 30.0)   # Economic distress from fee default
-        + beta_first_gen * is_first_generation               # Lack of academic mentorship at home
-        - beta_scholarship * has_scholarship                 # Scholarship acts as protective buffer
-        - beta_lms_login * (lms_logins_per_week - 4.0)       # High digital engagement is protective
-        + beta_sub_lag * (submission_lag_days / 3.0)         # Procrastination / difficulty with assignments
-        + beta_lms_inactive * (days_since_last_lms / 10.0)   # Disengagement recency
-        + INTERACTION_TERMS                                  # Compound vulnerability interactions
-        + epsilon                                            # Unobserved idiosyncratic noise ~ N(0, sigma^2)
-        
-    Specific Coefficients & Justifications:
-    -----------------------------------------------------------------------------
-    1. Intercept (beta_0 = -1.85): Sets baseline cohort dropout probability to ~18-22%,
-       consistent with national AICTE/UGC higher education persistence figures.
-    2. Attendance (beta_att = +0.75): In the Indian higher education system, the 75%
-       attendance requirement is legally enforced for exam eligibility. Dropping below
-       this creates an immediate institutional debarment risk.
-    3. Backlog Count (beta_backlog = +0.85): Each uncleared semester course creates
-       compounding examination backlog debt, known to be the single highest academic
-       dropout driver in engineering programs.
-    4. CGPA Drop (beta_cgpa_drop = +0.60): A sudden drop between semesters signals
-       acute distress (mental health, personal emergency, or subject difficulty).
-    5. Fee Payment Delay (beta_fee_delay = +0.55 per 30 days): Private and semi-aided
-       colleges hold hall tickets for overdue fees; students with chronic 60-90+ day
-       delays face severe administrative stress and financial dropouts.
-    6. Interaction (Low Attendance x Fee Delay = +0.40): Students experiencing BOTH
-       attendance collapse AND financial default have an exponentially higher risk
-       than either factor in isolation (double crisis).
-    7. Interaction (High Backlogs x Low CGPA = +0.50): Students with CGPA < 5.0 and
-       >= 3 backlogs face year-down / detaining regulations.
-    =============================================================================
+    Generates a realistic cohort of Indian collegiate students using empirical parameters
+    grounded in UCI ID 697, OULAD UCI ID 349, and Indian regulatory mandates.
     """
     logger.info("Generating Indian college student cohort (N=%d, seed=%d)...", n_students, seed)
     rng = np.random.default_rng(seed)
 
-    # 1. Student Identity & Demographics
-    student_ids = [f"IND_2026_{i:04d}" for i in range(1, n_students + 1)]
-    
-    # Gender distribution in Indian Higher Ed / STEM (~58% Male, 42% Female)
-    gender = rng.choice(["Male", "Female"], size=n_students, p=[0.58, 0.42])
-    gender_binary = (gender == "Male").astype(int)
-    
-    # Social category distribution (standard Indian admissions quota mix)
-    category = rng.choice(["General", "OBC", "SC", "ST", "EWS"], size=n_students, p=[0.35, 0.32, 0.18, 0.09, 0.06])
-    
-    # Age at 2nd/3rd year of college
-    age = np.clip(np.round(rng.normal(20.1, 1.3, size=n_students), 1), 17.5, 27.0)
-    
-    # Residential status
-    hostel_status = rng.choice(["Hosteler", "Day Scholar"], size=n_students, p=[0.45, 0.55])
+    assumptions = load_simulation_assumptions(assumptions_path)
+
+    # Base rate and warning on TODO(citation)
+    target_rate_meta = assumptions.get("cohort_metadata", {}).get("target_base_rate", {})
+    target_base_rate = float(target_rate_meta.get("value", 0.355))
+    if target_rate_meta.get("source") == "TODO(citation)":
+        logger.warning(
+            "Target base rate %.4f is marked TODO(citation) in assumptions.yaml. "
+            "Using placeholder national baseline dropout rate for Indian higher education institutions.",
+            target_base_rate,
+        )
+
+    # 1. Demographics & Socioeconomic Parameters
+    id_prefix = str(get_param(assumptions, "demographics_distribution", "student_id_prefix"))
+    student_ids = [f"{id_prefix}{i:04d}" for i in range(1, n_students + 1)]
+
+    gender_props = get_param(assumptions, "demographics_distribution", "gender_proportions")
+    gender = rng.choice(list(gender_props.keys()), size=n_students, p=list(gender_props.values()))
+
+    category_props = get_param(assumptions, "demographics_distribution", "category_proportions")
+    category = rng.choice(list(category_props.keys()), size=n_students, p=list(category_props.values()))
+
+    age_mean = float(get_param(assumptions, "demographics_distribution", "age_mean"))
+    age_std = float(get_param(assumptions, "demographics_distribution", "age_std"))
+    age_min = float(get_param(assumptions, "demographics_distribution", "age_min"))
+    age_max = float(get_param(assumptions, "demographics_distribution", "age_max"))
+    age = np.clip(np.round(rng.normal(age_mean, age_std, size=n_students), 1), age_min, age_max)
+
+    hostel_props = get_param(assumptions, "demographics_distribution", "hostel_status_proportions")
+    hostel_status = rng.choice(list(hostel_props.keys()), size=n_students, p=list(hostel_props.values()))
     is_hosteler = (hostel_status == "Hosteler").astype(int)
-    
-    # Commute distance (km): Hosteler = 0.5km; Day scholar = gamma distributed
-    commute_distance_km = np.where(
-        is_hosteler == 1,
-        0.5,
-        np.round(np.clip(rng.gamma(shape=2.5, scale=4.0, size=n_students) + 1.5, 1.0, 45.0), 1)
-    )
 
-    # Socio-economic Indicators
-    # Family income slabs: 0: <2 LPA, 1: 2-5 LPA, 2: 5-8 LPA, 3: >8 LPA
-    income_slab_labels = ["<2 LPA", "2-5 LPA", "5-8 LPA", ">8 LPA"]
-    income_slab_idx = rng.choice([0, 1, 2, 3], size=n_students, p=[0.22, 0.38, 0.25, 0.15])
-    family_income_slab = np.array([income_slab_labels[i] for i in income_slab_idx])
-    
-    # First-generation college learner (higher probability in lower income slabs)
-    first_gen_prob = np.where(income_slab_idx == 0, 0.65, np.where(income_slab_idx == 1, 0.45, np.where(income_slab_idx == 2, 0.20, 0.08)))
-    is_first_generation = rng.binomial(1, first_gen_prob, size=n_students)
+    commute_hosteler_km = float(get_param(assumptions, "demographics_distribution", "commute_hosteler_km"))
+    commute_shape = float(get_param(assumptions, "demographics_distribution", "commute_day_scholar_shape"))
+    commute_scale = float(get_param(assumptions, "demographics_distribution", "commute_day_scholar_scale"))
+    commute_min = float(get_param(assumptions, "demographics_distribution", "commute_day_scholar_min_km"))
+    commute_max = float(get_param(assumptions, "demographics_distribution", "commute_day_scholar_max_km"))
+    commute_shift = float(get_param(assumptions, "demographics_distribution", "commute_day_scholar_shift_km"))
+    day_scholar_commute = np.round(np.clip(rng.gamma(shape=commute_shape, scale=commute_scale, size=n_students) + commute_shift, commute_min, commute_max), 1)
+    commute_distance_km = np.where(is_hosteler == 1, commute_hosteler_km, day_scholar_commute)
 
-    # Scholarship status: State/National/Post-Matric (targeted to SC/ST/EWS & low-income)
+    income_labels = list(get_param(assumptions, "socioeconomic_distribution", "income_slab_labels"))
+    income_props = list(get_param(assumptions, "socioeconomic_distribution", "income_slab_proportions"))
+    income_slab_idx = rng.choice(len(income_labels), size=n_students, p=income_props)
+    family_income_slab = np.array([income_labels[i] for i in income_slab_idx])
+
+    first_gen_probs = list(get_param(assumptions, "socioeconomic_distribution", "first_gen_probs_by_slab"))
+    p_first_gen = np.array([first_gen_probs[i] for i in income_slab_idx])
+    is_first_generation = rng.binomial(1, p_first_gen, size=n_students)
+
+    scholarship_quota_prob = float(get_param(assumptions, "socioeconomic_distribution", "scholarship_quota_prob"))
+    scholarship_mid_prob = float(get_param(assumptions, "socioeconomic_distribution", "scholarship_mid_prob"))
+    scholarship_high_prob = float(get_param(assumptions, "socioeconomic_distribution", "scholarship_high_prob"))
+    is_quota_eligible = np.isin(category, ["SC", "ST", "EWS"]) | (income_slab_idx == 0)
     scholarship_prob = np.where(
-        np.isin(category, ["SC", "ST", "EWS"]) | (income_slab_idx == 0),
-        0.65,
-        np.where(income_slab_idx == 1, 0.25, 0.05)
+        is_quota_eligible,
+        scholarship_quota_prob,
+        np.where(income_slab_idx == 1, scholarship_mid_prob, scholarship_high_prob),
     )
     has_scholarship = rng.binomial(1, scholarship_prob, size=n_students)
 
-    # Fee payment delay (days): Log-normal / zero-inflated (higher for low income & no scholarship)
+    fee_schol_choices = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_with_scholarship_choices"))
+    fee_schol_probs = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_with_scholarship_probs"))
+    fee_s0_choices = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_slab0_choices"))
+    fee_s0_probs = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_slab0_probs"))
+    fee_s1_choices = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_slab1_choices"))
+    fee_s1_probs = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_slab1_probs"))
+    fee_high_choices = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_high_slab_choices"))
+    fee_high_probs = list(get_param(assumptions, "socioeconomic_distribution", "fee_delay_high_slab_probs"))
+    fee_jitter_max = int(get_param(assumptions, "socioeconomic_distribution", "fee_delay_jitter_max"))
+
+    draw_schol = rng.choice(fee_schol_choices, size=n_students, p=fee_schol_probs)
+    draw_s0 = rng.choice(fee_s0_choices, size=n_students, p=fee_s0_probs)
+    draw_s1 = rng.choice(fee_s1_choices, size=n_students, p=fee_s1_probs)
+    draw_high = rng.choice(fee_high_choices, size=n_students, p=fee_high_probs)
+
     fee_delay_base = np.where(
         has_scholarship == 1,
-        rng.choice([0, 5, 15, 30], size=n_students, p=[0.75, 0.15, 0.07, 0.03]),
-        np.where(
-            income_slab_idx == 0,
-            rng.choice([0, 15, 30, 45, 60, 90, 120], size=n_students, p=[0.15, 0.20, 0.25, 0.20, 0.10, 0.07, 0.03]),
-            np.where(
-                income_slab_idx == 1,
-                rng.choice([0, 10, 20, 30, 45, 60], size=n_students, p=[0.45, 0.25, 0.15, 0.08, 0.05, 0.02]),
-                rng.choice([0, 5, 15], size=n_students, p=[0.85, 0.12, 0.03])
-            )
-        )
+        draw_schol,
+        np.where(income_slab_idx == 0, draw_s0, np.where(income_slab_idx == 1, draw_s1, draw_high)),
     )
-    fee_payment_delay_days = fee_delay_base + rng.integers(0, 5, size=n_students)
+    fee_payment_delay_days = fee_delay_base + rng.integers(0, fee_jitter_max, size=n_students)
 
-    # 2. Pillar 1: Attendance Dynamics
-    # Baseline latent discipline / health factor
-    latent_attendance_factor = rng.beta(5, 1.8, size=n_students)  # Centered around 0.75-0.90
-    
-    # Impacted slightly by long commute
-    commute_penalty = np.where(commute_distance_km > 25.0, 0.08, np.where(commute_distance_km > 15.0, 0.04, 0.0))
-    adj_att_factor = np.clip(latent_attendance_factor - commute_penalty, 0.15, 0.98)
+    # 2. Attendance Dynamics
+    latent_alpha = float(get_param(assumptions, "attendance_distribution", "latent_alpha"))
+    latent_beta = float(get_param(assumptions, "attendance_distribution", "latent_beta"))
+    latent_att_factor = rng.beta(latent_alpha, latent_beta, size=n_students)
 
-    # Subject-wise attendance %
-    # Core 1 (Maths), Core 2 (Dept Major), Lab/Practical, Elective
-    att_core1 = np.clip(rng.normal(adj_att_factor * 100.0, 6.0), 10.0, 100.0)
-    att_core2 = np.clip(rng.normal(adj_att_factor * 100.0, 5.5), 10.0, 100.0)
-    att_lab = np.clip(rng.normal(adj_att_factor * 100.0 + 4.0, 4.0), 15.0, 100.0)
-    att_elective = np.clip(rng.normal(adj_att_factor * 100.0 - 2.0, 7.0), 10.0, 100.0)
+    commute_long_thresh = float(get_param(assumptions, "attendance_distribution", "commute_long_threshold_km"))
+    commute_long_pen = float(get_param(assumptions, "attendance_distribution", "commute_long_penalty"))
+    commute_med_thresh = float(get_param(assumptions, "attendance_distribution", "commute_medium_threshold_km"))
+    commute_med_pen = float(get_param(assumptions, "attendance_distribution", "commute_medium_penalty"))
 
-    # Monthly attendance over last 3 months (Month 1 = 2 months ago, Month 2 = last month, Month 3 = current month)
-    att_slope_latent = rng.normal(0.0, 4.5, size=n_students)  # Slope per month
-    attendance_month_1 = np.clip(rng.normal(adj_att_factor * 100.0 - att_slope_latent, 4.0), 10.0, 100.0)
-    attendance_month_2 = np.clip(rng.normal(adj_att_factor * 100.0, 4.0), 10.0, 100.0)
-    attendance_month_3 = np.clip(rng.normal(adj_att_factor * 100.0 + att_slope_latent, 4.0), 10.0, 100.0)
+    commute_penalty = np.where(commute_distance_km > commute_long_thresh, commute_long_pen, np.where(commute_distance_km > commute_med_thresh, commute_med_pen, 0.0))
+    latent_att_min_clip = float(get_param(assumptions, "attendance_distribution", "latent_attendance_min_clip"))
+    latent_att_max_clip = float(get_param(assumptions, "attendance_distribution", "latent_attendance_max_clip"))
+    adj_att_factor = np.clip(latent_att_factor - commute_penalty, latent_att_min_clip, latent_att_max_clip)
 
-    # Overall Attendance %
-    attendance_percentage = np.round(0.25 * attendance_month_1 + 0.35 * attendance_month_2 + 0.40 * attendance_month_3, 1)
-    
-    # 3-Month Linear Trend Slope: (M3 - M1) / 2
+    att_min = float(get_param(assumptions, "attendance_distribution", "attendance_min"))
+    att_max = float(get_param(assumptions, "attendance_distribution", "attendance_max"))
+    core1_std = float(get_param(assumptions, "attendance_distribution", "core1_noise_std"))
+    core2_std = float(get_param(assumptions, "attendance_distribution", "core2_noise_std"))
+    lab_boost = float(get_param(assumptions, "attendance_distribution", "lab_boost"))
+    lab_std = float(get_param(assumptions, "attendance_distribution", "lab_noise_std"))
+    elec_pen = float(get_param(assumptions, "attendance_distribution", "elective_penalty"))
+    elec_std = float(get_param(assumptions, "attendance_distribution", "elective_noise_std"))
+
+    att_core1 = np.clip(rng.normal(adj_att_factor * 100.0, core1_std), att_min, att_max)
+    att_core2 = np.clip(rng.normal(adj_att_factor * 100.0, core2_std), att_min, att_max)
+    att_lab = np.clip(rng.normal(adj_att_factor * 100.0 + lab_boost, lab_std), 15.0, att_max)
+    att_elective = np.clip(rng.normal(adj_att_factor * 100.0 - elec_pen, elec_std), att_min, att_max)
+
+    slope_noise_std = float(get_param(assumptions, "attendance_distribution", "attendance_slope_noise_std"))
+    att_slope_latent = rng.normal(0.0, slope_noise_std, size=n_students)
+    attendance_month_1 = np.clip(rng.normal(adj_att_factor * 100.0 - att_slope_latent, 4.0), att_min, att_max)
+    attendance_month_2 = np.clip(rng.normal(adj_att_factor * 100.0, 4.0), att_min, att_max)
+    attendance_month_3 = np.clip(rng.normal(adj_att_factor * 100.0 + att_slope_latent, 4.0), att_min, att_max)
+
+    weights = list(get_param(assumptions, "attendance_distribution", "month_weights"))
+    attendance_percentage = np.round(weights[0] * attendance_month_1 + weights[1] * attendance_month_2 + weights[2] * attendance_month_3, 1)
     attendance_3m_trend = np.round((attendance_month_3 - attendance_month_1) / 2.0, 2)
-    
-    # Consecutive absent days in the last 60-day window
-    # Lower overall attendance correlates with higher consecutive absence spikes
+
+    abs_ranges = list(get_param(assumptions, "attendance_distribution", "consecutive_absence_ranges"))
+    abs_thresh = list(get_param(assumptions, "attendance_distribution", "consecutive_absence_thresholds"))
+    draw_abs_0 = rng.integers(abs_ranges[0][0], abs_ranges[0][1], size=n_students)
+    draw_abs_1 = rng.integers(abs_ranges[1][0], abs_ranges[1][1], size=n_students)
+    draw_abs_2 = rng.integers(abs_ranges[2][0], abs_ranges[2][1], size=n_students)
+    draw_abs_3 = rng.integers(abs_ranges[3][0], abs_ranges[3][1], size=n_students)
+
     consecutive_absences = np.where(
-        attendance_percentage < 50.0,
-        rng.integers(8, 25, size=n_students),
+        attendance_percentage < abs_thresh[0],
+        draw_abs_0,
         np.where(
-            attendance_percentage < 65.0,
-            rng.integers(4, 12, size=n_students),
-            np.where(
-                attendance_percentage < 75.0,
-                rng.integers(2, 7, size=n_students),
-                rng.integers(0, 3, size=n_students)
-            )
-        )
+            attendance_percentage < abs_thresh[1],
+            draw_abs_1,
+            np.where(attendance_percentage < abs_thresh[2], draw_abs_2, draw_abs_3),
+        ),
     )
 
-    # Mandatory 75% rule flag in Indian colleges
-    attendance_risk_flag = (attendance_percentage < 75.0).astype(int)
+    mandatory_att_thresh = float(get_param(assumptions, "regulations_and_thresholds", "mandatory_attendance_threshold"))
+    attendance_risk_flag = (attendance_percentage < mandatory_att_thresh).astype(int)
 
-    # 3. Pillar 2: Academic Performance
-    # Prior semester CGPA (0.00 to 10.00 scale)
-    base_academic_ability = rng.normal(7.2, 1.4, size=n_students)
-    prev_sem_cgpa = np.clip(np.round(base_academic_ability, 2), 3.50, 9.95)
+    # 3. Academic Performance
+    prior_cgpa_mean = float(get_param(assumptions, "academic_distribution", "prior_cgpa_mean"))
+    prior_cgpa_std = float(get_param(assumptions, "academic_distribution", "prior_cgpa_std"))
+    prev_cgpa_min = float(get_param(assumptions, "academic_distribution", "prev_cgpa_min"))
+    prev_cgpa_max = float(get_param(assumptions, "academic_distribution", "prev_cgpa_max"))
+    prev_sem_cgpa = np.clip(np.round(rng.normal(prior_cgpa_mean, prior_cgpa_std, size=n_students), 2), prev_cgpa_min, prev_cgpa_max)
 
-    # Current semester CGPA with trajectory
-    cgpa_noise = rng.normal(0.0, 0.45, size=n_students)
-    # Falling attendance strongly damages current semester CGPA
-    att_effect_on_cgpa = (attendance_percentage - 75.0) * 0.025
-    current_cgpa = np.clip(np.round(prev_sem_cgpa + att_effect_on_cgpa + cgpa_noise, 2), 2.50, 10.00)
+    cgpa_noise_std = float(get_param(assumptions, "academic_distribution", "cgpa_noise_std"))
+    cgpa_noise = rng.normal(0.0, cgpa_noise_std, size=n_students)
+    att_cgpa_slope = float(get_param(assumptions, "academic_distribution", "attendance_cgpa_slope"))
+    att_effect_on_cgpa = (attendance_percentage - mandatory_att_thresh) * att_cgpa_slope
+
+    cgpa_min = float(get_param(assumptions, "academic_distribution", "cgpa_min"))
+    cgpa_max = float(get_param(assumptions, "academic_distribution", "cgpa_max"))
+    current_cgpa = np.clip(np.round(prev_sem_cgpa + att_effect_on_cgpa + cgpa_noise, 2), cgpa_min, cgpa_max)
     cgpa_delta = np.round(current_cgpa - prev_sem_cgpa, 2)
 
-    # Backlog count (Uncleared active backlogs)
-    # Heavily increases as CGPA drops below 6.0 and attendance drops below 70%
-    backlog_lambda = np.maximum(0.05, 4.5 * np.exp(-0.8 * current_cgpa) + 1.8 * (attendance_percentage < 65.0))
-    backlog_count = np.clip(rng.poisson(lam=backlog_lambda, size=n_students), 0, 7)
+    backlog_base_lam = float(get_param(assumptions, "academic_distribution", "backlog_base_lambda"))
+    backlog_cgpa_decay = float(get_param(assumptions, "academic_distribution", "backlog_cgpa_decay"))
+    backlog_att_boost = float(get_param(assumptions, "academic_distribution", "backlog_attendance_boost"))
+    backlog_max = int(get_param(assumptions, "academic_distribution", "backlog_max"))
+    backlog_lambda = np.maximum(0.05, backlog_base_lam * np.exp(-backlog_cgpa_decay * current_cgpa) + backlog_att_boost * (attendance_percentage < 65.0))
+    backlog_count = np.clip(rng.poisson(lam=backlog_lambda, size=n_students), 0, backlog_max)
 
-    # Internal continuous evaluation exam percentage (0-100%)
-    internal_exam_score_pct = np.clip(np.round(current_cgpa * 9.5 + rng.normal(0, 5.0, size=n_students), 1), 15.0, 99.0)
-    
-    # STEM core course failure modeled via individual subject assessment score with realistic exam variance
-    core1_exam_score = np.clip(att_core1 * 0.45 + current_cgpa * 4.8 + rng.normal(0, 11.0, size=n_students), 5.0, 98.0)
-    stem_core_fail_flag = (core1_exam_score < 42.0).astype(int)
+    internal_mult = float(get_param(assumptions, "academic_distribution", "internal_exam_cgpa_multiplier"))
+    internal_std = float(get_param(assumptions, "academic_distribution", "internal_exam_noise_std"))
+    internal_min = float(get_param(assumptions, "academic_distribution", "internal_exam_min"))
+    internal_max = float(get_param(assumptions, "academic_distribution", "internal_exam_max"))
+    internal_exam_score_pct = np.clip(np.round(current_cgpa * internal_mult + rng.normal(0, internal_std, size=n_students), 1), internal_min, internal_max)
 
-    # 4. Pillar 3: Learning Behavior & LMS Clickstream
-    # LMS login frequency (per week, 0 to 14)
-    base_engagement = (current_cgpa / 10.0) * 0.5 + (attendance_percentage / 100.0) * 0.5
-    lms_logins_per_week = np.clip(np.round(rng.normal(base_engagement * 9.0, 2.0, size=n_students), 1), 0.0, 14.0)
+    stem_exam_att_w = float(get_param(assumptions, "academic_distribution", "stem_exam_att_weight"))
+    stem_exam_cgpa_w = float(get_param(assumptions, "academic_distribution", "stem_exam_cgpa_weight"))
+    stem_exam_noise = float(get_param(assumptions, "academic_distribution", "stem_exam_noise_std"))
+    stem_pass_mark = float(get_param(assumptions, "regulations_and_thresholds", "stem_core_pass_mark"))
+    core1_exam_min = float(get_param(assumptions, "academic_distribution", "core1_exam_score_min"))
+    core1_exam_max = float(get_param(assumptions, "academic_distribution", "core1_exam_score_max"))
+    core1_exam_score = np.clip(att_core1 * stem_exam_att_w + current_cgpa * stem_exam_cgpa_w + rng.normal(0, stem_exam_noise, size=n_students), core1_exam_min, core1_exam_max)
+    stem_core_fail_flag = (core1_exam_score < stem_pass_mark).astype(int)
 
-    # Assignment submission lag in days (Negative = submitted before deadline, Positive = submitted late/overdue)
-    assignment_submission_lag_days = np.round(rng.normal((1.0 - base_engagement) * 6.0 - 2.5, 2.2, size=n_students), 1)
+    # 4. Learning Behavior Dynamics
+    base_engagement = (current_cgpa / cgpa_max) * 0.5 + (attendance_percentage / att_max) * 0.5
 
-    # Resource access count (Total syllabus PDFs, lab manuals, and video lectures accessed)
-    resource_access_count = np.clip(np.round(rng.lognormal(mean=2.8 + 1.2 * base_engagement, sigma=0.45, size=n_students)), 2, 220).astype(int)
+    lms_mult = float(get_param(assumptions, "learning_behavior_distribution", "lms_mean_multiplier"))
+    lms_std = float(get_param(assumptions, "learning_behavior_distribution", "lms_noise_std"))
+    lms_cap = float(get_param(assumptions, "learning_behavior_distribution", "lms_max_weekly"))
+    lms_logins_per_week = np.clip(np.round(rng.normal(base_engagement * lms_mult, lms_std, size=n_students), 1), 0.0, lms_cap)
 
-    # Inactivity Recency: Days since last LMS interaction (0 to 60 days)
+    sub_scale = float(get_param(assumptions, "learning_behavior_distribution", "submission_lag_base_scale"))
+    sub_offset = float(get_param(assumptions, "learning_behavior_distribution", "submission_lag_offset"))
+    sub_std = float(get_param(assumptions, "learning_behavior_distribution", "submission_lag_noise_std"))
+    assignment_submission_lag_days = np.round(rng.normal((1.0 - base_engagement) * sub_scale - sub_offset, sub_std, size=n_students), 1)
+
+    res_mu = float(get_param(assumptions, "learning_behavior_distribution", "resource_lognormal_mean"))
+    res_slope = float(get_param(assumptions, "learning_behavior_distribution", "resource_lognormal_slope"))
+    res_sigma = float(get_param(assumptions, "learning_behavior_distribution", "resource_lognormal_sigma"))
+    res_min = int(get_param(assumptions, "learning_behavior_distribution", "resource_access_min"))
+    res_max = int(get_param(assumptions, "learning_behavior_distribution", "resource_access_max"))
+    resource_access_count = np.clip(np.round(rng.lognormal(mean=res_mu + res_slope * base_engagement, sigma=res_sigma, size=n_students)), res_min, res_max).astype(int)
+
+    inact_scale = float(get_param(assumptions, "learning_behavior_distribution", "inactivity_scale"))
+    inact_exp = float(get_param(assumptions, "learning_behavior_distribution", "inactivity_exp_scale"))
+    inact_max = int(get_param(assumptions, "learning_behavior_distribution", "inactivity_max_days"))
     days_since_last_lms_activity = np.clip(
-        np.round((1.0 - base_engagement) * 25.0 + rng.exponential(scale=3.0, size=n_students)),
-        0, 60
+        np.round((1.0 - base_engagement) * inact_scale + rng.exponential(scale=inact_exp, size=n_students)),
+        0, inact_max
     ).astype(int)
 
-    # Discussion forum participation count (Questions/Replies)
-    forum_participation_count = np.clip(rng.poisson(lam=np.maximum(0.2, base_engagement * 4.0), size=n_students), 0, 25)
+    forum_lam = float(get_param(assumptions, "learning_behavior_distribution", "forum_base_lambda"))
+    forum_max = int(get_param(assumptions, "learning_behavior_distribution", "forum_participation_max"))
+    forum_participation_count = np.clip(rng.poisson(lam=np.maximum(0.2, base_engagement * forum_lam), size=n_students), 0, forum_max)
 
-    # =========================================================================
-    # 5. DEFENSE OF GROUND-TRUTH TARGET FORMULATION
-    # =========================================================================
-    z = (
-        - 1.40                                                  # beta_0 (Baseline intercept -> ~28-35% dropout baseline)
-        + 0.040 * (75.0 - attendance_percentage)                # Attendance deficit (+1.0 for 50% attendance)
-        - 0.080 * attendance_3m_trend                           # Attendance deterioration rate
-        + 0.075 * consecutive_absences                          # Prolonged absence spells
-        + 0.500 * (6.50 - current_cgpa)                         # CGPA deficit below average
-        - 0.400 * cgpa_delta                                    # Dropping semester grade delta
-        + 0.400 * backlog_count                                 # Active uncleared backlogs
-        + 0.040 * fee_payment_delay_days                        # Financial default duration (60d = +2.4)
-        + 0.350 * is_first_generation                           # First-gen mentorship barrier
-        - 0.450 * has_scholarship                               # Scholarship financial buffer
-        - 0.120 * (lms_logins_per_week - 4.0)                   # Active digital presence
-        + 0.150 * np.maximum(0.0, assignment_submission_lag_days) # Late submission penalty
-        + 0.030 * days_since_last_lms_activity                  # Prolonged digital absence
-        + 0.350 * stem_core_fail_flag                           # Core prerequisite failure
-        # Non-linear Compound Interactions:
-        + 0.350 * ((attendance_percentage < 70.0) & (fee_payment_delay_days > 20)).astype(float)  # Dual crisis
-        + 0.350 * ((current_cgpa < 5.0) & (backlog_count >= 2)).astype(float)                     # Academic spiral
-        + rng.normal(0, 0.85, size=n_students)                  # Realistic idiosyncratic noise (~0.85)
+    # 5. Risk Formula and Calibrated Intercept Beta_0
+    # Retrieve risk coefficients from assumptions.yaml:
+    b_cgpa = float(get_param(assumptions, "risk_coefficients", "current_cgpa"))
+    b_backlog = float(get_param(assumptions, "risk_coefficients", "backlog_count"))
+    b_scholarship = float(get_param(assumptions, "risk_coefficients", "has_scholarship"))
+    b_fee_delay = float(get_param(assumptions, "risk_coefficients", "fee_payment_delay_days"))
+    b_first_gen = float(get_param(assumptions, "risk_coefficients", "is_first_generation"))
+    b_hosteler = float(get_param(assumptions, "risk_coefficients", "is_hosteler"))
+    b_lms_login = float(get_param(assumptions, "risk_coefficients", "lms_logins_per_week"))
+    b_lms_inactive = float(get_param(assumptions, "risk_coefficients", "days_since_last_lms_activity"))
+    b_sub_lag = float(get_param(assumptions, "risk_coefficients", "assignment_submission_lag_days"))
+    b_att_pct = float(get_param(assumptions, "risk_coefficients", "attendance_percentage"))
+    b_att_trend = float(get_param(assumptions, "risk_coefficients", "attendance_3m_trend"))
+    b_absences = float(get_param(assumptions, "risk_coefficients", "consecutive_absences"))
+    b_cgpa_delta = float(get_param(assumptions, "risk_coefficients", "cgpa_delta"))
+    b_stem_fail = float(get_param(assumptions, "risk_coefficients", "stem_core_fail_flag"))
+
+    # Protected attributes strictly from assumptions.yaml (defaults 0.0)
+    b_gender_male = float(get_param(assumptions, "risk_coefficients", "gender_male"))
+    b_cat_obc = float(get_param(assumptions, "risk_coefficients", "category_obc"))
+    b_cat_sc = float(get_param(assumptions, "risk_coefficients", "category_sc"))
+    b_cat_st = float(get_param(assumptions, "risk_coefficients", "category_st"))
+    b_cat_ews = float(get_param(assumptions, "risk_coefficients", "category_ews"))
+
+    # Compound non-linear interaction terms
+    dual_crisis_att_th = float(get_param(assumptions, "regulations_and_thresholds", "dual_crisis_att_threshold"))
+    dual_crisis_fee_th = float(get_param(assumptions, "regulations_and_thresholds", "dual_crisis_fee_threshold"))
+    acad_crisis_cgpa_th = float(get_param(assumptions, "regulations_and_thresholds", "academic_crisis_cgpa_threshold"))
+    acad_crisis_backlog_th = float(get_param(assumptions, "regulations_and_thresholds", "academic_crisis_backlog_threshold"))
+
+    b_inter_att_fee = float(get_param(assumptions, "risk_coefficients", "interaction_low_att_high_fee"))
+    b_inter_cgpa_backlog = float(get_param(assumptions, "risk_coefficients", "interaction_low_cgpa_high_backlogs"))
+    noise_std = float(get_param(assumptions, "risk_coefficients", "idiosyncratic_noise_std"))
+
+    # Compute uncentered log-odds z_uncentered
+    z_uncentered = (
+        b_cgpa * current_cgpa
+        + b_backlog * backlog_count
+        + b_scholarship * has_scholarship
+        + b_fee_delay * fee_payment_delay_days
+        + b_first_gen * is_first_generation
+        + b_hosteler * is_hosteler
+        + b_lms_login * lms_logins_per_week
+        + b_lms_inactive * days_since_last_lms_activity
+        + b_sub_lag * assignment_submission_lag_days
+        + b_att_pct * attendance_percentage
+        + b_att_trend * attendance_3m_trend
+        + b_absences * consecutive_absences
+        + b_cgpa_delta * cgpa_delta
+        + b_stem_fail * stem_core_fail_flag
+        + b_gender_male * (gender == "Male").astype(float)
+        + b_cat_obc * (category == "OBC").astype(float)
+        + b_cat_sc * (category == "SC").astype(float)
+        + b_cat_st * (category == "ST").astype(float)
+        + b_cat_ews * (category == "EWS").astype(float)
+        + b_inter_att_fee * ((attendance_percentage < dual_crisis_att_th) & (fee_payment_delay_days > dual_crisis_fee_th)).astype(float)
+        + b_inter_cgpa_backlog * ((current_cgpa < acad_crisis_cgpa_th) & (backlog_count >= acad_crisis_backlog_th)).astype(float)
+        + rng.normal(0, noise_std, size=n_students)
     )
 
-    # Calibrated Ground-Truth Probability via Logistic Sigmoid
-    dropout_probability = 1.0 / (1.0 + np.exp(-np.clip(z, -10.0, 10.0)))
-    
-    # Binary Dropout Ground-Truth Label (Simulating binary outcome)
-    is_dropout = (dropout_probability >= 0.50).astype(int)
+    # Solve baseline intercept beta_0 numerically so E[sigmoid(beta_0 + z)] == target_base_rate
+    beta_0 = solve_intercept_for_base_rate(z_uncentered, target_rate=target_base_rate)
+    z = beta_0 + z_uncentered
 
-    # Create master cohort dataframe
+    # Calibrated Ground-Truth Probability via Logistic Sigmoid
+    dropout_probability = 1.0 / (1.0 + np.exp(-np.clip(z, -25.0, 25.0)))
+
+    # Bernoulli Trial Sampling for realistic individual variation:
+    # is_dropout ~ Bernoulli(p_i)
+    is_dropout = (rng.uniform(0.0, 1.0, size=n_students) < dropout_probability).astype(int)
+
     df = pd.DataFrame({
         "student_id": student_ids,
         "gender": gender,
@@ -300,15 +406,17 @@ def generate_indian_student_cohort(
         "forum_participation_count": forum_participation_count,
         # Targets
         "ground_truth_risk_prob": np.round(dropout_probability, 4),
-        "is_dropout": is_dropout
+        "is_dropout": is_dropout,
     })
 
     if output_path:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path, index=False)
-        logger.info("Saved synthetic Indian cohort dataset to %s (Rows=%d, Cols=%d, Dropout Rate=%.2f%%)",
-                    output_path, len(df), len(df.columns), df["is_dropout"].mean() * 100)
+        logger.info(
+            "Saved synthetic Indian cohort dataset to %s (Rows=%d, Cols=%d, Mean Dropout Rate=%.2f%%, Calibrated beta_0=%.4f)",
+            output_path, len(df), len(df.columns), df["is_dropout"].mean() * 100, beta_0
+        )
 
     return df
 

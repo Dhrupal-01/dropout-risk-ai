@@ -24,7 +24,8 @@ from ml.config import (
     PROCESSED_DATA_PATH,
     MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
-    FAIRNESS_REPORT_PATH
+    FAIRNESS_REPORT_PATH,
+    FAIRNESS_METRICS_PATH
 )
 from ml.models.calibrate import predict_student_risk
 
@@ -325,21 +326,74 @@ DropoutGuard enforces an explicit **Fairness-First Audit Protocol**, verifying t
    Risk assessments avoid pejorative labels. Interventions are framed as proactive resource allocations (e.g., "Peer Tutoring Referral" or "Financial Aid Desk Check-in") rather than student deficits.
 3. **SHAP-Verifiable Interpretability**:
    Every risk probability is accompanied by signed SHAP local drivers, enabling mentors to verify the causal rationale before taking action.
-4. **Data Minimization & Confidentiality**:
-   Socio-economic features are encrypted at rest and used solely to route financial relief, preventing stigmatization across student bodies.
+4. **Data Minimization, Need Signals & Confidentiality**:
+   Household income is used as an active model input via `income_slab_idx` and `financial_stress_index` exclusively as an objective need signal to prioritize and route emergency financial aid and fee-waiver interventions to economically vulnerable students. Only the duplicate raw string label (`family_income_slab`) and sensitive social categories are excluded from model training to prevent categorical bias. All socio-economic indicators are confidential, encrypted at rest, and never used for punitive academic actions.
 """
 
-    with open(FAIRNESS_REPORT_PATH, "w") as f:
-        f.write(markdown_report.strip() + "\n")
+    # -------------------------------------------------------------
+    # Write Generator Sanity Check & Synchronize Report
+    # -------------------------------------------------------------
+    gen_check_dict = {
+        "benchmark": "generator_sanity_check_simulated_cohort",
+        "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
+        "test_split_n300": test_split_summary,
+        "cross_validation_n2000": cv_audit,
+    }
 
-    logger.info("Successfully generated comprehensive fairness audit at %s", FAIRNESS_REPORT_PATH)
-    return {
+    fairness_dir = FAIRNESS_METRICS_PATH.parent / "fairness"
+    fairness_dir.mkdir(parents=True, exist_ok=True)
+    with open(fairness_dir / "generator_sanity_check.json", "w") as f:
+        json.dump(gen_check_dict, f, indent=2)
+
+    # Synchronize unified metrics file
+    existing_metrics = {}
+    if FAIRNESS_METRICS_PATH.exists():
+        try:
+            with open(FAIRNESS_METRICS_PATH, "r") as f:
+                existing_metrics = json.load(f)
+        except Exception:
+            existing_metrics = {}
+
+    summary_dict = {
         "gender": test_split_summary["gender"],
         "economic_proxy": test_split_summary["economic_proxy"],
         "first_generation": test_split_summary["first_generation"],
         "test_split": test_split_summary,
-        "cross_validation": cv_audit
+        "cross_validation": cv_audit,
     }
+
+    existing_metrics["gender"] = summary_dict["gender"]
+    existing_metrics["economic_proxy"] = summary_dict["economic_proxy"]
+    existing_metrics["first_generation"] = summary_dict["first_generation"]
+    existing_metrics["generator_sanity_check"] = {
+        "description": gen_check_dict["description"],
+        "test_split_fnr_gaps": {
+            "gender": test_split_summary["gender"]["fnr_disparity"],
+            "economic_proxy": test_split_summary["economic_proxy"]["fnr_disparity"],
+            "first_generation": test_split_summary["first_generation"]["fnr_disparity"],
+        },
+        "cross_validation_fnr_gaps": {
+            "gender": cv_audit["gender"]["fnr_disparity"],
+            "economic_proxy": cv_audit["economic_proxy"]["fnr_disparity"],
+            "first_generation": cv_audit["first_generation"]["fnr_disparity"],
+        },
+    }
+
+    with open(FAIRNESS_METRICS_PATH, "w") as f:
+        json.dump(existing_metrics, f, indent=2)
+    logger.info("Saved fairness metrics JSON to %s", FAIRNESS_METRICS_PATH)
+
+    # Render docs/ethics_and_fairness.md via centralized renderer
+    try:
+        from scripts.render_fairness_report import render_fairness_markdown_report
+        render_fairness_markdown_report()
+        logger.info("Successfully rendered %s", FAIRNESS_REPORT_PATH)
+    except Exception as exc:
+        logger.warning("Could not invoke render_fairness_markdown_report: %s; using fallback", exc)
+        with open(FAIRNESS_REPORT_PATH, "w") as f:
+            f.write(markdown_report.strip() + "\n")
+
+    return summary_dict
 
 
 if __name__ == "__main__":

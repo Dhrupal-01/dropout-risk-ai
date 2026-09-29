@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Sun, Moon, Database, Activity, RefreshCw } from 'lucide-react';
+import { Sun, Moon, Activity, RefreshCw } from 'lucide-react';
 import { checkHealth } from '../api/endpoints';
 
 const Header = () => {
@@ -88,22 +88,41 @@ const Header = () => {
         </Link>
       </div>
 
-      {/* Middle Health Probe Indicators */}
-      <div className="hidden sm:flex items-center space-x-6">
+      {/* Middle Navigation & Health Probe Indicators */}
+      <div className="flex items-center space-x-6">
+        <nav className="flex items-center space-x-1">
+          <Link
+            to="/"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+          >
+            Dashboard
+          </Link>
+          <Link
+            to="/geo-analytics"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+          >
+            Geo Analytics
+          </Link>
+          <Link
+            to="/universal-predictor"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+          >
+            Multi-Tier Predictor
+          </Link>
+          <Link
+            to="/import"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+          >
+            Batch Import
+          </Link>
+        </nav>
+
         {/* API Connection Indicator */}
-        <div className="flex items-center space-x-2">
-          <Activity className="w-4 h-4 text-muted" />
-          <span className="text-xs font-medium text-secondary">Backend Status:</span>
+        <div className="hidden lg:flex items-center space-x-2 border-l border-border pl-4">
+          <Activity className="w-3.5 h-3.5 text-muted" />
+          <span className="text-xs font-medium text-secondary">Backend:</span>
           {getHealthBadge()}
         </div>
-
-        {/* Database Connected Indicator */}
-        {health?.database === 'connected' && (
-          <div className="flex items-center space-x-1.5 border-l border-border pl-4">
-            <Database className="w-3.5 h-3.5 text-muted" />
-            <span className="text-xs text-secondary font-medium">PostgreSQL Connected</span>
-          </div>
-        )}
       </div>
 
       {/* Action Buttons & Theme Toggler */}

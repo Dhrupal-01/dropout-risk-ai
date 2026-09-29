@@ -99,7 +99,7 @@ def build_feature_payload(row: pd.Series) -> Dict[str, Any]:
 def seed(
     limit: int | None = None,
     with_predictions: bool = False,
-    batch_size: int = 200,
+    batch_size: int = 500,
     session_factory=None,
 ) -> int:
     """
@@ -134,17 +134,30 @@ def seed(
     with session_factory() as db:
         for start in range(0, len(df), batch_size):
             chunk = df.iloc[start : start + batch_size]
-            for _, row in chunk.iterrows():
-                student_id = str(row["student_id"])
-                features = build_feature_payload(row)
-                meta = make_display_metadata(student_id)
+            student_ids = [str(r["student_id"]) for _, r in chunk.iterrows()]
+            features_list = [build_feature_payload(r) for _, r in chunk.iterrows()]
+            meta_list = [make_display_metadata(sid) for sid in student_ids]
 
+            # Vectorized scoring + single TreeExplainer call per batch of 500
+            if with_predictions:
+                scored_batch = ml_service.predict_batch(features_list)
+                snapshots = [res["input_features"] for res in scored_batch]
+                drivers_batch = ml_service.explain_batch_from_snapshots(snapshots, top_k=5)
+            else:
+                scored_batch = [None] * len(chunk)
+                drivers_batch = [None] * len(chunk)
+
+            for i in range(len(chunk)):
                 student = student_service.upsert_student(
-                    db, student_id=student_id, features=features, **meta
+                    db,
+                    student_id=student_ids[i],
+                    features=features_list[i],
+                    **meta_list[i],
+                    flush=False,
                 )
 
                 if with_predictions:
-                    result = ml_service.predict(features)
+                    result = scored_batch[i]
                     student_service.record_prediction(
                         db,
                         student=student,
@@ -153,6 +166,8 @@ def seed(
                         risk_score_percentage=result["risk_score_percentage"],
                         input_features=result["input_features"],
                         model_version=result["model_version"],
+                        top_drivers=drivers_batch[i],
+                        flush=False,
                     )
                 inserted += 1
 
@@ -169,7 +184,7 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument(
         "--predict", action="store_true", help="Also score each student and store a prediction row."
     )
-    parser.add_argument("--batch-size", type=int, default=200)
+    parser.add_argument("--batch-size", type=int, default=500)
     args = parser.parse_args(argv)
 
     try:

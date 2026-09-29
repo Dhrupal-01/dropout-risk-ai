@@ -1,0 +1,137 @@
+{
+  "has_scholarship": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": -0.4674,
+    "standard_error": 0.061,
+    "standardized_ci_95": [
+      -0.5868,
+      -0.3479
+    ],
+    "simulated_cohort_sd": 0.45,
+    "indian_unit_coefficient": -1.03867,
+    "indian_unit_ci_95": [
+      -1.304,
+      -0.77311
+    ]
+  },
+  "fee_payment_delay_days": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": 0.8355,
+    "standard_error": 0.0562,
+    "standardized_ci_95": [
+      0.7253,
+      0.9457
+    ],
+    "simulated_cohort_sd": 24.5,
+    "indian_unit_coefficient": 0.0341,
+    "indian_unit_ci_95": [
+      0.0296,
+      0.0386
+    ]
+  },
+  "is_first_generation": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": -0.0072,
+    "standard_error": 0.0524,
+    "standardized_ci_95": [
+      -0.11,
+      0.0955
+    ],
+    "simulated_cohort_sd": 0.48,
+    "indian_unit_coefficient": -0.015,
+    "indian_unit_ci_95": [
+      -0.22917,
+      0.19896
+    ]
+  },
+  "is_hosteler": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": 0.0667,
+    "standard_error": 0.0546,
+    "standardized_ci_95": [
+      -0.0403,
+      0.1738
+    ],
+    "simulated_cohort_sd": 0.5,
+    "indian_unit_coefficient": 0.1334,
+    "indian_unit_ci_95": [
+      -0.0806,
+      0.3476
+    ]
+  },
+  "current_cgpa": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": -0.8917,
+    "standard_error": 0.0699,
+    "standardized_ci_95": [
+      -1.0288,
+      -0.7546
+    ],
+    "simulated_cohort_sd": 1.45,
+    "indian_unit_coefficient": -0.61497,
+    "indian_unit_ci_95": [
+      -0.70952,
+      -0.52041
+    ]
+  },
+  "backlog_count": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": 2.2412,
+    "standard_error": 0.1042,
+    "standardized_ci_95": [
+      2.037,
+      2.4454
+    ],
+    "simulated_cohort_sd": 1.25,
+    "indian_unit_coefficient": 1.79296,
+    "indian_unit_ci_95": [
+      1.6296,
+      1.95632
+    ]
+  },
+  "lms_logins_per_week": {
+    "source_dataset": "OULAD (ID 349, Snapshot t=56)",
+    "standardized_effect": -0.1544,
+    "standard_error": 0.0233,
+    "standardized_ci_95": [
+      -0.2001,
+      -0.1087
+    ],
+    "simulated_cohort_sd": 2.2,
+    "indian_unit_coefficient": -0.07018,
+    "indian_unit_ci_95": [
+      -0.09095,
+      -0.04941
+    ]
+  },
+  "days_since_last_lms_activity": {
+    "source_dataset": "OULAD (ID 349, Snapshot t=56)",
+    "standardized_effect": 0.122,
+    "standard_error": 0.0157,
+    "standardized_ci_95": [
+      0.0912,
+      0.1528
+    ],
+    "simulated_cohort_sd": 12.0,
+    "indian_unit_coefficient": 0.01017,
+    "indian_unit_ci_95": [
+      0.0076,
+      0.01273
+    ]
+  },
+  "assignment_submission_lag_days": {
+    "source_dataset": "OULAD (ID 349, Snapshot t=56)",
+    "standardized_effect": 0.311,
+    "standard_error": 0.0179,
+    "standardized_ci_95": [
+      0.276,
+      0.346
+    ],
+    "simulated_cohort_sd": 2.5,
+    "indian_unit_coefficient": 0.1244,
+    "indian_unit_ci_95": [
+      0.1104,
+      0.1384
+    ]
+  }
+}

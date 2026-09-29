@@ -11,7 +11,7 @@ here and never reach `predict_proba`.
 """
 
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import Index, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -42,16 +42,31 @@ class Student(Base, TimestampMixin):
     # so removing a student with history requires an explicit, considered archival step
     # rather than happening as a side effect of an ORM delete.
     predictions: Mapped[List["Prediction"]] = relationship(  # noqa: F821
-        back_populates="student", passive_deletes=True
+        "Prediction", back_populates="student", passive_deletes=True
+    )
+    latest_prediction: Mapped[Optional["LatestPrediction"]] = relationship(  # noqa: F821
+        "LatestPrediction", back_populates="student", uselist=False, passive_deletes=True
     )
     intervention_logs: Mapped[List["InterventionLog"]] = relationship(  # noqa: F821
-        back_populates="student", passive_deletes=True
+        "InterventionLog", back_populates="student", passive_deletes=True
     )
 
     __table_args__ = (
         Index("ix_students_student_id", "student_id", unique=True),
         Index("ix_students_department", "department"),
         Index("ix_students_assigned_mentor_id", "assigned_mentor_id"),
+        Index(
+            "ix_students_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_students_student_id_trgm",
+            "student_id",
+            postgresql_using="gin",
+            postgresql_ops={"student_id": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self) -> str:

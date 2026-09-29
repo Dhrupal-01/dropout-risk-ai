@@ -25,6 +25,23 @@ export const getMentorQueue = (params = {}) => {
 };
 
 /**
+ * Fetch distinct filter values (departments and assigned mentor IDs)
+ * @returns {Promise<Object>} { departments: string[], mentor_ids: string[] }
+ */
+export const getMentorFilters = () => {
+  return client.get('/api/v1/mentors/filters');
+};
+
+/**
+ * Fetch cohort statistics summary (totals, risk tier distribution, department breakdown)
+ * @returns {Promise<Object>} { total: number, by_tier: Object, by_department: Object }
+ */
+export const getStatsSummary = () => {
+  return client.get('/api/v1/stats/summary');
+};
+
+
+/**
  * Fetch top SHAP driver explainability markers for a student
  * @param {string} studentId - Student identifier
  * @param {number} topK - Number of drivers to return (default 5)

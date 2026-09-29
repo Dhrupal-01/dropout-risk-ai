@@ -365,6 +365,67 @@ class SHAPExplainerService:
 
         return explanations
 
+    def explain_local_batch(
+        self,
+        student_features: Union[pd.DataFrame, List[Dict[str, Any]]],
+        top_k: int = 5,
+    ) -> List[List[Dict[str, Any]]]:
+        """
+        Generates local SHAP explanations for a batch of student rows:
+        Uses a SINGLE self.explainer.shap_values(aligned_df) call.
+        """
+        if self.explainer is None:
+            self.build_and_save_explainer()
+
+        if isinstance(student_features, list):
+            df = pd.DataFrame(student_features)
+        else:
+            df = student_features
+
+        aligned_df = df[self.feature_names].copy()
+        raw_vals = aligned_df.to_numpy()
+
+        shap_values = self.explainer.shap_values(aligned_df)
+        if isinstance(shap_values, list):
+            shap_values = shap_values[1]
+
+        base_val = float(self.explainer.expected_value) if hasattr(self.explainer, "expected_value") else -0.50
+        if isinstance(base_val, np.ndarray) and len(base_val) > 1:
+            base_val = float(base_val[1])
+        base_p = logit_to_prob(base_val)
+
+        batch_explanations: List[List[Dict[str, Any]]] = []
+        n_rows = len(aligned_df)
+        for i in range(n_rows):
+            shap_row = shap_values[i]
+            row_vals = raw_vals[i]
+            top_indices = np.argsort(np.abs(shap_row))[::-1][:top_k]
+
+            explanations = []
+            for idx in top_indices:
+                feat_name = self.feature_names[idx]
+                feat_val = float(row_vals[idx])
+                s_val = float(shap_row[idx])
+                impact_dir = "RISK_INCREASING" if s_val > 0 else "RISK_DECREASING"
+
+                new_p = logit_to_prob(base_val + s_val)
+                pct_impact = abs(new_p - base_p) * 100.0
+
+                sentence = build_plain_language_sentence(feat_name, feat_val, s_val, pct_impact)
+
+                explanations.append({
+                    "feature_name": feat_name,
+                    "display_name": FEATURE_DISPLAY_NAMES.get(feat_name, feat_name.replace("_", " ").title()),
+                    "feature_value": round(feat_val, 2),
+                    "shap_value": round(s_val, 4),
+                    "impact_direction": impact_dir,
+                    "risk_delta_percentage_points": round((new_p - base_p) * 100.0, 2),
+                    "plain_language_explanation": sentence,
+                })
+            batch_explanations.append(explanations)
+
+        return batch_explanations
+
 
 if __name__ == "__main__":
     df = pd.read_csv(PROCESSED_DATA_PATH)

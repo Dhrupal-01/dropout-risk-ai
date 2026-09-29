@@ -1,0 +1,95 @@
+{
+  "results": {
+    "none": {
+      "roc_auc": 0.9392,
+      "pr_auc": 0.9349,
+      "recall": 0.8216,
+      "precision": 0.8794,
+      "brier_score": 0.0834,
+      "max_fnr_gap": 0.0424,
+      "group_fnrs": {
+        "Female": 0.201,
+        "Male": 0.1586
+      }
+    },
+    "sample_reweighing": {
+      "roc_auc": 0.9407,
+      "pr_auc": 0.9351,
+      "recall": 0.8568,
+      "precision": 0.843,
+      "brier_score": 0.0881,
+      "max_fnr_gap": 0.052,
+      "group_fnrs": {
+        "Female": 0.1709,
+        "Male": 0.1189
+      }
+    },
+    "group_specific_thresholds": {
+      "roc_auc": 0.9392,
+      "pr_auc": 0.9349,
+      "recall": 0.8169,
+      "precision": 0.8678,
+      "brier_score": 0.0834,
+      "max_fnr_gap": 0.0229,
+      "group_fnrs": {
+        "Female": 0.1709,
+        "Male": 0.1938
+      },
+      "group_thresholds": {
+        "Female": 0.3849,
+        "Male": 0.5803
+      }
+    },
+    "fairlearn_exponentiated_gradient": {
+      "roc_auc": 0.8944,
+      "pr_auc": 0.8468,
+      "recall": 0.7089,
+      "precision": 0.9069,
+      "brier_score": 0.1055,
+      "max_fnr_gap": 0.029,
+      "group_fnrs": {
+        "Female": 0.3065,
+        "Male": 0.2775
+      }
+    }
+  },
+  "comparison_table": [
+    {
+      "strategy": "None (Unmitigated)",
+      "roc_auc": 0.9392,
+      "pr_auc": 0.9349,
+      "recall": 0.8216,
+      "precision": 0.8794,
+      "brier_score": 0.0834,
+      "max_fnr_gap": 0.0424
+    },
+    {
+      "strategy": "Sample Reweighing",
+      "roc_auc": 0.9407,
+      "pr_auc": 0.9351,
+      "recall": 0.8568,
+      "precision": 0.843,
+      "brier_score": 0.0881,
+      "max_fnr_gap": 0.052
+    },
+    {
+      "strategy": "Group-Specific Thresholds (FNR Parity)",
+      "roc_auc": 0.9392,
+      "pr_auc": 0.9349,
+      "recall": 0.8169,
+      "precision": 0.8678,
+      "brier_score": 0.0834,
+      "max_fnr_gap": 0.0229
+    },
+    {
+      "strategy": "Fairlearn ExponentiatedGradient",
+      "roc_auc": 0.8944,
+      "pr_auc": 0.8468,
+      "recall": 0.7089,
+      "precision": 0.9069,
+      "brier_score": 0.1055,
+      "max_fnr_gap": 0.029
+    }
+  ],
+  "sensitive_attribute": "gender"
+}

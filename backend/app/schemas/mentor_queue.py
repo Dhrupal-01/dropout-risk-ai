@@ -55,7 +55,18 @@ class MentorQueueResponse(BaseModel):
     total: int = Field(..., description="Students matching the filters, before pagination.")
     limit: int = Field(..., ge=1, le=200)
     offset: int = Field(..., ge=0)
+    cursor: Optional[str] = None
+    next_cursor: Optional[str] = None
     department: Optional[str] = None
     risk_tier: Optional[RiskTier] = None
     assigned_mentor_id: Optional[str] = None
+    search: Optional[str] = None
     disclaimer: str = QUEUE_DISCLAIMER
+
+
+class MentorFiltersResponse(BaseModel):
+    """Available filters for mentor worklist."""
+
+    departments: List[str] = Field(default_factory=list, description="Distinct sorted department names.")
+    mentor_ids: List[str] = Field(default_factory=list, description="Distinct sorted assigned mentor IDs.")
+

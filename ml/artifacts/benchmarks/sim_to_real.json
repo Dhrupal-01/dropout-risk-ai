@@ -1,0 +1,91 @@
+{
+  "benchmark": "sim_to_real_transfer",
+  "timestamp": "2026-09-28T13:57:35.729761+00:00",
+  "n_bootstraps": 1000,
+  "shared_proxies": [
+    "current_cgpa",
+    "backlog_count",
+    "has_scholarship",
+    "fee_payment_delay_days",
+    "is_first_generation",
+    "is_hosteler"
+  ],
+  "transfer_evaluations": {
+    "real_on_real": {
+      "description": "Baseline: Trained on UCI proxies, tested on UCI holdout (Real-on-Real)",
+      "train_domain": "UCI (ID 697)",
+      "test_domain": "UCI (ID 697)",
+      "n_train": 2904,
+      "n_test": 726,
+      "metrics": {
+        "roc_auc": {
+          "point": 0.9399,
+          "ci_lower": 0.9203,
+          "ci_upper": 0.9587
+        },
+        "pr_auc": {
+          "point": 0.9329,
+          "ci_lower": 0.9119,
+          "ci_upper": 0.9525
+        }
+      }
+    },
+    "sim_on_sim": {
+      "description": "Baseline: Trained on Simulated proxies, tested on Simulated holdout (Sim-on-Sim)",
+      "train_domain": "Simulated Indian Cohort",
+      "test_domain": "Simulated Indian Cohort",
+      "n_train": 1600,
+      "n_test": 400,
+      "metrics": {
+        "roc_auc": {
+          "point": 0.9017,
+          "ci_lower": 0.8672,
+          "ci_upper": 0.9328
+        },
+        "pr_auc": {
+          "point": 0.8627,
+          "ci_lower": 0.8116,
+          "ci_upper": 0.9045
+        }
+      }
+    },
+    "sim_to_real": {
+      "description": "Transfer: Trained on Simulated proxies, tested on UCI holdout (Sim-to-Real)",
+      "train_domain": "Simulated Indian Cohort",
+      "test_domain": "UCI (ID 697)",
+      "n_train": 1600,
+      "n_test": 726,
+      "metrics": {
+        "roc_auc": {
+          "point": 0.9365,
+          "ci_lower": 0.9171,
+          "ci_upper": 0.9551
+        },
+        "pr_auc": {
+          "point": 0.9276,
+          "ci_lower": 0.905,
+          "ci_upper": 0.9476
+        }
+      }
+    },
+    "real_to_sim": {
+      "description": "Transfer: Trained on UCI proxies, tested on Simulated holdout (Real-to-Sim)",
+      "train_domain": "UCI (ID 697)",
+      "test_domain": "Simulated Indian Cohort",
+      "n_train": 2904,
+      "n_test": 400,
+      "metrics": {
+        "roc_auc": {
+          "point": 0.8993,
+          "ci_lower": 0.8664,
+          "ci_upper": 0.9303
+        },
+        "pr_auc": {
+          "point": 0.848,
+          "ci_lower": 0.7932,
+          "ci_upper": 0.8963
+        }
+      }
+    }
+  }
+}
