@@ -1,0 +1,151 @@
+{
+  "states": {
+    "Bihar": {
+      "state_code": "BR",
+      "literacy_rate": 61.8,
+      "female_literacy_rate": 51.5,
+      "ger_higher_ed": 14.5,
+      "school_dropout_rate_secondary": 21.4,
+      "mpi_poverty_pct": 33.76,
+      "avg_annual_per_capita_income_inr": 54111,
+      "districts": {
+        "Purnia": { "mpi_headcount_pct": 50.4, "is_aspirational": true, "rurality_pct": 89.2, "ptr_ratio": 42.1 },
+        "Katihar": { "mpi_headcount_pct": 48.7, "is_aspirational": true, "rurality_pct": 91.1, "ptr_ratio": 44.3 },
+        "Patna": { "mpi_headcount_pct": 18.2, "is_aspirational": false, "rurality_pct": 56.4, "ptr_ratio": 28.5 },
+        "Gaya": { "mpi_headcount_pct": 38.6, "is_aspirational": true, "rurality_pct": 86.8, "ptr_ratio": 36.2 },
+        "Muzaffarpur": { "mpi_headcount_pct": 35.1, "is_aspirational": true, "rurality_pct": 90.3, "ptr_ratio": 38.0 }
+      }
+    },
+    "Uttar Pradesh": {
+      "state_code": "UP",
+      "literacy_rate": 67.7,
+      "female_literacy_rate": 57.2,
+      "ger_higher_ed": 23.2,
+      "school_dropout_rate_secondary": 16.8,
+      "mpi_poverty_pct": 22.93,
+      "avg_annual_per_capita_income_inr": 83636,
+      "districts": {
+        "Bahraich": { "mpi_headcount_pct": 54.4, "is_aspirational": true, "rurality_pct": 92.1, "ptr_ratio": 46.5 },
+        "Shravasti": { "mpi_headcount_pct": 49.6, "is_aspirational": true, "rurality_pct": 96.5, "ptr_ratio": 48.2 },
+        "Balrampur": { "mpi_headcount_pct": 47.9, "is_aspirational": true, "rurality_pct": 92.3, "ptr_ratio": 45.0 },
+        "Lucknow": { "mpi_headcount_pct": 8.5, "is_aspirational": false, "rurality_pct": 33.8, "ptr_ratio": 24.1 },
+        "Varanasi": { "mpi_headcount_pct": 16.3, "is_aspirational": false, "rurality_pct": 56.6, "ptr_ratio": 29.4 },
+        "Noida / Gautam Buddha Nagar": { "mpi_headcount_pct": 7.1, "is_aspirational": false, "rurality_pct": 40.9, "ptr_ratio": 22.0 }
+      }
+    },
+    "Rajasthan": {
+      "state_code": "RJ",
+      "literacy_rate": 66.1,
+      "female_literacy_rate": 52.1,
+      "ger_higher_ed": 26.0,
+      "school_dropout_rate_secondary": 17.2,
+      "mpi_poverty_pct": 15.31,
+      "avg_annual_per_capita_income_inr": 156149,
+      "districts": {
+        "Barmer": { "mpi_headcount_pct": 34.2, "is_aspirational": true, "rurality_pct": 93.0, "ptr_ratio": 35.8 },
+        "Jaisalmer": { "mpi_headcount_pct": 31.8, "is_aspirational": true, "rurality_pct": 86.7, "ptr_ratio": 33.2 },
+        "Jaipur": { "mpi_headcount_pct": 6.9, "is_aspirational": false, "rurality_pct": 47.6, "ptr_ratio": 22.5 },
+        "Kota": { "mpi_headcount_pct": 8.2, "is_aspirational": false, "rurality_pct": 39.7, "ptr_ratio": 21.0 }
+      }
+    },
+    "Madhya Pradesh": {
+      "state_code": "MP",
+      "literacy_rate": 69.3,
+      "female_literacy_rate": 59.2,
+      "ger_higher_ed": 24.8,
+      "school_dropout_rate_secondary": 18.5,
+      "mpi_poverty_pct": 20.63,
+      "avg_annual_per_capita_income_inr": 140583,
+      "districts": {
+        "Alirajpur": { "mpi_headcount_pct": 52.0, "is_aspirational": true, "rurality_pct": 92.2, "ptr_ratio": 39.5 },
+        "Barwani": { "mpi_headcount_pct": 46.1, "is_aspirational": true, "rurality_pct": 85.5, "ptr_ratio": 37.1 },
+        "Bhopal": { "mpi_headcount_pct": 9.4, "is_aspirational": false, "rurality_pct": 19.1, "ptr_ratio": 23.4 },
+        "Indore": { "mpi_headcount_pct": 6.8, "is_aspirational": false, "rurality_pct": 25.9, "ptr_ratio": 21.8 }
+      }
+    },
+    "Maharashtra": {
+      "state_code": "MH",
+      "literacy_rate": 82.3,
+      "female_literacy_rate": 75.9,
+      "ger_higher_ed": 32.3,
+      "school_dropout_rate_secondary": 11.2,
+      "mpi_poverty_pct": 7.81,
+      "avg_annual_per_capita_income_inr": 252389,
+      "districts": {
+        "Nandurbar": { "mpi_headcount_pct": 33.1, "is_aspirational": true, "rurality_pct": 83.3, "ptr_ratio": 32.4 },
+        "Gadchiroli": { "mpi_headcount_pct": 28.5, "is_aspirational": true, "rurality_pct": 89.0, "ptr_ratio": 28.9 },
+        "Mumbai": { "mpi_headcount_pct": 2.1, "is_aspirational": false, "rurality_pct": 0.0, "ptr_ratio": 19.5 },
+        "Pune": { "mpi_headcount_pct": 3.9, "is_aspirational": false, "rurality_pct": 39.1, "ptr_ratio": 21.0 }
+      }
+    },
+    "Karnataka": {
+      "state_code": "KA",
+      "literacy_rate": 75.4,
+      "female_literacy_rate": 68.1,
+      "ger_higher_ed": 36.2,
+      "school_dropout_rate_secondary": 12.0,
+      "mpi_poverty_pct": 7.58,
+      "avg_annual_per_capita_income_inr": 304474,
+      "districts": {
+        "Yadgir": { "mpi_headcount_pct": 39.4, "is_aspirational": true, "rurality_pct": 81.2, "ptr_ratio": 36.5 },
+        "Raichur": { "mpi_headcount_pct": 36.8, "is_aspirational": true, "rurality_pct": 74.6, "ptr_ratio": 34.0 },
+        "Bengaluru Urban": { "mpi_headcount_pct": 1.8, "is_aspirational": false, "rurality_pct": 9.1, "ptr_ratio": 18.2 }
+      }
+    },
+    "Tamil Nadu": {
+      "state_code": "TN",
+      "literacy_rate": 80.1,
+      "female_literacy_rate": 73.4,
+      "ger_higher_ed": 51.4,
+      "school_dropout_rate_secondary": 8.1,
+      "mpi_poverty_pct": 2.20,
+      "avg_annual_per_capita_income_inr": 275583,
+      "districts": {
+        "Ramanathapuram": { "mpi_headcount_pct": 7.8, "is_aspirational": true, "rurality_pct": 69.7, "ptr_ratio": 22.1 },
+        "Chennai": { "mpi_headcount_pct": 1.2, "is_aspirational": false, "rurality_pct": 0.0, "ptr_ratio": 17.5 },
+        "Coimbatore": { "mpi_headcount_pct": 2.1, "is_aspirational": false, "rurality_pct": 24.2, "ptr_ratio": 18.9 }
+      }
+    },
+    "Kerala": {
+      "state_code": "KL",
+      "literacy_rate": 94.0,
+      "female_literacy_rate": 92.1,
+      "ger_higher_ed": 43.2,
+      "school_dropout_rate_secondary": 3.2,
+      "mpi_poverty_pct": 0.55,
+      "avg_annual_per_capita_income_inr": 257711,
+      "districts": {
+        "Wayanad": { "mpi_headcount_pct": 4.1, "is_aspirational": true, "rurality_pct": 96.1, "ptr_ratio": 18.0 },
+        "Thiruvananthapuram": { "mpi_headcount_pct": 0.9, "is_aspirational": false, "rurality_pct": 46.2, "ptr_ratio": 15.2 },
+        "Ernakulam": { "mpi_headcount_pct": 0.6, "is_aspirational": false, "rurality_pct": 31.9, "ptr_ratio": 14.8 }
+      }
+    },
+    "Gujarat": {
+      "state_code": "GJ",
+      "literacy_rate": 78.0,
+      "female_literacy_rate": 69.7,
+      "ger_higher_ed": 21.3,
+      "school_dropout_rate_secondary": 17.9,
+      "mpi_poverty_pct": 11.66,
+      "avg_annual_per_capita_income_inr": 276422,
+      "districts": {
+        "Dahod": { "mpi_headcount_pct": 40.5, "is_aspirational": true, "rurality_pct": 88.0, "ptr_ratio": 38.1 },
+        "Narmada": { "mpi_headcount_pct": 32.4, "is_aspirational": true, "rurality_pct": 89.5, "ptr_ratio": 30.5 },
+        "Ahmedabad": { "mpi_headcount_pct": 3.8, "is_aspirational": false, "rurality_pct": 15.9, "ptr_ratio": 20.2 }
+      }
+    },
+    "Haryana": {
+      "state_code": "HR",
+      "literacy_rate": 75.6,
+      "female_literacy_rate": 65.9,
+      "ger_higher_ed": 29.8,
+      "school_dropout_rate_secondary": 12.5,
+      "mpi_poverty_pct": 7.07,
+      "avg_annual_per_capita_income_inr": 296685,
+      "districts": {
+        "Nuh / Mewat": { "mpi_headcount_pct": 44.8, "is_aspirational": true, "rurality_pct": 88.6, "ptr_ratio": 47.0 },
+        "Gurugram": { "mpi_headcount_pct": 2.5, "is_aspirational": false, "rurality_pct": 31.2, "ptr_ratio": 20.5 }
+      }
+    }
+  }
+}
