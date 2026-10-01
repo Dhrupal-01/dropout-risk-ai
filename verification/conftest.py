@@ -16,6 +16,11 @@ for env_file in (PROJECT_ROOT / ".env", PROJECT_ROOT / "backend" / ".env"):
     if env_file.exists():
         load_dotenv(env_file, override=False)
 
+# Abort before any engine exists if TEST_DATABASE_URL is the application database.
+from backend.tests.db_guard import abort_if_test_db_is_app_db  # noqa: E402
+
+abort_if_test_db_is_app_db()
+
 
 def _psycopg3(url: str | None) -> str | None:
     if not url:

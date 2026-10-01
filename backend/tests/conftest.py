@@ -22,6 +22,12 @@ for env_file in (PROJECT_ROOT / ".env", PROJECT_ROOT / "backend" / ".env"):
     if env_file.exists():
         load_dotenv(env_file, override=False)
 
+# Abort before DATABASE_URL is replaced and before any engine exists if TEST_DATABASE_URL is the
+# application database: the DB-backed tests drop tables.
+from backend.tests.db_guard import abort_if_test_db_is_app_db  # noqa: E402
+
+abort_if_test_db_is_app_db()
+
 # Must precede any `backend.app.*` import: db.session builds its engine at import time.
 # The application under test is pointed at the TEST database, never the app database, so
 # nothing in the suite can touch real data.
