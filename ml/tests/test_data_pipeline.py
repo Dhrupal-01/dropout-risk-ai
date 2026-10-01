@@ -5,7 +5,6 @@ Tests:
 - No unexpected nulls in required columns
 - Statistical validity and ground-truth correlation directions and magnitudes
 - Feature engineering transformations and interaction terms
-- UCI & OULAD loaders
 """
 
 import pytest
@@ -13,47 +12,12 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from ml.data_pipeline.load_uci import load_clean_uci_data
-from ml.data_pipeline.load_oulad import load_clean_oulad_data
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 from ml.data_pipeline.feature_engineering import (
     build_engineered_features,
     generate_processed_feature_dataset,
     PILLAR_COLUMNS
 )
-
-
-class TestDataPipelineLoaders:
-    """Tests for external and raw dataset loaders."""
-
-    def test_uci_loader_schema_and_target(self):
-        """Test that UCI dataset loader returns expected columns, binary target, and is_synthetic flag."""
-        df = load_clean_uci_data(allow_synthetic_standin=True)
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) > 0
-        assert "is_dropout" in df.columns
-        assert "is_synthetic" in df.columns
-        assert set(df["is_dropout"].unique()).issubset({0, 1})
-        # Check presence of key academic & socio-economic signals
-        assert "admission_grade" in df.columns or "previous_qualification_grade" in df.columns
-        assert "tuition_fees_up_to_date" in df.columns or "is_debtor" in df.columns
-
-    def test_oulad_loader_schema_and_target(self):
-        """Test that OULAD dataset loader returns behavioral features, binary target, and is_synthetic flag."""
-        df = load_clean_oulad_data(allow_synthetic_standin=True)
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) > 0
-        assert "is_dropout" in df.columns
-        assert "is_synthetic" in df.columns
-        assert set(df["is_dropout"].unique()).issubset({0, 1})
-        # Check presence of key behavioral signals
-        assert "sum_click" in df.columns
-        assert "avg_submission_lag_days" in df.columns or "late_submission_rate" in df.columns
-
-    def test_oulad_loader_raises_runtime_error_when_download_fails(self):
-        """Verifies that failed download raises RuntimeError with manual instructions when allow_synthetic_standin=False."""
-        with pytest.raises(RuntimeError, match="Failed to download OULAD dataset"):
-            load_clean_oulad_data(force_download=True, allow_synthetic_standin=False)
 
 
 class TestSyntheticIndianCohort:

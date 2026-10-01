@@ -86,25 +86,30 @@ class TestV2Phase0A:
         assert current_json == baseline_json, "feature_names.json has drifted from BASELINE!"
 
     def test_v2_5_loader_runtime_error_and_standin_guard(self, monkeypatch, tmp_path):
-        """V2.5: Missing files + download failure raises RuntimeError; standin requires explicit flag."""
-        from ml.data_pipeline import load_uci, load_oulad
+        """V2.5: Missing files + download failure raise with instructions; real loaders refuse is_synthetic files."""
+        import pandas as pd
+        from ml.sources import oulad, uci
+        from ml.sources.integrity import SyntheticDataError
 
-        # Monkeypatch download to fail and ensure no cache
+        # Download failure with no cache raises RuntimeError with instructions and writes nothing
         def fail_download(*args, **kwargs):
-            return None
+            raise ConnectionError("network disabled in tests")
 
-        monkeypatch.setattr(load_uci, "download_uci_dataset", fail_download)
-        with pytest.raises(RuntimeError):
-            load_uci.load_clean_uci_data(force_download=True, allow_synthetic_standin=False)
+        monkeypatch.setattr(uci.requests, "get", fail_download)
+        missing_uci = tmp_path / "missing" / "uci_dropout.csv"
+        with pytest.raises(RuntimeError, match="Manual download instructions"):
+            uci.load_uci_clean_df(csv_path=missing_uci)
+        assert not missing_uci.exists()
 
-        # Output has is_synthetic=1 when standin is generated
-        df_standin_uci = load_uci.generate_uci_standin(target_path=tmp_path / "standin_uci.csv")
-        assert "is_synthetic" in df_standin_uci.columns
-        assert (df_standin_uci["is_synthetic"] == 1).all()
+        # Missing OULAD directory raises FileNotFoundError with instructions
+        with pytest.raises(FileNotFoundError, match="Manual download instructions"):
+            oulad.check_and_get_oulad_dir(tmp_path / "missing_oulad")
 
-        df_standin_oulad = load_oulad.generate_oulad_standin(target_path=tmp_path / "standin_oulad.csv")
-        assert "is_synthetic" in df_standin_oulad.columns
-        assert (df_standin_oulad["is_synthetic"] == 1).all()
+        # A stand-in file carrying is_synthetic is refused by the real loader
+        standin_uci = tmp_path / "standin_uci.csv"
+        pd.DataFrame({"Target": ["Dropout"], "is_synthetic": [1]}).to_csv(standin_uci, sep=";", index=False)
+        with pytest.raises(SyntheticDataError, match="is_synthetic"):
+            uci.load_uci_clean_df(csv_path=standin_uci)
 
     def test_v2_6_clean_git_tracked_files(self):
         """V2.6: git ls-files contains no forbidden data, artifact, or cache files."""

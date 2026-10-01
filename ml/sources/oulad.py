@@ -22,6 +22,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ml.sources.integrity import refuse_synthetic, verify_checksum
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -101,12 +103,25 @@ def check_and_get_oulad_dir(data_dir: Optional[Path] = None) -> Path:
     return path
 
 
+OULAD_DOWNLOAD_INSTRUCTIONS = (
+    "Manual download instructions:\n"
+    "1. Download the original OULAD release from https://analyse.kmi.open.ac.uk/open_dataset.\n"
+    "   (The UCI repository mirror, id 349, writes missing values as \"?\" and will not match.)\n"
+    f"2. Extract the 7 CSV tables unchanged into data/raw/oulad/: {', '.join(REQUIRED_TABLES)}\n"
+    "No synthetic fallback is permitted in this benchmark phase."
+)
+
+
 def load_raw_tables(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
     """
     Loads all 7 raw OULAD tables, asserting schema constraints and converting studentVle to parquet.
+    Refuses tables with an `is_synthetic` column and tables that do not match the official checksums.
     """
     path = check_and_get_oulad_dir(data_dir)
     tables: Dict[str, pd.DataFrame] = {}
+
+    for table in REQUIRED_TABLES:
+        refuse_synthetic(pd.read_csv(path / table, nrows=0).columns, path / table)
 
     # 1. studentInfo
     logger.info("Loading studentInfo from %s...", path / "studentInfo.csv")
@@ -119,6 +134,9 @@ def load_raw_tables(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
         f"Integrity assertion error: Expected final_result in {EXPECTED_RESULTS}, got {actual_results}."
     )
     tables["studentInfo"] = info_df
+
+    for table in REQUIRED_TABLES:
+        verify_checksum("oulad", table, path / table, OULAD_DOWNLOAD_INSTRUCTIONS)
 
     # 2. studentRegistration
     logger.info("Loading studentRegistration...")

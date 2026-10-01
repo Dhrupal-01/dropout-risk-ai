@@ -374,8 +374,6 @@ dropout-risk-ai/
 │   │   ├── feature_names.json       # 37 model input feature names
 │   │   └── interventions.json       # 12-item codified institutional catalog
 │   ├── data_pipeline/               # Ingestion and feature engineering
-│   │   ├── load_uci.py              # UCI dataset loader
-│   │   ├── load_oulad.py            # OULAD behavioral clickstream loader
 │   │   ├── generate_synthetic_indian.py # Indian collegiate cohort generator
 │   │   └── feature_engineering.py   # 4-pillar domain feature engineering
 │   ├── models/                      # Training, calibration, and evaluation
