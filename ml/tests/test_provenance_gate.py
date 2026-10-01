@@ -64,6 +64,58 @@ def test_build_provenance_on_clean_tree(clean_tree):
     assert prov["git_dirty"] is False and prov["allow_dirty"] is False
 
 
+def _git_with_status(status: str, readme_head: str = ""):
+    def fake(*args):
+        if args[0] == "status":
+            return status
+        if args[0] == "rev-parse":
+            return "0" * 40
+        if args[0] == "show":
+            return readme_head
+        return ""
+    return fake
+
+
+def test_uncommitted_generated_outputs_do_not_block_or_mark_dirty(monkeypatch):
+    monkeypatch.setattr(provenance, "_git", _git_with_status(
+        " M ml/artifacts/benchmarks/uci_full_primary.json\n M docs/benchmarks.md\n M ml/simulation/estimated_parameters.json"
+    ))
+    assert require_clean_tree(allow_dirty=False) is False
+    prov = build_provenance({})
+    assert prov["git_dirty"] is False and prov["allow_dirty"] is False
+    assert prov["uncommitted_generated_outputs"] == [
+        "docs/benchmarks.md", "ml/artifacts/benchmarks/uci_full_primary.json", "ml/simulation/estimated_parameters.json"
+    ]
+
+
+def test_code_change_still_blocks_alongside_generated_outputs(monkeypatch):
+    monkeypatch.setattr(provenance, "_git", _git_with_status(" M ml/artifacts/model_metrics.json\n M ml/models/train.py"))
+    with pytest.raises(DirtyTreeError) as excinfo:
+        require_clean_tree(allow_dirty=False)
+    assert "ml/models/train.py" in str(excinfo.value)
+    assert "model_metrics.json" not in str(excinfo.value)
+
+
+README_HEAD = "# Title\n<!-- METRICS:START -->\nold metrics\n<!-- METRICS:END -->\ntext\n<!-- BENCHMARKS:START -->\nold\n<!-- BENCHMARKS:END -->\n"
+
+
+@pytest.mark.parametrize("working, generated", [
+    (README_HEAD.replace("old metrics", "new metrics").replace("\nold\n", "\nnew\n"), True),
+    (README_HEAD.replace("text", "hand-edited text"), False),
+    (README_HEAD.replace("old metrics", "new metrics").replace("# Title", "# Renamed"), False),
+])
+def test_readme_counts_as_generated_only_when_changes_stay_inside_marker_blocks(tmp_path, monkeypatch, working, generated):
+    (tmp_path / "README.md").write_text(working)
+    monkeypatch.setattr(provenance, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(provenance, "_git", _git_with_status(" M README.md", readme_head=README_HEAD))
+    assert provenance.is_generated_output("README.md") is generated
+    if generated:
+        assert require_clean_tree(allow_dirty=False) is False
+    else:
+        with pytest.raises(DirtyTreeError, match="README.md"):
+            require_clean_tree(allow_dirty=False)
+
+
 WRITERS = [
     ("ml.evaluation.run", "run_uci_benchmark_suite"),
     ("ml.evaluation.run", "run_oulad_benchmark_suite"),

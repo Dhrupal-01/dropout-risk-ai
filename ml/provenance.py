@@ -11,12 +11,14 @@ input checksums differ, or artifacts that carry no provenance at all.
 """
 
 import argparse
+import fnmatch
 import importlib
 import platform
+import re
 import subprocess
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ml.sources.integrity import sha256_file
 
@@ -77,19 +79,66 @@ def modified_tracked_files() -> List[str]:
     return [line.split(None, 1)[1] for line in status.splitlines() if line.strip()]
 
 
+# Tracked files that pipeline steps regenerate. Uncommitted changes to these do not make the code
+# differ from the recorded commit, so a multi-step pipeline run can proceed on one commit.
+GENERATED_OUTPUT_PATTERNS = [
+    "ml/artifacts/*",
+    "ml/simulation/estimated_parameters.json",
+    "docs/benchmarks.md",
+    "docs/ethics_and_fairness.md",
+    "docs/simulation.md",
+    "docs/simulation_mapping.md",
+    "docs/figures/*",
+    "verification/REPORT.md",
+    "data/processed/feature_metadata.json",
+]
+README_PATH = "README.md"
+README_BLOCKS = ("METRICS", "BENCHMARKS")
+
+
+def strip_generated_readme_blocks(text: str) -> str:
+    """README text with the contents of every generated marker block removed."""
+    for name in README_BLOCKS:
+        text = re.sub(rf"(<!-- {name}:START -->).*?(<!-- {name}:END -->)", r"\1\2", text, flags=re.DOTALL)
+    return text.strip()
+
+
+def readme_changes_confined_to_generated_blocks() -> bool:
+    head = _git("show", f"HEAD:{README_PATH}")
+    if head is None:
+        return False
+    working = (BASE_DIR / README_PATH).read_text(encoding="utf-8")
+    return strip_generated_readme_blocks(head) == strip_generated_readme_blocks(working)
+
+
+def is_generated_output(path: str) -> bool:
+    if path == README_PATH:
+        return readme_changes_confined_to_generated_blocks()
+    return any(fnmatch.fnmatch(path, pattern) for pattern in GENERATED_OUTPUT_PATTERNS)
+
+
+def split_modified_files() -> Tuple[List[str], List[str]]:
+    """(modified code/config files, modified generated outputs) among tracked files."""
+    code, generated = [], []
+    for path in modified_tracked_files():
+        (generated if is_generated_output(path) else code).append(path)
+    return code, generated
+
+
 def require_clean_tree(allow_dirty: bool = False) -> bool:
     """
-    Gate for every artifact writer. Raises DirtyTreeError if tracked files have uncommitted changes,
-    unless allow_dirty is True. Returns True when the tree is dirty and that was explicitly allowed.
+    Gate for every artifact writer. Raises DirtyTreeError if tracked code/config files have
+    uncommitted changes, unless allow_dirty is True. Uncommitted generated outputs (earlier pipeline
+    steps) are allowed. Returns True when the code is dirty and that was explicitly allowed.
     """
-    modified = modified_tracked_files()
-    if modified and not allow_dirty:
+    code, _ = split_modified_files()
+    if code and not allow_dirty:
         raise DirtyTreeError(
             "Refusing to write artifacts: tracked files have uncommitted changes, so the recorded git "
-            f"commit would not identify the code that produced them: {modified}. "
+            f"commit would not identify the code that produced them: {code}. "
             "Commit or stash them, or rerun with --allow-dirty (recorded as allow_dirty=true in the JSON)."
         )
-    return bool(modified)
+    return bool(code)
 
 
 def add_allow_dirty_argument(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -131,6 +180,7 @@ def build_provenance(input_files: Dict[str, Path], allow_dirty: bool = False) ->
         "git_commit": _git("rev-parse", "HEAD"),
         "git_dirty": dirty,
         "allow_dirty": bool(allow_dirty),
+        "uncommitted_generated_outputs": sorted(split_modified_files()[1]),
         "python": platform.python_version(),
         "library_versions": _library_versions(),
     }
