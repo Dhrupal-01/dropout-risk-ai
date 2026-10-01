@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image, ImageDraw
 
+from ml.fairness.attributes import PROTECTED
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -274,6 +276,25 @@ def generate_earliness_figure(artifacts: List[Dict[str, Any]], target_path: Path
     logger.info("Saved earliness curve figure to %s", target_path)
 
 
+def _uci_feature_count(artifacts: List[Dict[str, Any]], feature_set: str) -> str:
+    """Feature count recorded in the benchmark JSON for a UCI feature set."""
+    counts = {a.get("n_features") for a in artifacts if a.get("feature_set") == feature_set}
+    if len(counts) != 1:
+        raise ValueError(f"Expected one n_features for UCI feature set '{feature_set}', found {counts}")
+    return str(counts.pop())
+
+
+def _uci_protected_line(artifacts: List[Dict[str, Any]]) -> str:
+    """States whether any PROTECTED attribute appears in the feature_names recorded in the JSON."""
+    recorded = {c for a in artifacts for c in a.get("feature_names", [])}
+    leaked = sorted(recorded & set(PROTECTED["uci"]))
+    protected = ", ".join(f"`{c}`" for c in PROTECTED["uci"])
+    if leaked:
+        return (f"- **WARNING**: these artifacts were computed with PROTECTED attributes as features "
+                f"({', '.join(f'`{c}`' for c in leaked)}). Rerun `python -m ml.evaluation.run --source uci`.")
+    return f"- **Protected attributes** ({protected}) are not model features in any set (see `ml/fairness/attributes.py`)."
+
+
 def render_benchmark_report():
     """
     Scans ml/artifacts/benchmarks/ and builds docs/benchmarks.md.
@@ -316,9 +337,10 @@ def render_benchmark_report():
             "",
             "- **Dataset**: UCI ID 697 ($N = 4,424$, 17 Degree Programs / Courses)",
             "- **Feature Sets**:",
-            "  - `ENROLMENT_TIME`: Baseline features available at matriculation (Demographics, admission credentials, socio-economic signals, macroeconomic indicators; 24 features).",
-            "  - `END_OF_SEM1`: `ENROLMENT_TIME` + 1st-semester curricular unit evaluations and approved units (30 features). Zero 2nd-semester features.",
-            "  - `FULL`: Everything, including 2nd-semester curricular units (36 features). Explicitly labeled as **not early warning**.",
+            f"  - `ENROLMENT_TIME`: Baseline features available at matriculation (admission credentials, family background, socio-economic signals, macroeconomic indicators; {_uci_feature_count(uci_artifacts, 'enrolment_time')} features).",
+            f"  - `END_OF_SEM1`: `ENROLMENT_TIME` + 1st-semester curricular unit evaluations and approved units ({_uci_feature_count(uci_artifacts, 'end_of_sem1')} features). Zero 2nd-semester features.",
+            f"  - `FULL`: Everything, including 2nd-semester curricular units ({_uci_feature_count(uci_artifacts, 'full')} features). Explicitly labeled as **not early warning**.",
+            _uci_protected_line(uci_artifacts),
             "- **Label Variants**:",
             "  - `Primary`: Binary outcome ($N = 3,630$). `Dropout = 1` vs `Graduate = 0`. Students with `Target == 'Enrolled'` are excluded.",
             "  - `Sensitivity`: Binary outcome ($N = 4,424$). `Dropout = 1` vs `Graduate / Enrolled = 0`. Students with `Target == 'Enrolled'` are coded as $0$.",

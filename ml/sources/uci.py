@@ -71,7 +71,10 @@ UCI_COLUMN_MAPPING: Dict[str, str] = {
     "Target": "target",
 }
 
-# 1. ENROLMENT_TIME: Only features available at admission
+# 1. ENROLMENT_TIME: Only features available at admission.
+# PROTECTED attributes (gender, age_at_enrollment) are never model features; see
+# ml/fairness/attributes.py. AUDIT_GROUPS (scholarship_holder, debtor, displaced) stay as
+# documented features and are also audited.
 ENROLMENT_TIME: List[str] = [
     "marital_status",
     "application_mode",
@@ -90,9 +93,7 @@ ENROLMENT_TIME: List[str] = [
     "educational_special_needs",
     "debtor",
     "tuition_fees_up_to_date",
-    "gender",
     "scholarship_holder",
-    "age_at_enrollment",
     "international",
     "unemployment_rate",
     "inflation_rate",

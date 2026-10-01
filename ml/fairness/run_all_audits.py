@@ -22,12 +22,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from ml.fairness.attributes import AUDIT_GROUPS, PROTECTED
 from ml.fairness.audit import audit_model_fairness
 from ml.fairness.income_ablation import run_income_ablation_experiment
 from ml.fairness.mitigation import compare_fairness_mitigations
 from ml.fairness.shift_check import run_oulad_presentation_shift_check
 from ml.sources.oulad import build_snapshot_dataset, load_raw_tables
-from ml.sources.uci import FEATURE_SETS, load_uci_clean_df
+from ml.sources.uci import get_uci_benchmark_dataset, load_uci_clean_df
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,19 +50,18 @@ def run_uci_audit_pipeline(
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Executes fairness audit and mitigation comparisons on UCI Higher Education dataset.
-    Audits 5 sensitive attributes strictly excluded from the model feature matrix X:
-    - gender (Male vs Female)
-    - scholarship_holder (Scholarship vs No Scholarship)
-    - debtor (Debtor vs Non-Debtor)
-    - displaced (Displaced vs Non-Displaced)
-    - age_group (<=20, 21-25, >25)
+    The model is the benchmark model: X and y come from get_uci_benchmark_dataset
+    ("end_of_sem1", "primary"), so the audited feature matrix is the benchmarked one.
+    Audited attributes:
+    - PROTECTED (never model features): gender (Male vs Female), age_group (<=20, 21-25, >25)
+    - AUDIT_GROUPS (also model features, documented in ml/fairness/attributes.py):
+      scholarship_holder, debtor, displaced
     """
     logger.info("Loading UCI Higher Education dataset for fairness audit...")
-    raw_df = load_uci_clean_df()
-
     # Primary label variant: Dropout (1) vs Graduate (0), Enrolled excluded
-    df = raw_df[raw_df["target"].isin(["Dropout", "Graduate"])].copy().reset_index(drop=True)
-    y = (df["target"] == "Dropout").astype(int).values
+    X, y, _, feature_names = get_uci_benchmark_dataset(feature_set="end_of_sem1", label_variant="primary")
+    df = load_uci_clean_df().loc[X.index].reset_index(drop=True)
+    X = X.reset_index(drop=True)
 
     # Construct clean categorical audit frame
     audit_df = pd.DataFrame(index=df.index)
@@ -80,12 +80,7 @@ def run_uci_audit_pipeline(
     )
     audit_df["age_group"] = age_groups.astype(str)
 
-    # Feature matrix X: END_OF_SEM1 features strictly omitting protected/sensitive columns
-    protected_cols = ["gender", "scholarship_holder", "debtor", "displaced", "age_at_enrollment"]
-    end_of_sem1_features = [col for col in FEATURE_SETS["end_of_sem1"] if col not in protected_cols]
-    
-    X = df[end_of_sem1_features].copy()
-    logger.info("UCI Feature matrix X constructed with %d features (strictly excluding %s)", len(end_of_sem1_features), protected_cols)
+    logger.info("UCI Feature matrix X: END_OF_SEM1 with %d features (PROTECTED excluded: %s)", len(feature_names), PROTECTED["uci"])
 
     # 5-Fold Stratified Cross-Validation for Out-of-Fold risk probabilities
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
@@ -122,9 +117,10 @@ def run_uci_audit_pipeline(
         n_bootstraps=n_bootstraps,
         seed=seed,
     )
-    uci_audit["feature_count"] = len(end_of_sem1_features)
-    uci_audit["feature_set"] = "END_OF_SEM1 (Protected attributes strictly excluded)"
-    uci_audit["excluded_protected_attributes"] = protected_cols
+    uci_audit["feature_count"] = len(feature_names)
+    uci_audit["feature_set"] = "END_OF_SEM1"
+    uci_audit["excluded_protected_attributes"] = PROTECTED["uci"]
+    uci_audit["audit_groups_used_as_features"] = AUDIT_GROUPS["uci"]
 
     # Mitigations Benchmark on standard 70/30 split using sensitive attribute 'gender'
     logger.info("Running fairness mitigation comparison on UCI split...")

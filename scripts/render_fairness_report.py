@@ -245,6 +245,18 @@ def render_generator_sanity_tables(gen_data: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_uci_feature_line(uci_data: Dict[str, Any]) -> str:
+    """Feature-set description for the UCI audit, built only from fields recorded in the JSON."""
+    def _cols(key: str) -> str:
+        return ", ".join(f"`{c}`" for c in uci_data.get(key) or []) or "none recorded"
+
+    return (
+        f"`{uci_data.get('feature_set', 'unknown')}` (${uci_data.get('feature_count', 'unknown')}$ model features). "
+        f"Protected attributes excluded from the model: {_cols('excluded_protected_attributes')}. "
+        f"Audit groups that are also model features (documented): {_cols('audit_groups_used_as_features')}."
+    )
+
+
 def render_fairness_markdown_report() -> None:
     """Renders docs/ethics_and_fairness.md from serialized JSON artifacts."""
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
@@ -265,6 +277,7 @@ def render_fairness_markdown_report() -> None:
     gen_data = _load_json("generator_sanity_check.json")
 
     uci_table = render_uci_audit_table(uci_data) if uci_data else "*UCI audit artifact not found.*"
+    uci_feature_line = render_uci_feature_line(uci_data) if uci_data else "*UCI audit artifact not found.*"
     mit_table = render_mitigations_table(uci_mit) if uci_mit else "*UCI mitigations artifact not found.*"
     oulad_table = render_oulad_audit_table(oulad_data) if oulad_data else "*OULAD audit artifact not found.*"
     shift_table = render_shift_check_table(oulad_shift) if oulad_shift else "*OULAD shift check artifact not found.*"
@@ -291,7 +304,7 @@ All evaluations in this report adhere to the following principles:
 
 ## 2. Real Higher Education Benchmark: UCI Dataset 697 Audit
 - **Dataset**: UCI "Predict Students' Dropout and Academic Success" (Portuguese Higher Education, $N = 3,630$, Enrolled excluded).
-- **Feature Set**: `END_OF_SEM1` ($25$ model features, strictly omitting protected columns `gender`, `scholarship_holder`, `debtor`, `displaced`, `age_at_enrollment`).
+- **Feature Set**: {uci_feature_line}
 - **Inference Mode**: 5-Fold Stratified Cross-Validation out-of-fold risk probabilities.
 - **Selection Rate Threshold**: Top 20% predicted risk cohort.
 

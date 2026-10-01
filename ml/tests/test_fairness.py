@@ -5,7 +5,7 @@ Context: DropoutGuard Phase 4 Fairness Engineering
 Validates:
 1. Small-group flag works (subgroups with N < 50 flagged 'insufficient_sample' with gaps suppressed).
 2. Bootstrap confidence intervals are deterministic with fixed random seed.
-3. Audit attributes are strictly quarantined and never appear in any model feature matrix (UCI, OULAD, Simulated).
+3. PROTECTED attributes (ml/fairness/attributes.py) never appear in any actual model feature matrix (UCI, OULAD, Simulated).
 4. Mitigation benchmarking produces structured comparative metrics across all 4 strategies.
 5. Within-group ECE (Expected Calibration Error) calculates valid calibration errors.
 """
@@ -17,13 +17,18 @@ import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
+from backend.app.services.ml_service import RAW_FEATURE_COLUMNS
+from ml.data_pipeline.feature_engineering import generate_processed_feature_dataset
+from ml.fairness.attributes import PROTECTED
 from ml.fairness.audit import (
     audit_model_fairness,
     compute_within_group_ece,
     compute_group_metrics,
 )
 from ml.fairness.mitigation import compare_fairness_mitigations
-from ml.sources.uci import FEATURE_SETS, load_uci_clean_df
+from ml.models.train import prepare_training_data
+from ml.sources.oulad import SNAPSHOT_DAYS, build_snapshot_dataset, load_raw_tables
+from ml.sources.uci import FEATURE_SETS, get_uci_benchmark_dataset
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts"
@@ -121,39 +126,51 @@ def test_bootstrap_cis_deterministic_with_seed():
     assert ci1 == ci2, f"Bootstrap CIs were non-deterministic: {ci1} vs {ci2}"
 
 
-def test_audit_attributes_strictly_excluded_from_model_features():
+@pytest.mark.data
+def test_uci_feature_matrices_exclude_protected():
     """
-    Audited demographic and protected features must NEVER be passed into model feature matrices
-    across UCI, OULAD, and Simulated Indian cohorts.
+    Every UCI feature matrix the benchmark and fairness audit train on (all feature sets x both
+    label variants) shares no column with PROTECTED["uci"]. Columns are taken as built.
     """
-    # 1. UCI Check: protected attributes must be pruned from END_OF_SEM1
-    uci_protected = ["gender", "scholarship_holder", "debtor", "displaced", "age_at_enrollment"]
-    uci_model_features = [col for col in FEATURE_SETS["end_of_sem1"] if col not in uci_protected]
-    for col in uci_protected:
-        assert col not in uci_model_features, f"Protected UCI feature '{col}' leaked into model features"
+    for feature_set in FEATURE_SETS:
+        for label_variant in ("primary", "sensitivity"):
+            X, _, _, _ = get_uci_benchmark_dataset(feature_set=feature_set, label_variant=label_variant)
+            leaked = set(X.columns) & set(PROTECTED["uci"])
+            assert leaked == set(), f"UCI {feature_set}/{label_variant} uses protected attributes: {sorted(leaked)}"
 
-    # 2. OULAD Check: demographic attributes must never be in feature matrix X
-    oulad_protected = [
-        "gender", "age_band", "imd_band", "disability",
-        "highest_education", "region", "imd_x_gender"
-    ]
-    from ml.sources.oulad import build_snapshot_dataset, load_raw_tables
+
+@pytest.mark.data
+def test_oulad_snapshot_matrices_exclude_protected():
+    """
+    Every OULAD snapshot feature matrix (all t in SNAPSHOT_DAYS) shares no column with
+    PROTECTED["oulad"]. Columns are taken as built.
+    """
     tables = load_raw_tables()
-    X_oulad, _, _, _, _, _ = build_snapshot_dataset(t=14, tables=tables)
-    
-    # In OULAD snapshot dataset, verify pruning
-    if "highest_education" in X_oulad.columns:
-        X_oulad = X_oulad.drop(columns=["highest_education"])
-    for col in oulad_protected:
-        assert col not in X_oulad.columns, f"Protected OULAD feature '{col}' leaked into feature matrix"
+    for t in SNAPSHOT_DAYS:
+        X, _, _, _, _, _ = build_snapshot_dataset(t=t, tables=tables)
+        leaked = set(X.columns) & set(PROTECTED["oulad"])
+        assert leaked == set(), f"OULAD snapshot t={t} uses protected attributes: {sorted(leaked)}"
 
-    # 3. Simulated Cohort Check: raw categorical strings (gender, family_income_slab) not in feature_names.json
-    if FEATURE_NAMES_PATH.exists():
-        with open(FEATURE_NAMES_PATH, "r") as f:
-            sim_features = json.load(f)
-        assert "gender" not in sim_features, "'gender' found in simulated model features"
-        assert "family_income_slab" not in sim_features, "'family_income_slab' found in simulated model features"
-        assert "category" not in sim_features, "'category' found in simulated model features"
+
+def test_simulated_feature_matrices_exclude_protected(tmp_path):
+    """
+    The simulated-cohort training matrix (prepare_training_data on a generated cohort) and the
+    serving contract (feature_names.json, RAW_FEATURE_COLUMNS) share no column with
+    PROTECTED["simulated"]. Columns are taken as built.
+    """
+    features_csv = tmp_path / "features.csv"
+    generate_processed_feature_dataset(n_students=300, seed=42, output_path=features_csv)
+    X, _, _, _ = prepare_training_data(data_path=features_csv)
+    leaked = set(X.columns) & set(PROTECTED["simulated"])
+    assert leaked == set(), f"Simulated training matrix uses protected attributes: {sorted(leaked)}"
+
+    with open(FEATURE_NAMES_PATH, "r") as f:
+        serving_features = json.load(f)
+    leaked = set(serving_features) & set(PROTECTED["simulated"])
+    assert leaked == set(), f"feature_names.json uses protected attributes: {sorted(leaked)}"
+
+    leaked = set(RAW_FEATURE_COLUMNS) & set(PROTECTED["simulated"])
+    assert leaked == set(), f"RAW_FEATURE_COLUMNS uses protected attributes: {sorted(leaked)}"
 
 
 def test_mitigations_comparison_structure():
