@@ -81,6 +81,53 @@ class TestSimulationAssumptions:
         is_synced, errors = verify_assumptions_doc_sync()
         assert is_synced, f"docs/simulation.md is out of sync with assumptions.yaml:\n" + "\n".join(errors)
 
+    def test_estimated_entries_hold_references_not_literals(self):
+        """Estimated coefficients live only in estimated_parameters.json: the raw YAML has no literal for them."""
+        with open(ASSUMPTIONS_PATH, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f)
+        estimated = {
+            f"{section}.{key}": entry
+            for section, items in raw.items() if isinstance(items, dict)
+            for key, entry in items.items()
+            if isinstance(entry, dict) and entry.get("source") in ("estimated_from_uci", "estimated_from_oulad")
+        }
+        assert estimated, "No estimated_from_* entries found"
+        for name, entry in estimated.items():
+            assert "value" not in entry, f"{name} holds a literal value {entry.get('value')!r}; use value_from"
+            ref = entry.get("value_from", "")
+            assert ref.startswith("estimated_parameters.json#"), f"{name} value_from must reference estimated_parameters.json, got {ref!r}"
+
+    @requires_artifact(ESTIMATED_PARAMS_PATH, "python -m ml.simulation.estimate_parameters")
+    def test_every_value_from_reference_resolves(self):
+        """Every value_from resolves, through the loader, to exactly the referenced JSON value."""
+        with open(ESTIMATED_PARAMS_PATH, "r", encoding="utf-8") as f:
+            params = json.load(f)
+        resolved = load_simulation_assumptions(ASSUMPTIONS_PATH)
+        checked = 0
+        for section, items in resolved.items():
+            if not isinstance(items, dict):
+                continue
+            for key, entry in items.items():
+                if isinstance(entry, dict) and "value_from" in entry:
+                    field, ref_key = entry["value_from"].split("#", 1)[1].split(".", 1)
+                    assert entry["value"] == params[ref_key][field], f"{section}.{key} resolved to {entry['value']}"
+                    checked += 1
+        assert checked > 0
+
+    def test_loader_raises_on_missing_reference(self, tmp_path):
+        (tmp_path / "estimated_parameters.json").write_text(json.dumps({"other_key": {"indian_unit_coefficient": 1.0}}))
+        yaml_path = tmp_path / "assumptions.yaml"
+        yaml_path.write_text(yaml.safe_dump({"risk_coefficients": {"backlog_count": {
+            "value_from": "estimated_parameters.json#indian_unit_coefficient.backlog_count",
+            "source": "estimated_from_uci", "notes": "test"}}}))
+        with pytest.raises(ValueError, match="does not resolve"):
+            load_simulation_assumptions(yaml_path)
+
+        yaml_path.write_text(yaml.safe_dump({"risk_coefficients": {"backlog_count": {
+            "value": 1.5, "source": "estimated_from_uci", "notes": "test"}}}))
+        with pytest.raises(ValueError, match="must use 'value_from'"):
+            load_simulation_assumptions(yaml_path)
+
     def test_protected_attributes_have_zero_coefficients(self):
         """Demographic protected attributes must have 0.0 coefficients to prevent algorithmic bias."""
         data = load_simulation_assumptions(ASSUMPTIONS_PATH)

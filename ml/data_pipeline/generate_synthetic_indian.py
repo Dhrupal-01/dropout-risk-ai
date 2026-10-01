@@ -14,6 +14,7 @@ The baseline intercept beta_0 is solved numerically at generation time to calibr
 dropout rate exactly to the target base rate, and binary labels are drawn via Bernoulli trials.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -32,13 +33,59 @@ DEFAULT_OUTPUT_PATH = SYNTHETIC_DATA_DIR / "indian_college_students.csv"
 ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
 
 
+ESTIMATED_SOURCES = ("estimated_from_uci", "estimated_from_oulad")
+
+
+def _resolve_value_from(reference: str, yaml_dir: Path, entry_name: str) -> float:
+    """
+    Resolves `<json file>#<field>.<entry key>` (JSON path relative to the YAML's directory) to
+    json[<entry key>][<field>]. Raises ValueError if the file, key or field is missing.
+    """
+    try:
+        file_part, field_path = reference.split("#", 1)
+        field, key = field_path.split(".", 1)
+    except ValueError as exc:
+        raise ValueError(f"{entry_name}: malformed value_from '{reference}' (expected '<file>#<field>.<key>')") from exc
+
+    json_path = yaml_dir / file_part
+    if not json_path.exists():
+        raise ValueError(f"{entry_name}: value_from file not found: {json_path}")
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if key not in data or field not in data[key]:
+        raise ValueError(f"{entry_name}: value_from '{reference}' does not resolve in {json_path.name}")
+    value = data[key][field]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{entry_name}: value_from '{reference}' resolved to non-numeric {value!r}")
+    return float(value)
+
+
 def load_simulation_assumptions(path: Optional[Path] = None) -> Dict[str, Any]:
-    """Loads simulation parameters and assumptions from YAML specification."""
-    yaml_path = path or ASSUMPTIONS_PATH
+    """
+    Loads simulation parameters and assumptions from YAML specification.
+    Entries with `value_from` are resolved from the referenced JSON (estimated coefficients live only
+    in ml/simulation/estimated_parameters.json); `estimated_from_*` entries must use `value_from`.
+    """
+    yaml_path = Path(path or ASSUMPTIONS_PATH)
     if not yaml_path.exists():
         raise FileNotFoundError(f"Simulation assumptions file not found at: {yaml_path}")
     with open(yaml_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
+
+    for section, items in data.items():
+        if not isinstance(items, dict):
+            continue
+        for key, entry in items.items():
+            if not isinstance(entry, dict):
+                continue
+            name = f"{section}.{key}"
+            has_value, has_ref = "value" in entry, "value_from" in entry
+            if has_value and has_ref:
+                raise ValueError(f"{name}: has both 'value' and 'value_from'; an estimate must live in one place")
+            if entry.get("source") in ESTIMATED_SOURCES and not has_ref:
+                raise ValueError(f"{name}: source '{entry['source']}' must use 'value_from', not a literal value")
+            if has_ref:
+                entry["value"] = _resolve_value_from(entry["value_from"], yaml_path.parent, name)
     return data
 
 

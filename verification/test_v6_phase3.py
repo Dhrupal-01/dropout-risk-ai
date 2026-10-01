@@ -122,22 +122,30 @@ class TestV6Phase3Simulation:
         assert has_prob_under_half_with_label_one, "Bernoulli sampling should produce is_dropout=1 even when p < 0.5"
 
     def test_v6_5_estimated_parameters_match_assumptions(self):
-        """V6.5: estimated_parameters.json values match assumptions.yaml."""
+        """
+        V6.5: Estimated coefficients exist in exactly one place. assumptions.yaml estimated_* entries
+        hold no literal value, only a value_from reference, and the loader resolves each one to the
+        value in estimated_parameters.json.
+        """
+        from ml.data_pipeline.generate_synthetic_indian import load_simulation_assumptions
+
         assumptions_path = PROJECT_ROOT / "ml" / "simulation" / "assumptions.yaml"
         est_path = PROJECT_ROOT / "ml" / "simulation" / "estimated_parameters.json"
         assert est_path.exists()
         with open(assumptions_path, "r") as f:
-            assumptions = yaml.safe_load(f)
+            raw = yaml.safe_load(f)
         with open(est_path, "r") as f:
             est_params = json.load(f)
+        resolved = load_simulation_assumptions(assumptions_path)
 
-        for name, meta in assumptions.get("risk_coefficients", {}).items():
-            if meta.get("source") in ("estimated_from_uci", "estimated_from_oulad"):
-                assert name in est_params, f"Estimated feature {name} missing from estimated_parameters.json"
-                val = meta.get("value")
-                est_val = est_params[name].get("indian_unit_coefficient")
-                if est_val is not None:
-                    assert abs(val - est_val) < 1e-3, f"Mismatch for {name}: {val} vs {est_val}"
+        estimated = [k for k, m in raw["risk_coefficients"].items() if m.get("source") in ("estimated_from_uci", "estimated_from_oulad")]
+        assert estimated, "No estimated_from_* risk coefficients found"
+        for name in estimated:
+            meta = raw["risk_coefficients"][name]
+            assert "value" not in meta, f"{name} holds a literal value in assumptions.yaml: {meta.get('value')}"
+            assert meta.get("value_from") == f"estimated_parameters.json#indian_unit_coefficient.{name}", f"{name}: {meta.get('value_from')}"
+            assert name in est_params, f"Estimated feature {name} missing from estimated_parameters.json"
+            assert resolved["risk_coefficients"][name]["value"] == est_params[name]["indian_unit_coefficient"]
 
     def test_v6_8_sim_to_real_artifact_and_docs(self):
         """V6.8: sim_to_real.json has both directions with CIs; simulation_mapping.md exists."""

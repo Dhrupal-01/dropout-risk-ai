@@ -21,9 +21,10 @@ ALLOWED_SOURCES = {
 
 
 def load_assumptions() -> Dict[str, Any]:
-    with open(YAML_PATH, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    return data
+    """assumptions.yaml with `value_from` references resolved (see load_simulation_assumptions)."""
+    from ml.data_pipeline.generate_synthetic_indian import load_simulation_assumptions
+
+    return load_simulation_assumptions(YAML_PATH)
 
 
 def extract_all_keys(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -89,6 +90,8 @@ def render_markdown(data: Dict[str, Any]) -> str:
                 val_str = f"`{yaml.dump(val, default_flow_style=True).strip()}`"
             else:
                 val_str = f"`{val}`"
+            if "value_from" in details:
+                val_str += f" (from `{details['value_from']}`)"
 
             src = details.get("source", "")
             notes = details.get("notes", "").replace("|", "\\|")
