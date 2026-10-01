@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from ml.provenance import assert_consistent_provenance, dirty_artifact_warning
+from ml.provenance import ProvenanceError, assert_consistent_provenance, dirty_artifact_warning
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 README_PATH = BASE_DIR / "README.md"
@@ -61,7 +61,15 @@ def render_benchmarks_block() -> str:
     oulad_sorted = sorted(oulad.values(), key=lambda a: a["snapshot_t"])
     every = list(uci.values()) + oulad_sorted
 
-    commit = _single([a["provenance"] for a in every], "git_commit")
+    commits = {a["provenance"]["git_commit"] for a in every}
+    if len(commits) != 1:
+        # A refusal, not a crash: mid-pipeline (UCI rerun, OULAD not yet) the JSONs legitimately differ;
+        # callers such as ml.evaluation.run skip the render, and the final render step writes it.
+        raise ProvenanceError(
+            f"Refusing to render the README benchmarks block: benchmark JSONs record different git commits "
+            f"{sorted(c[:7] for c in commits)}; regenerate them from one commit."
+        )
+    commit = commits.pop()
     inputs = {}
     for a in every:
         for name, info in a["provenance"]["input_files"].items():

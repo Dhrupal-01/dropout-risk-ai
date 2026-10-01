@@ -223,3 +223,27 @@ def test_build_metadata_hashes_exclude_editable_freeze(tmp_path, monkeypatch, lo
     assert any(cmd[-2:] == ["freeze", "--exclude-editable"] for cmd in calls)
     assert meta["pip freeze --exclude-editable sha256"] == rv.package_fingerprint(FREEZE.format(sha="9" * 40))
     assert meta["matches requirements.lock"] == expected
+
+
+@pytest.mark.artifacts
+@pytest.mark.skipif(not any(BENCHMARK_DIR.glob("uci_*_primary.json")), reason="benchmark JSON not generated")
+def test_readme_benchmarks_block_refuses_mixed_commits_without_crashing_the_runner(tmp_path, monkeypatch):
+    import ml.evaluation.run as run
+    import scripts.render_benchmark_report as rbr
+    import scripts.render_readme_benchmarks as rb
+
+    names = [p.name for p in BENCHMARK_DIR.glob("uci_*_primary.json")] + [p.name for p in BENCHMARK_DIR.glob("oulad_snapshot_t*_withdrawn.json")]
+    for i, name in enumerate(names):
+        art = json.loads((BENCHMARK_DIR / name).read_text())
+        art["provenance"]["git_commit"] = ("a" if i == 0 else "b") * 40
+        (tmp_path / name).write_text(json.dumps(art))
+    monkeypatch.setattr(rb, "BENCHMARK_DIR", tmp_path)
+    with pytest.raises(provenance.ProvenanceError, match="different git commits"):
+        rb.render_benchmarks_block()
+
+    # The benchmark runner's post-run render treats it as a refusal (logged), not a failure
+    def refusing_render():
+        rb.render_benchmarks_block()
+    monkeypatch.setattr(run, "render_benchmark_report", refusing_render)
+    run._render_report_if_consistent()
+
