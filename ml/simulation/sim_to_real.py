@@ -10,7 +10,8 @@ empirically calibrated simulated Indian collegiate cohort across 6 shared proxy 
 - is_hosteler
 
 Evaluations:
-1. Real-on-Real: Train on UCI proxies, test on UCI holdout.
+1. Real-on-Real: Train on UCI proxies, test on UCI holdout (the rows excluded from parameter
+   estimation by the shared split in ml/simulation/uci_proxies.py).
 2. Sim-on-Sim: Train on simulated proxies, test on simulated holdout.
 3. Sim-to-Real: Train on simulated proxies, test on UCI holdout.
 4. Real-to-Sim: Train on UCI proxies, test on simulated holdout.
@@ -34,7 +35,7 @@ from sklearn.preprocessing import StandardScaler
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 from ml.evaluation.harness import compute_bootstrap_cis
 from ml.provenance import build_provenance, uci_inputs
-from ml.sources.uci import load_uci_clean_df
+from ml.simulation.uci_proxies import build_uci_proxies, split_uci_estimation_holdout
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -53,31 +54,20 @@ SHARED_PROXIES = [
 ]
 
 
-def load_uci_proxies() -> Tuple[pd.DataFrame, np.ndarray]:
-    """Extracts the 6 shared proxies and binary labels from UCI dataset (Dropout vs Graduate)."""
-    df_raw = load_uci_clean_df()
-    df = df_raw[df_raw["target"].isin(["Dropout", "Graduate"])].copy()
-    y = (df["target"] == "Dropout").astype(int).values
-
-    has_scholarship = df["scholarship_holder"].astype(float)
-    fee_delay_proxy = ((df["tuition_fees_up_to_date"] == 0) | (df["debtor"] == 1)).astype(float)
-    he_codes = {2, 3, 4, 5, 6, 40, 41, 42, 43, 44}
-    mother_he = df["mothers_qualification"].isin(he_codes)
-    father_he = df["fathers_qualification"].isin(he_codes)
-    is_first_gen = (~mother_he & ~father_he).astype(float)
-    is_hosteler = df["displaced"].astype(float)
-    current_cgpa = (df["cu_1st_sem_grade"] / 2.0).clip(0.0, 10.0).astype(float)
-    backlog_count = np.maximum(0.0, df["cu_1st_sem_enrolled"] - df["cu_1st_sem_approved"]).astype(float)
-
-    X = pd.DataFrame({
-        "current_cgpa": current_cgpa,
-        "backlog_count": backlog_count,
-        "has_scholarship": has_scholarship,
-        "fee_payment_delay_days": fee_delay_proxy,
-        "is_first_generation": is_first_gen,
-        "is_hosteler": is_hosteler,
-    })
-    return X, y
+def uci_train_holdout() -> Tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray]:
+    """
+    UCI proxies split with the shared estimation/holdout split (ml/simulation/uci_proxies.py).
+    The holdout (test) rows are exactly the rows excluded from parameter estimation.
+    Returns X_train, X_holdout (index labels kept), y_train, y_holdout.
+    """
+    X, y = build_uci_proxies()
+    train_index, holdout_index = split_uci_estimation_holdout(X, y)
+    return (
+        X.loc[train_index, SHARED_PROXIES],
+        X.loc[holdout_index, SHARED_PROXIES],
+        y.loc[train_index].values,
+        y.loc[holdout_index].values,
+    )
 
 
 def load_simulated_proxies(n_students: int = 2000, seed: int = 42) -> Tuple[pd.DataFrame, np.ndarray]:
@@ -100,15 +90,12 @@ def run_sim_to_real_benchmark(n_bootstraps: int = 1000) -> Dict[str, Any]:
     """
     Executes cross-domain and within-domain transfer evaluations.
     """
-    logger.info("Loading UCI benchmark proxies...")
-    X_uci, y_uci = load_uci_proxies()
+    logger.info("Loading UCI benchmark proxies (shared estimation/holdout split)...")
+    X_uci_tr, X_uci_te, y_uci_tr, y_uci_te = uci_train_holdout()
     logger.info("Generating calibrated simulated cohort proxies...")
     X_sim, y_sim = load_simulated_proxies()
 
-    # Stratified 80/20 train/test splits within each domain
-    X_uci_tr, X_uci_te, y_uci_tr, y_uci_te = train_test_split(
-        X_uci, y_uci, test_size=0.2, random_state=42, stratify=y_uci
-    )
+    # Simulated domain: stratified 80/20 split. UCI holdout = rows excluded from parameter estimation.
     X_sim_tr, X_sim_te, y_sim_tr, y_sim_te = train_test_split(
         X_sim, y_sim, test_size=0.2, random_state=42, stratify=y_sim
     )

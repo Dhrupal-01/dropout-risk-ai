@@ -15,7 +15,9 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from ml.sources.uci import load_uci_clean_df
+from ml.config import RANDOM_SEED
+from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
+from ml.simulation.uci_proxies import HOLDOUT_FRACTION, SPLIT_SEED, build_uci_proxies, split_uci_estimation_holdout
 from ml.sources.oulad import build_snapshot_dataset, load_raw_tables
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -76,51 +78,19 @@ def compute_logistic_standardized_effects(
 
 def estimate_uci_parameters() -> Dict[str, Any]:
     """
-    Extracts UCI proxies (END_OF_SEM1, Dropout vs Graduate) and fits standardized logistic regression:
-    - scholarship_holder -> has_scholarship
-    - tuition_fees_up_to_date / debtor -> fee payment delay
-    - neither parent with higher education -> is_first_generation
-    - displaced -> hosteler
-    - 1st-sem grade (0-20) rescaled to 0-10 -> current_cgpa
-    - units enrolled - units approved -> backlog_count
+    Fits standardized logistic regression on the UCI proxies (ml/simulation/uci_proxies.py) using the
+    ESTIMATION rows of the shared split only. The holdout rows are reserved for sim_to_real.py, so the
+    sim-to-real check never evaluates on data that informed the simulator's parameters.
     """
     logger.info("Loading UCI dataset and building empirical proxies...")
-    df_raw = load_uci_clean_df()
-    df = df_raw[df_raw["target"].isin(["Dropout", "Graduate"])].copy()
-    y = (df["target"] == "Dropout").astype(int).values
+    X, y = build_uci_proxies()
+    train_index, holdout_index = split_uci_estimation_holdout(X, y)
+    logger.info("UCI estimation rows: %d (holdout rows %d excluded)", len(train_index), len(holdout_index))
 
-    # 1. has_scholarship
-    has_scholarship = df["scholarship_holder"].astype(float)
-
-    # 2. fee_payment_delay proxy: default or debtor
-    fee_delay_proxy = ((df["tuition_fees_up_to_date"] == 0) | (df["debtor"] == 1)).astype(float)
-
-    # 3. is_first_generation: neither parent with higher education degree
-    # Portuguese Higher ed codes: 2, 3, 4, 5, 6, 40, 41, 42, 43, 44
-    he_codes = {2, 3, 4, 5, 6, 40, 41, 42, 43, 44}
-    mother_he = df["mothers_qualification"].isin(he_codes)
-    father_he = df["fathers_qualification"].isin(he_codes)
-    is_first_gen = (~mother_he & ~father_he).astype(float)
-
-    # 4. hosteler proxy: displaced from hometown
-    is_hosteler = df["displaced"].astype(float)
-
-    # 5. current_cgpa proxy: 1st-sem grade (0-20 scale rescaled to 0-10 scale)
-    current_cgpa = (df["cu_1st_sem_grade"] / 2.0).clip(0.0, 10.0).astype(float)
-
-    # 6. backlog_count proxy: units enrolled - units approved
-    backlog_count = np.maximum(0.0, df["cu_1st_sem_enrolled"] - df["cu_1st_sem_approved"]).astype(float)
-
-    uci_proxies = pd.DataFrame({
-        "has_scholarship": has_scholarship,
-        "fee_payment_delay_days": fee_delay_proxy,
-        "is_first_generation": is_first_gen,
-        "is_hosteler": is_hosteler,
-        "current_cgpa": current_cgpa,
-        "backlog_count": backlog_count,
-    })
-
-    effects = compute_logistic_standardized_effects(uci_proxies, y)
+    effects = compute_logistic_standardized_effects(X.loc[train_index], y.loc[train_index].values)
+    for data in effects.values():
+        data["n_estimation_rows"] = int(len(train_index))
+        data["n_holdout_rows_excluded"] = int(len(holdout_index))
     logger.info("UCI Standardized Effects: %s", effects)
     return effects
 
@@ -159,23 +129,33 @@ def estimate_oulad_parameters() -> Dict[str, Any]:
     return effects
 
 
-def get_simulated_feature_stds() -> Dict[str, float]:
+SIMULATED_SD_FEATURES: List[str] = [
+    "current_cgpa",
+    "backlog_count",
+    "has_scholarship",
+    "is_first_generation",
+    "is_hosteler",
+    "fee_payment_delay_days",
+    "lms_logins_per_week",
+    "days_since_last_lms_activity",
+    "assignment_submission_lag_days",
+]
+SIMULATED_SD_N_STUDENTS = 2000
+
+
+def get_simulated_feature_stds(
+    n_students: int = SIMULATED_SD_N_STUDENTS,
+    seed: int = RANDOM_SEED,
+) -> Dict[str, float]:
     """
-    Computes empirical standard deviations in the simulated Indian collegiate population
-    to scale standardized effects into natural Indian units (beta_ind = beta_std / SD_ind).
+    Sample standard deviations (ddof=1) of the transferred features in a simulated Indian cohort
+    generated in memory with a fixed seed. Used to scale standardized effects into natural Indian
+    units (beta_ind = beta_std / SD_ind). Feature draws precede the risk coefficients in the
+    generator, so these SDs do not depend on the estimated effects.
     """
-    # Distribution standard deviations based on Indian collegiate domain parameters:
-    return {
-        "current_cgpa": 1.45,                     # SD of CGPA (~1.4 - 1.5 CGPA points)
-        "backlog_count": 1.25,                    # SD of Poisson backlog distribution
-        "has_scholarship": 0.45,                  # SD of binary scholarship indicator
-        "is_first_generation": 0.48,              # SD of binary first-generation indicator
-        "is_hosteler": 0.50,                      # SD of binary hostel status indicator
-        "fee_payment_delay_days": 24.5,           # SD of fee payment delay days (~24-26 days)
-        "lms_logins_per_week": 2.20,              # SD of weekly LMS logins
-        "days_since_last_lms_activity": 12.0,     # SD of inactivity recency in days
-        "assignment_submission_lag_days": 2.50,   # SD of assignment submission lag in days
-    }
+    df = generate_indian_student_cohort(n_students=n_students, seed=seed, output_path=None)
+    df["is_hosteler"] = (df["hostel_status"] == "Hosteler").astype(int)
+    return {feat: float(df[feat].std(ddof=1)) for feat in SIMULATED_SD_FEATURES}
 
 
 def estimate_all_parameters() -> Dict[str, Any]:
@@ -204,9 +184,12 @@ def estimate_all_parameters() -> Dict[str, Any]:
             "standardized_effect": data["standardized_effect"],
             "standard_error": data["standard_error"],
             "standardized_ci_95": [data["ci_lower"], data["ci_upper"]],
-            "simulated_cohort_sd": sd,
+            "simulated_cohort_sd": round(sd, 4),
+            "simulated_cohort_sd_source": {"n_students": SIMULATED_SD_N_STUDENTS, "seed": RANDOM_SEED},
             "indian_unit_coefficient": round(ind_beta, 5),
             "indian_unit_ci_95": [round(ind_lower, 5), round(ind_upper, 5)],
+            "n_estimation_rows": data["n_estimation_rows"],
+            "n_holdout_rows_excluded": data["n_holdout_rows_excluded"],
         }
 
     for feat, data in oulad_effects.items():
@@ -219,7 +202,8 @@ def estimate_all_parameters() -> Dict[str, Any]:
             "standardized_effect": data["standardized_effect"],
             "standard_error": data["standard_error"],
             "standardized_ci_95": [data["ci_lower"], data["ci_upper"]],
-            "simulated_cohort_sd": sd,
+            "simulated_cohort_sd": round(sd, 4),
+            "simulated_cohort_sd_source": {"n_students": SIMULATED_SD_N_STUDENTS, "seed": RANDOM_SEED},
             "indian_unit_coefficient": round(ind_beta, 5),
             "indian_unit_ci_95": [round(ind_lower, 5), round(ind_upper, 5)],
         }
@@ -258,7 +242,7 @@ def render_simulation_mapping(effects: Dict[str, Any]):
         "fee_payment_delay_days": {
             "source_dataset": "UCI (ID 697)",
             "source_cols": "`tuition_fees_up_to_date`, `debtor`",
-            "transform": "Financial default indicator (`tuition_fees == 0 | debtor == 1`) mapped to delay days.",
+            "transform": "**Binary** financial default indicator: 1 if `tuition_fees_up_to_date == 0` or `debtor == 1`, else 0. UCI records no delay duration (see note below).",
         },
         "is_first_generation": {
             "source_dataset": "UCI (ID 697)",
@@ -301,6 +285,11 @@ def render_simulation_mapping(effects: Dict[str, Any]):
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ]
 
+    uci_effects = [e for e in effects.values() if str(e.get("source_dataset", "")).startswith("UCI")]
+    n_est = uci_effects[0]["n_estimation_rows"]
+    n_hold = uci_effects[0]["n_holdout_rows_excluded"]
+    sd_source = next(iter(effects.values()))["simulated_cohort_sd_source"]
+
     for feat, meta in proxy_meta.items():
         eff = effects.get(feat, {})
         std_beta = eff.get("standardized_effect", 0.0)
@@ -327,7 +316,21 @@ def render_simulation_mapping(effects: Dict[str, Any]):
         "",
         "$$\\beta_{\\text{ind}} = \\frac{\\beta_{\\text{std}}}{\\sigma(X_{\\text{ind}})}$$",
         "",
-        "where $\\sigma(X_{\\text{ind}})$ represents the expected standard deviation of that indicator in the simulated cohort.",
+        "where $\\sigma(X_{\\text{ind}})$ is the sample standard deviation of that indicator in a simulated cohort "
+        f"generated with a fixed seed (n = {sd_source['n_students']:,}, seed = {sd_source['seed']}).",
+        "",
+        "## UCI Estimation Split",
+        "",
+        f"UCI effects are estimated on {n_est:,} rows only. The remaining {n_hold:,} rows "
+        f"({HOLDOUT_FRACTION:.0%} stratified holdout, seed {SPLIT_SEED}) are reserved for the sim-to-real check "
+        "(`ml/simulation/uci_proxies.py`), so that check never evaluates on data that informed these parameters.",
+        "",
+        "## Fee-Delay Proxy Is Binary",
+        "",
+        "The UCI source for `fee_payment_delay_days` is a 0/1 default indicator (`tuition_fees_up_to_date == 0` or "
+        "`debtor == 1`); UCI has no delay duration. Its standardized effect is divided by the simulated SD of delay "
+        "**days**, which treats one SD of being in default as one SD of delay days. This is an assumption, not an "
+        "estimate of a per-day effect.",
         "",
     ])
 
