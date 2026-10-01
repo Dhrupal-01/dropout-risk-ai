@@ -3,8 +3,8 @@
   "phase": "Phase 4 - Fairness Audit & Mitigations",
   "uci_higher_ed": {
     "n_samples": 3630,
-    "base_rate": 0.3209,
-    "selection_rate_top20": 0.2,
+    "base_rate": 0.3915,
+    "top_k_pct": 0.2,
     "attributes_audited": [
       "gender",
       "scholarship_holder",
@@ -15,45 +15,45 @@
     "mitigations_comparison": [
       {
         "strategy": "None (Unmitigated)",
-        "roc_auc": 0.9392,
-        "pr_auc": 0.9349,
-        "recall": 0.8216,
-        "precision": 0.8794,
-        "brier_score": 0.0834,
-        "max_fnr_gap": 0.0424
+        "roc_auc": 0.9417,
+        "pr_auc": 0.9383,
+        "recall": 0.8474,
+        "precision": 0.9048,
+        "brier_score": 0.0805,
+        "max_fnr_gap": 0.0721
       },
       {
         "strategy": "Sample Reweighing",
-        "roc_auc": 0.9407,
-        "pr_auc": 0.9351,
-        "recall": 0.8568,
-        "precision": 0.843,
-        "brier_score": 0.0881,
-        "max_fnr_gap": 0.052
+        "roc_auc": 0.9423,
+        "pr_auc": 0.938,
+        "recall": 0.8615,
+        "precision": 0.8595,
+        "brier_score": 0.0859,
+        "max_fnr_gap": 0.089
       },
       {
         "strategy": "Group-Specific Thresholds (FNR Parity)",
-        "roc_auc": 0.9392,
-        "pr_auc": 0.9349,
+        "roc_auc": 0.9417,
+        "pr_auc": 0.9383,
         "recall": 0.8169,
-        "precision": 0.8678,
-        "brier_score": 0.0834,
-        "max_fnr_gap": 0.0229
+        "precision": 0.8788,
+        "brier_score": 0.0805,
+        "max_fnr_gap": 0.0148
       },
       {
         "strategy": "Fairlearn ExponentiatedGradient",
-        "roc_auc": 0.8944,
-        "pr_auc": 0.8468,
-        "recall": 0.7089,
-        "precision": 0.9069,
-        "brier_score": 0.1055,
-        "max_fnr_gap": 0.029
+        "roc_auc": 0.8928,
+        "pr_auc": 0.8346,
+        "recall": 0.7653,
+        "precision": 0.8787,
+        "brier_score": 0.097,
+        "max_fnr_gap": 0.0593
       }
     ]
   },
   "oulad_learning_analytics": {
     "n_samples_holdout": 15092,
-    "base_rate": 0.1543,
+    "base_rate": 0.1635,
     "attributes_audited": [
       "gender",
       "age_band",
@@ -107,86 +107,64 @@
       }
     ]
   },
-  "gender": {
-    "male": {
-      "n_samples": 176,
-      "base_rate": 0.3636,
-      "selection_rate": 0.3239,
-      "true_positives": 48,
-      "false_negatives": 16,
-      "true_negatives": 103,
-      "false_positives": 9,
-      "tpr_recall": 0.75,
-      "fnr_miss_rate": 0.25,
-      "fpr_alarm_rate": 0.0804
+  "provenance": {
+    "input_files": {
+      "assessments.csv": {
+        "path": "data/raw/oulad/assessments.csv",
+        "sha256": "8cc738fb88ad760571d6f2a23059bfee0ffcae3bcd830514c9cbd5c6d5a046f1"
+      },
+      "calibrated_model.joblib": {
+        "path": "ml/artifacts/calibrated_model.joblib",
+        "sha256": "c79ee338146eb993041fc31174999f1df6249e6b412f1891e4e5ac9a8711bc54"
+      },
+      "courses.csv": {
+        "path": "data/raw/oulad/courses.csv",
+        "sha256": "4f16eee7454b15e109b0a21a0e43be820e6846ed6f9301bb7feb5ab5ad737a75"
+      },
+      "feature_names.json": {
+        "path": "ml/artifacts/feature_names.json",
+        "sha256": "3a598034268a00d21ec5177f826a46294cfe281d6fd6217446c02f044d3a068e"
+      },
+      "features.csv": {
+        "path": "data/processed/features.csv",
+        "sha256": "1106b0dada834847d0ad1ad5905f33b96a45ebfc82a300d4348af4682e7c1a62"
+      },
+      "studentAssessment.csv": {
+        "path": "data/raw/oulad/studentAssessment.csv",
+        "sha256": "fd5320786328d05af841ee7dd4b5871b9dada3b9fe9d6a3642b2f42635510a6e"
+      },
+      "studentInfo.csv": {
+        "path": "data/raw/oulad/studentInfo.csv",
+        "sha256": "7e6f3e474a5eee00639d2a414a6c7e928745823c2d2c2563ca1780145f99b0d6"
+      },
+      "studentRegistration.csv": {
+        "path": "data/raw/oulad/studentRegistration.csv",
+        "sha256": "0d32676285372aaf2e7a80304e5b274b4fba24313e2ca4c04317225e1ec90170"
+      },
+      "studentVle.csv": {
+        "path": "data/raw/oulad/studentVle.csv",
+        "sha256": "52668253d876c5becbcb72185977152700cecab2942aca807fecc3dd54b937f0"
+      },
+      "uci_dropout.csv": {
+        "path": "data/raw/uci_dropout.csv",
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      },
+      "vle.csv": {
+        "path": "data/raw/oulad/vle.csv",
+        "sha256": "d1b28303dea802ad87b4484e1196e878e06824850b9a4fe8aa34693439fe87e9"
+      }
     },
-    "female": {
-      "n_samples": 124,
-      "base_rate": 0.3306,
-      "selection_rate": 0.3387,
-      "true_positives": 34,
-      "false_negatives": 7,
-      "true_negatives": 75,
-      "false_positives": 8,
-      "tpr_recall": 0.8293,
-      "fnr_miss_rate": 0.1707,
-      "fpr_alarm_rate": 0.0964
-    },
-    "fnr_disparity": 0.0793,
-    "disparate_impact_ratio": 1.046
-  },
-  "economic_proxy": {
-    "lower_income_under_5lpa": {
-      "n_samples": 173,
-      "base_rate": 0.3121,
-      "selection_rate": 0.3584,
-      "true_positives": 46,
-      "false_negatives": 8,
-      "true_negatives": 103,
-      "false_positives": 16,
-      "tpr_recall": 0.8519,
-      "fnr_miss_rate": 0.1481,
-      "fpr_alarm_rate": 0.1345
-    },
-    "higher_income_above_5lpa": {
-      "n_samples": 127,
-      "base_rate": 0.4016,
-      "selection_rate": 0.2913,
-      "true_positives": 36,
-      "false_negatives": 15,
-      "true_negatives": 75,
-      "false_positives": 1,
-      "tpr_recall": 0.7059,
-      "fnr_miss_rate": 0.2941,
-      "fpr_alarm_rate": 0.0132
-    },
-    "fnr_disparity": 0.146
-  },
-  "first_generation": {
-    "first_gen": {
-      "n_samples": 102,
-      "base_rate": 0.2941,
-      "selection_rate": 0.2745,
-      "true_positives": 19,
-      "false_negatives": 11,
-      "true_negatives": 63,
-      "false_positives": 9,
-      "tpr_recall": 0.6333,
-      "fnr_miss_rate": 0.3667,
-      "fpr_alarm_rate": 0.125
-    },
-    "non_first_gen": {
-      "n_samples": 198,
-      "base_rate": 0.3788,
-      "selection_rate": 0.3586,
-      "true_positives": 63,
-      "false_negatives": 12,
-      "true_negatives": 115,
-      "false_positives": 8,
-      "tpr_recall": 0.84,
-      "fnr_miss_rate": 0.16,
-      "fpr_alarm_rate": 0.065
-    },
-    "fnr_disparity": 0.2067
+    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
+    "git_dirty": true,
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
   }
 }

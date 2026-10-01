@@ -1,6 +1,6 @@
 {
   "benchmark": "sim_to_real_transfer",
-  "timestamp": "2026-09-28T13:57:35.729761+00:00",
+  "timestamp": "2026-10-01T07:51:59.100540+00:00",
   "n_bootstraps": 1000,
   "shared_proxies": [
     "current_cgpa",
@@ -86,6 +86,30 @@
           "ci_upper": 0.8963
         }
       }
+    }
+  },
+  "provenance": {
+    "input_files": {
+      "assumptions.yaml": {
+        "path": "ml/simulation/assumptions.yaml",
+        "sha256": "b1e0bf962c31f645b6ade5938ee366ab4f61460f651792b8e2f6c00e5586f2bf"
+      },
+      "uci_dropout.csv": {
+        "path": "data/raw/uci_dropout.csv",
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      }
+    },
+    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
+    "git_dirty": true,
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
     }
   }
 }

@@ -1,95 +1,115 @@
 {
   "results": {
     "none": {
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
-      "recall": 0.8216,
-      "precision": 0.8794,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0424,
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
+      "recall": 0.8474,
+      "precision": 0.9048,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0721,
       "group_fnrs": {
-        "Female": 0.201,
-        "Male": 0.1586
-      }
-    },
-    "sample_reweighing": {
-      "roc_auc": 0.9407,
-      "pr_auc": 0.9351,
-      "recall": 0.8568,
-      "precision": 0.843,
-      "brier_score": 0.0881,
-      "max_fnr_gap": 0.052,
-      "group_fnrs": {
-        "Female": 0.1709,
+        "Female": 0.191,
         "Male": 0.1189
       }
     },
-    "group_specific_thresholds": {
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
-      "recall": 0.8169,
-      "precision": 0.8678,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0229,
+    "sample_reweighing": {
+      "roc_auc": 0.9423,
+      "pr_auc": 0.938,
+      "recall": 0.8615,
+      "precision": 0.8595,
+      "brier_score": 0.0859,
+      "max_fnr_gap": 0.089,
       "group_fnrs": {
-        "Female": 0.1709,
-        "Male": 0.1938
+        "Female": 0.1859,
+        "Male": 0.0969
+      }
+    },
+    "group_specific_thresholds": {
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
+      "recall": 0.8169,
+      "precision": 0.8788,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0148,
+      "group_fnrs": {
+        "Female": 0.191,
+        "Male": 0.1762
       },
       "group_thresholds": {
-        "Female": 0.3849,
-        "Male": 0.5803
+        "Female": 0.4076,
+        "Male": 0.5733
       }
     },
     "fairlearn_exponentiated_gradient": {
-      "roc_auc": 0.8944,
-      "pr_auc": 0.8468,
-      "recall": 0.7089,
-      "precision": 0.9069,
-      "brier_score": 0.1055,
-      "max_fnr_gap": 0.029,
+      "roc_auc": 0.8928,
+      "pr_auc": 0.8346,
+      "recall": 0.7653,
+      "precision": 0.8787,
+      "brier_score": 0.097,
+      "max_fnr_gap": 0.0593,
       "group_fnrs": {
-        "Female": 0.3065,
-        "Male": 0.2775
+        "Female": 0.2663,
+        "Male": 0.207
       }
     }
   },
   "comparison_table": [
     {
       "strategy": "None (Unmitigated)",
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
-      "recall": 0.8216,
-      "precision": 0.8794,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0424
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
+      "recall": 0.8474,
+      "precision": 0.9048,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0721
     },
     {
       "strategy": "Sample Reweighing",
-      "roc_auc": 0.9407,
-      "pr_auc": 0.9351,
-      "recall": 0.8568,
-      "precision": 0.843,
-      "brier_score": 0.0881,
-      "max_fnr_gap": 0.052
+      "roc_auc": 0.9423,
+      "pr_auc": 0.938,
+      "recall": 0.8615,
+      "precision": 0.8595,
+      "brier_score": 0.0859,
+      "max_fnr_gap": 0.089
     },
     {
       "strategy": "Group-Specific Thresholds (FNR Parity)",
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
       "recall": 0.8169,
-      "precision": 0.8678,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0229
+      "precision": 0.8788,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0148
     },
     {
       "strategy": "Fairlearn ExponentiatedGradient",
-      "roc_auc": 0.8944,
-      "pr_auc": 0.8468,
-      "recall": 0.7089,
-      "precision": 0.9069,
-      "brier_score": 0.1055,
-      "max_fnr_gap": 0.029
+      "roc_auc": 0.8928,
+      "pr_auc": 0.8346,
+      "recall": 0.7653,
+      "precision": 0.8787,
+      "brier_score": 0.097,
+      "max_fnr_gap": 0.0593
     }
   ],
-  "sensitive_attribute": "gender"
+  "sensitive_attribute": "gender",
+  "provenance": {
+    "input_files": {
+      "uci_dropout.csv": {
+        "path": "data/raw/uci_dropout.csv",
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      }
+    },
+    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
+    "git_dirty": true,
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
+  }
 }

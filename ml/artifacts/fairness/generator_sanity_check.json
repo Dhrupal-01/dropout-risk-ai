@@ -2,8 +2,6 @@
   "benchmark": "generator_sanity_check_simulated_cohort",
   "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
   "test_split_n300": {
-    "evaluation_scope": "Held-Out Test Set (N = 300 students, unseen 15% split)",
-    "total_false_negatives": 23,
     "gender": {
       "male": {
         "n_samples": 176,
@@ -29,8 +27,7 @@
         "fnr_miss_rate": 0.1707,
         "fpr_alarm_rate": 0.0964
       },
-      "fnr_disparity": 0.0793,
-      "disparate_impact_ratio": 1.046
+      "fnr_disparity": 0.0793
     },
     "economic_proxy": {
       "lower_income_under_5lpa": {
@@ -171,6 +168,34 @@
         "fpr_alarm_rate": 0.0776
       },
       "fnr_disparity": 0.009
+    }
+  },
+  "provenance": {
+    "input_files": {
+      "calibrated_model.joblib": {
+        "path": "ml/artifacts/calibrated_model.joblib",
+        "sha256": "c79ee338146eb993041fc31174999f1df6249e6b412f1891e4e5ac9a8711bc54"
+      },
+      "feature_names.json": {
+        "path": "ml/artifacts/feature_names.json",
+        "sha256": "3a598034268a00d21ec5177f826a46294cfe281d6fd6217446c02f044d3a068e"
+      },
+      "features.csv": {
+        "path": "data/processed/features.csv",
+        "sha256": "1106b0dada834847d0ad1ad5905f33b96a45ebfc82a300d4348af4682e7c1a62"
+      }
+    },
+    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
+    "git_dirty": true,
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
     }
   }
 }
