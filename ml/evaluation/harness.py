@@ -2,7 +2,8 @@
 Source-Agnostic Benchmark Evaluation Harness
 Supports:
 - Repeated Stratified 5-Fold CV (3 repeats)
-- Leave-One-Group-Out (LOGO)
+- Leave-One-Group-Out (LOGO): primary result = mean ± SD of per-fold metrics (each held-out
+  course/module scored on its own); pooled out-of-fold metrics are kept as a labelled secondary
 - Predefined split mode
 - Majority class, Logistic Regression, XGBoost
 - Sklearn Pipeline wrapping so preprocessors fit exclusively on train folds
@@ -108,6 +109,54 @@ def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray) -> Dict[str, float]:
         "brier_score": round(brier, 4),
         "expected_calibration_error": round(float(ece), 4),
     }
+
+
+# Metrics that are undefined on a fold with one class / no positives (compute_metrics would
+# otherwise return a placeholder such as ROC-AUC 0.5, which must not enter a per-fold mean).
+NEEDS_BOTH_CLASSES = ("roc_auc", "pr_auc")
+NEEDS_POSITIVES = ("recall_top_10", "recall_top_20")
+
+
+def compute_per_fold_metrics(
+    y: np.ndarray,
+    fold_probs: List[Tuple[np.ndarray, np.ndarray]],
+    fold_labels: List[Any],
+) -> Dict[str, Any]:
+    """
+    Metrics computed separately on each held-out fold, plus mean and SD (ddof=1) across the folds
+    where each metric is defined. `fold_probs` is a list of (test_idx, predicted probabilities).
+    Undefined fold metrics are None and excluded from the summary; counts are reported.
+    """
+    y = np.asarray(y, dtype=int)
+    folds: List[Dict[str, Any]] = []
+    for (test_idx, probs), label in zip(fold_probs, fold_labels):
+        y_fold = y[test_idx]
+        n_pos = int(y_fold.sum())
+        metrics: Dict[str, Optional[float]] = dict(compute_metrics(y_fold, probs))
+        if n_pos == 0 or n_pos == len(y_fold):
+            for m in NEEDS_BOTH_CLASSES:
+                metrics[m] = None
+        if n_pos == 0:
+            for m in NEEDS_POSITIVES:
+                metrics[m] = None
+        folds.append({
+            "group": label.item() if hasattr(label, "item") else label,
+            "n": int(len(y_fold)),
+            "n_positive": n_pos,
+            "metrics": metrics,
+        })
+
+    summary: Dict[str, Dict[str, Any]] = {}
+    metric_names = list(folds[0]["metrics"]) if folds else []
+    for m in metric_names:
+        vals = [f["metrics"][m] for f in folds if f["metrics"][m] is not None]
+        summary[m] = {
+            "mean": round(float(np.mean(vals)), 4) if vals else None,
+            "sd": round(float(np.std(vals, ddof=1)), 4) if len(vals) >= 2 else None,
+            "n_folds_defined": len(vals),
+            "n_folds_total": len(folds),
+        }
+    return {"folds": folds, "summary": summary}
 
 
 def compute_calibration_curve_data(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> List[Dict[str, Any]]:
@@ -248,13 +297,19 @@ def evaluate_split_strategy(
     models: Dict[str, Any],
     n_repeats: int = 1,
     seed: int = 42,
+    fold_labels: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
     """
     Runs cross-validation across provided train/test index splits, generating out-of-fold probability
     predictions and computing point estimates and 95% bootstrap CIs.
 
     If n_repeats > 1, out-of-fold predictions from each repeat are averaged.
+    If fold_labels is given (one label per split, e.g. the held-out group in LOGO), each model's
+    result also carries `per_fold` (per-fold metrics and their mean ± SD, the primary LOGO result);
+    `metrics` then holds the pooled out-of-fold estimate, labelled by `metrics_pooling`.
     """
+    if fold_labels is not None and len(fold_labels) != len(splits):
+        raise ValueError(f"Got {len(fold_labels)} fold labels for {len(splits)} splits")
     n_samples = len(y)
     results = {}
 
@@ -264,6 +319,7 @@ def evaluate_split_strategy(
         # Array to accumulate out-of-fold probability predictions
         accumulated_probs = np.zeros(n_samples, dtype=float)
         prediction_counts = np.zeros(n_samples, dtype=int)
+        fold_probs: List[Tuple[np.ndarray, np.ndarray]] = []
 
         for train_idx, test_idx in splits:
             X_tr, y_tr = X.iloc[train_idx], y[train_idx]
@@ -276,6 +332,7 @@ def evaluate_split_strategy(
             probs = pipeline.predict_proba(X_te)[:, 1]
             accumulated_probs[test_idx] += probs
             prediction_counts[test_idx] += 1
+            fold_probs.append((np.asarray(test_idx), probs))
 
         # Identify all indices evaluated across test splits
         all_test_indices = []
@@ -295,10 +352,13 @@ def evaluate_split_strategy(
 
         results[model_name] = {
             "metrics": cis,
+            "metrics_pooling": "pooled_out_of_fold",
             "calibration_bins": cal_bins,
             "n_evaluated": len(evaluated_indices),
             "oof_probabilities_sample": [round(float(p), 4) for p in oof_probs[:10]],
         }
+        if fold_labels is not None:
+            results[model_name]["per_fold"] = compute_per_fold_metrics(y, fold_probs, fold_labels)
 
     return results
 
@@ -356,8 +416,10 @@ def run_benchmark_for_dataset(
         logger.info("Generating Leave-One-Group-Out splits across %d groups...", len(np.unique(groups)))
         logo = LeaveOneGroupOut()
         logo_splits = list(logo.split(X, y, groups=groups))
+        groups_arr = np.asarray(groups)
+        logo_labels = [groups_arr[test_idx][0] for _, test_idx in logo_splits]
         eval_results["leave_one_group_out"] = evaluate_split_strategy(
-            X, y, logo_splits, models, n_repeats=1, seed=seed
+            X, y, logo_splits, models, n_repeats=1, seed=seed, fold_labels=logo_labels
         )
 
     benchmark_artifact = {

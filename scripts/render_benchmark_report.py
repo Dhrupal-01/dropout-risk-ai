@@ -61,6 +61,75 @@ def format_stat(stat: Optional[Dict[str, float]]) -> str:
     return f"{pt:.4f} [{lo:.4f}, {hi:.4f}]"
 
 
+FOLD_METRICS: List[Tuple[str, str]] = [
+    ("roc_auc", "ROC-AUC"),
+    ("pr_auc", "PR-AUC"),
+    ("precision_top_10", "Top 10% Prec"),
+    ("recall_top_10", "Top 10% Recall"),
+    ("precision_top_20", "Top 20% Prec"),
+    ("recall_top_20", "Top 20% Recall"),
+    ("brier_score", "Brier Score"),
+    ("expected_calibration_error", "ECE"),
+]
+
+
+def format_fold_summary(summary: Optional[Dict[str, Any]]) -> str:
+    """Per-fold mean ± SD with the number of folds where the metric is defined (k = defined/total)."""
+    if not summary or summary.get("mean") is None:
+        return "N/A"
+    sd = summary.get("sd")
+    sd_str = f"{sd:.4f}" if sd is not None else "n/a"
+    return f"{summary['mean']:.4f} ± {sd_str} (k={summary['n_folds_defined']}/{summary['n_folds_total']})"
+
+
+def _logo_per_fold(m_data: Dict[str, Any], artifact_label: str) -> Dict[str, Any]:
+    """The per-fold LOGO summary; refuses artifacts produced before per-fold metrics existed."""
+    if "per_fold" not in m_data:
+        raise ValueError(
+            f"LOGO result in {artifact_label} has no per-fold metrics; rerun the benchmark "
+            "(pooled metrics are never shown as the primary LOGO result)."
+        )
+    return m_data["per_fold"]["summary"]
+
+
+def _logo_tables(rows: List[Tuple[str, str, Dict[str, Any], str]], unit: str) -> List[str]:
+    """
+    Primary per-fold mean ± SD table and secondary pooled table for leave-one-group-out.
+    rows: (row label, model label, model result dict, artifact label).
+    """
+    head = " | ".join(name for _, name in FOLD_METRICS)
+    sep = " | ".join(":---" for _ in FOLD_METRICS)
+    out = [
+        f"#### Leave-One-{unit}-Out: per-fold mean ± SD (primary)",
+        "",
+        f"Each held-out {unit.lower()} is scored on its own; values are mean ± SD across folds. "
+        "k = folds where the metric is defined (single-class folds have no ROC-AUC/PR-AUC).",
+        "",
+        f"| Setting | Model | {head} |",
+        f"| :--- | :--- | {sep} |",
+    ]
+    for row_label, m_label, m_data, art_label in rows:
+        summary = _logo_per_fold(m_data, art_label)
+        cells = " | ".join(format_fold_summary(summary.get(key)) for key, _ in FOLD_METRICS)
+        out.append(f"| {row_label} | {m_label} | {cells} |")
+    out.extend([
+        "",
+        f"#### Leave-One-{unit}-Out: pooled out-of-fold (secondary)",
+        "",
+        f"Out-of-fold predictions from all held-out {unit.lower()}s pooled before scoring, which compares "
+        f"scores across {unit.lower()}s. Shown for reference only; not the primary LOGO estimate.",
+        "",
+        f"| Setting | Model | " + " | ".join(f"{name} (95% CI)" for _, name in FOLD_METRICS) + " |",
+        f"| :--- | :--- | {sep} |",
+    ])
+    for row_label, m_label, m_data, _ in rows:
+        metrics = m_data.get("metrics", {})
+        cells = " | ".join(format_stat(metrics.get(key)) for key, _ in FOLD_METRICS)
+        out.append(f"| {row_label} | {m_label} | {cells} |")
+    out.append("")
+    return out
+
+
 def generate_reliability_figure(artifacts: List[Dict[str, Any]], target_path: Path):
     """
     Renders clean, publication-grade reliability diagrams using Pillow.
@@ -392,7 +461,7 @@ def render_benchmark_report():
             if not matching:
                 continue
 
-            for strat_key in ["repeated_stratified_cv", "leave_one_group_out"]:
+            for strat_key in ["repeated_stratified_cv"]:
                 strat_name = STRATEGY_NAMES.get(strat_key, strat_key)
                 lines.append(f"#### {strat_name}")
                 lines.append("")
@@ -421,6 +490,19 @@ def render_benchmark_report():
                         lines.append(f"| {fs_label} | {m_label} | {roc} | {pr} | {p10} | {r10} | {p20} | {r20} | {brier} | {ece} |")
 
                 lines.append("")
+
+            logo_rows = []
+            for fs_key in ["enrolment_time", "end_of_sem1", "full"]:
+                art = next((a for a in matching if a.get("feature_set") == fs_key), None)
+                if not art:
+                    continue
+                logo_res = art.get("results", {}).get("leave_one_group_out", {})
+                for m_key in ["majority_class", "logistic_regression", "xgboost"]:
+                    if m_key in logo_res:
+                        logo_rows.append((FEATURE_SET_LABELS.get(fs_key, fs_key), MODEL_NAMES.get(m_key, m_key),
+                                          logo_res[m_key], f"uci {fs_key}/{label_var}"))
+            if logo_rows:
+                lines.extend(_logo_tables(logo_rows, "Course"))
             lines.append("---")
             lines.append("")
 
@@ -481,6 +563,18 @@ def render_benchmark_report():
                 brier = format_stat(metrics.get("brier_score"))
                 ece = format_stat(metrics.get("expected_calibration_error"))
                 lines.append(f"| {fs_label} | {m_label} | {pr} | {roc} | {p10} | {r10} | {brier} | {ece} |")
+
+        lines.append("")
+        oulad_logo_rows = []
+        for art in sorted_oulad:
+            fs = art.get("feature_set", "")
+            logo_res = art.get("results", {}).get("leave_one_group_out", {})
+            for m_key in ["majority_class", "logistic_regression", "xgboost", "pytorch_gru"]:
+                if m_key in logo_res:
+                    oulad_logo_rows.append((FEATURE_SET_LABELS.get(fs, fs), MODEL_NAMES.get(m_key, m_key),
+                                            logo_res[m_key], f"oulad {fs}"))
+        if oulad_logo_rows:
+            lines.extend(_logo_tables(oulad_logo_rows, "Module"))
 
         lines.extend([
             "",
