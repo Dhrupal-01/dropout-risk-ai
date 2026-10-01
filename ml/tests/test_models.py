@@ -148,6 +148,7 @@ class TestFairnessAudit:
             metrics_path=tmp_path / "fairness_metrics.json",
             report_path=report_path,
             benchmark_dir=benchmark_dir,
+            allow_dirty=True,  # writes only under tmp_path
         )
 
         assert "gender" in audit_results

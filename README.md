@@ -47,6 +47,8 @@ DropoutGuard continuously ingests multi-source student data across **4 Core Pill
 The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target labels are derived from a known mathematical formula parameterized in that script. Consequently, these metrics demonstrate that the data ingestion, feature engineering, training, calibration, and fairness auditing pipelines function cohesively end-to-end, and they should not be construed as empirical evidence of real-world predictive accuracy.
 
 <!-- METRICS:START -->
+> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded commit does not fully identify the code.** `fairness_metrics.json` (commit `9e3c7f6`, allow_dirty=not recorded)
+
 - **At-Risk Recall (Sensitivity)**: `78.10%` (Minimizes missed vulnerable students)
 - **At-Risk Precision**: `82.83%` (Prevents mentor alert fatigue)
 - **Minority Class F1 Score**: `0.8039`
@@ -62,6 +64,8 @@ The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target
 ## Real-data benchmarks
 
 <!-- BENCHMARKS:START -->
+> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded commit does not fully identify the code.** `oulad_snapshot_t14_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t28_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t56_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t84_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_end_of_sem1_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_enrolment_time_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_full_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded)
+
 Generated from `ml/artifacts/benchmarks/*.json` (commit `9e3c7f6`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
 
 #### UCI 697: Portuguese higher education

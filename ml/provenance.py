@@ -10,12 +10,13 @@ Renderers call assert_consistent_provenance() and refuse to combine artifacts wh
 input checksums differ, or artifacts that carry no provenance at all.
 """
 
+import argparse
 import importlib
 import platform
 import subprocess
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from ml.sources.integrity import sha256_file
 
@@ -26,6 +27,10 @@ LIBRARIES = ["numpy", "pandas", "sklearn", "xgboost", "shap", "torch", "fairlear
 
 class ProvenanceError(RuntimeError):
     """Raised when artifacts lack provenance or were computed from different inputs."""
+
+
+class DirtyTreeError(RuntimeError):
+    """Raised when an artifact writer runs on uncommitted tracked changes without --allow-dirty."""
 
 
 @lru_cache(maxsize=None)
@@ -63,16 +68,69 @@ def _library_versions() -> Dict[str, str]:
     return versions
 
 
-def build_provenance(input_files: Dict[str, Path]) -> Dict[str, Any]:
-    """Provenance block for an artifact computed from `input_files` (name -> path)."""
+def modified_tracked_files() -> List[str]:
+    """Tracked files with uncommitted changes (`git status --porcelain --untracked-files=no`)."""
     status = _git("status", "--porcelain", "--untracked-files=no")
+    if status is None:
+        raise DirtyTreeError("Could not read git status; refusing to write artifacts without a known commit.")
+    # each line is "<XY status> <path>"; split on whitespace (stdout is stripped, so column offsets are unreliable)
+    return [line.split(None, 1)[1] for line in status.splitlines() if line.strip()]
+
+
+def require_clean_tree(allow_dirty: bool = False) -> bool:
+    """
+    Gate for every artifact writer. Raises DirtyTreeError if tracked files have uncommitted changes,
+    unless allow_dirty is True. Returns True when the tree is dirty and that was explicitly allowed.
+    """
+    modified = modified_tracked_files()
+    if modified and not allow_dirty:
+        raise DirtyTreeError(
+            "Refusing to write artifacts: tracked files have uncommitted changes, so the recorded git "
+            f"commit would not identify the code that produced them: {modified}. "
+            "Commit or stash them, or rerun with --allow-dirty (recorded as allow_dirty=true in the JSON)."
+        )
+    return bool(modified)
+
+
+def add_allow_dirty_argument(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="Write artifacts even if tracked files have uncommitted changes (recorded as allow_dirty=true).",
+    )
+    return parser
+
+
+def dirty_artifact_warning(artifacts: Dict[str, Dict[str, Any]]) -> Optional[str]:
+    """Markdown warning line listing artifacts generated from a dirty tree, or None if there are none."""
+    dirty = []
+    for label, art in sorted(artifacts.items()):
+        prov = (art or {}).get("provenance") or {}
+        if prov.get("git_dirty"):
+            allowed = prov.get("allow_dirty", "not recorded")
+            dirty.append(f"`{label}` (commit `{str(prov.get('git_commit'))[:7]}`, allow_dirty={str(allowed).lower()})")
+    if not dirty:
+        return None
+    return (
+        "> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded "
+        "commit does not fully identify the code.** " + ", ".join(dirty)
+    )
+
+
+def build_provenance(input_files: Dict[str, Path], allow_dirty: bool = False) -> Dict[str, Any]:
+    """
+    Provenance block for an artifact computed from `input_files` (name -> path).
+    Re-checks the tree at write time; raises DirtyTreeError on a dirty tree unless allow_dirty.
+    """
+    dirty = require_clean_tree(allow_dirty)
     return {
         "input_files": {
             name: {"path": _relative(Path(p)), "sha256": _sha256(Path(p))}
             for name, p in sorted(input_files.items())
         },
         "git_commit": _git("rev-parse", "HEAD"),
-        "git_dirty": None if status is None else bool(status),
+        "git_dirty": dirty,
+        "allow_dirty": bool(allow_dirty),
         "python": platform.python_version(),
         "library_versions": _library_versions(),
     }

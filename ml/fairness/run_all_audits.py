@@ -11,6 +11,7 @@ Executes full suite of algorithmic fairness evaluations across real and simulate
 Serializes all audit artifacts to ml/artifacts/fairness/ and renders docs/ethics_and_fairness.md.
 """
 
+import argparse
 import json
 import logging
 from pathlib import Path
@@ -27,7 +28,16 @@ from ml.fairness.audit import audit_model_fairness
 from ml.fairness.income_ablation import run_income_ablation_experiment
 from ml.fairness.mitigation import compare_fairness_mitigations
 from ml.fairness.shift_check import run_oulad_presentation_shift_check
-from ml.provenance import ProvenanceError, build_provenance, merge_input_files, oulad_inputs, simulated_inputs, uci_inputs
+from ml.provenance import (
+    ProvenanceError,
+    add_allow_dirty_argument,
+    build_provenance,
+    merge_input_files,
+    oulad_inputs,
+    require_clean_tree,
+    simulated_inputs,
+    uci_inputs,
+)
 from ml.sources.oulad import build_snapshot_dataset, load_raw_tables
 from ml.sources.uci import get_uci_benchmark_dataset, load_uci_clean_df
 
@@ -305,11 +315,14 @@ def run_all_fairness_audits(
     seed: int = 42,
     render_docs: bool = True,
     force_rerun: bool = False,
+    allow_dirty: bool = False,
 ) -> Dict[str, Any]:
     """
     Executes all Phase 4 fairness audits, writes JSON artifacts, and triggers doc rendering.
     Uses existing artifacts if force_rerun is False and files exist.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in each JSON's provenance).
     """
+    require_clean_tree(allow_dirty)
     FAIRNESS_ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
     print("=" * 80)
@@ -329,8 +342,8 @@ def run_all_fairness_audits(
     else:
         print("\n[1/5] Running UCI Higher Education Fairness Audit & Mitigations...")
         uci_audit, uci_mitigations = run_uci_audit_pipeline(n_splits=5, n_bootstraps=n_bootstraps, seed=seed)
-        uci_audit["provenance"] = build_provenance(uci_inputs())
-        uci_mitigations["provenance"] = build_provenance(uci_inputs())
+        uci_audit["provenance"] = build_provenance(uci_inputs(), allow_dirty=allow_dirty)
+        uci_mitigations["provenance"] = build_provenance(uci_inputs(), allow_dirty=allow_dirty)
         with open(uci_fair_path, "w") as f:
             json.dump(uci_audit, f, indent=2)
         with open(uci_mit_path, "w") as f:
@@ -346,7 +359,7 @@ def run_all_fairness_audits(
     else:
         print("\n[2/5] Running OULAD Day 56 Fairness Audit (Temporal Holdout 2014)...")
         oulad_audit = run_oulad_audit_pipeline(t=56, n_bootstraps=n_bootstraps, seed=seed)
-        oulad_audit["provenance"] = build_provenance(oulad_inputs())
+        oulad_audit["provenance"] = build_provenance(oulad_inputs(), allow_dirty=allow_dirty)
         with open(oulad_fair_path, "w") as f:
             json.dump(oulad_audit, f, indent=2)
     print(f" ✓ Saved/Loaded OULAD audit ({len(oulad_audit.get('attributes', {}))} attributes).")
@@ -360,7 +373,7 @@ def run_all_fairness_audits(
     else:
         print("\n[3/5] Running OULAD Presentation Shift Check (2013 vs 2014)...")
         oulad_shift = run_oulad_presentation_shift_check(t=56, n_bootstraps=n_bootstraps, seed=seed)
-        oulad_shift["provenance"] = build_provenance(oulad_inputs())
+        oulad_shift["provenance"] = build_provenance(oulad_inputs(), allow_dirty=allow_dirty)
         with open(oulad_shift_path, "w") as f:
             json.dump(oulad_shift, f, indent=2)
     print(" ✓ Saved/Loaded OULAD temporal presentation shift comparison.")
@@ -368,7 +381,7 @@ def run_all_fairness_audits(
     # 4. Generator Sanity Check
     print("\n[4/5] Running Generator Sanity Check on Simulated Cohort...")
     generator_check = run_generator_sanity_check_pipeline(seed=seed)
-    generator_check["provenance"] = build_provenance(simulated_inputs())
+    generator_check["provenance"] = build_provenance(simulated_inputs(), allow_dirty=allow_dirty)
     with open(FAIRNESS_ARTIFACTS_DIR / "generator_sanity_check.json", "w") as f:
         json.dump(generator_check, f, indent=2)
     print(" ✓ Saved generator sanity check.")
@@ -376,7 +389,7 @@ def run_all_fairness_audits(
     # 5. Income Ablation Experiment
     print("\n[5/5] Running Income Feature Ablation Experiment...")
     income_ablation_res = run_income_ablation_experiment(seed=seed)
-    income_ablation_res["provenance"] = build_provenance(simulated_inputs())
+    income_ablation_res["provenance"] = build_provenance(simulated_inputs(), allow_dirty=allow_dirty)
     with open(FAIRNESS_ARTIFACTS_DIR / "income_ablation.json", "w") as f:
         json.dump(income_ablation_res, f, indent=2)
     print(" ✓ Saved income feature ablation results.")
@@ -413,7 +426,7 @@ def run_all_fairness_audits(
         "income_ablation": {
             "comparison_table": income_ablation_res["comparison_table"],
         },
-        "provenance": build_provenance(merge_input_files(uci_inputs(), oulad_inputs(), simulated_inputs())),
+        "provenance": build_provenance(merge_input_files(uci_inputs(), oulad_inputs(), simulated_inputs()), allow_dirty=allow_dirty),
     }
     with open(FAIRNESS_METRICS_PATH, "w") as f:
         json.dump(unified_summary, f, indent=2)
@@ -436,5 +449,12 @@ def run_all_fairness_audits(
     return unified_summary
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run all DropoutGuard fairness audits")
+    parser.add_argument("--force-rerun", action="store_true", help="Recompute audits instead of reusing existing JSON")
+    return add_allow_dirty_argument(parser)
+
+
 if __name__ == "__main__":
-    run_all_fairness_audits()
+    args = build_arg_parser().parse_args()
+    run_all_fairness_audits(force_rerun=args.force_rerun, allow_dirty=args.allow_dirty)

@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from ml.provenance import assert_consistent_provenance
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 README_PATH = BASE_DIR / "README.md"
@@ -72,7 +72,9 @@ def render_benchmarks_block() -> str:
     uci_pos = _single(list(uci.values()), "total_positives")
     uci_prev = _single(list(uci.values()), "prevalence")
 
+    dirty_warning = dirty_artifact_warning({**uci, **oulad})
     lines = [
+        *([dirty_warning, ""] if dirty_warning else []),
         f"Generated from `ml/artifacts/benchmarks/*.json` (commit `{commit[:7]}`; inputs "
         + ", ".join(f"`{name}` `{sha[:12]}`" for name, sha in sorted(inputs.items()))
         + "). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). "

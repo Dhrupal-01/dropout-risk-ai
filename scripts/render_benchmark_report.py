@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from PIL import Image, ImageDraw
 
 from ml.fairness.attributes import PROTECTED
-from ml.provenance import assert_consistent_provenance
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning
 
 logger = logging.getLogger(__name__)
 
@@ -399,6 +399,7 @@ def render_benchmark_report():
     # Refuse before writing any figure or doc: every artifact must carry provenance and agree on inputs
     assert_consistent_provenance(labelled)
     artifacts = list(labelled.values())
+    dirty_warning = dirty_artifact_warning(labelled)
 
     uci_artifacts = [a for a in artifacts if "uci" in a.get("dataset", "").lower()]
     oulad_artifacts = [a for a in artifacts if "oulad" in a.get("dataset", "").lower()]
@@ -412,6 +413,7 @@ def render_benchmark_report():
     lines: List[str] = [
         "# Real-Data Benchmark Evaluation Report",
         "",
+        *([dirty_warning, ""] if dirty_warning else []),
         "> Rigorous, leak-free empirical evaluation on official educational benchmarks: UCI ID 697 and OULAD (UCI ID 349).",
         "> Conducted via the standardized evaluation harness across temporal holdouts, Leave-One-Course/Module-Out, and repeated cross-validation.",
         f"> Point estimates and 95% bootstrap confidence intervals ({n_boot:,} resamples of out-of-fold predictions).",

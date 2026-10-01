@@ -165,13 +165,16 @@ def train_and_compare_imbalance_methods(
     return chosen_model, chosen_method, comparison_info
 
 
-def train_pipeline() -> Tuple[XGBClassifier, Dict[str, Any], Dict[str, np.ndarray]]:
+def train_pipeline(allow_dirty: bool = False) -> Tuple[XGBClassifier, Dict[str, Any], Dict[str, np.ndarray]]:
     """
     Executes full model training pipeline:
     1. Stratified 70/15/15 Train/Validation/Test Split
     2. Imbalance strategy selection
     3. Test set evaluation & artifact persistence
+    Refuses to run on a dirty tree unless allow_dirty (recorded in model_metrics.json provenance).
     """
+    from ml.provenance import require_clean_tree
+    require_clean_tree(allow_dirty)
     X, y, feature_names, full_df = prepare_training_data()
 
     # Stratified 70/15/15 Split
@@ -236,8 +239,9 @@ def train_pipeline() -> Tuple[XGBClassifier, Dict[str, Any], Dict[str, np.ndarra
         json.dump(feature_names, f, indent=2)
     logger.info("Saved feature names (%d cols) to %s", len(feature_names), FEATURE_NAMES_PATH)
 
+    from ml.provenance import build_provenance, simulated_inputs
     with open(METRICS_REPORT_PATH, "w") as f:
-        json.dump(test_metrics, f, indent=2)
+        json.dump({**test_metrics, "provenance": build_provenance(simulated_inputs(), allow_dirty=allow_dirty)}, f, indent=2)
     logger.info("Saved test metrics to %s", METRICS_REPORT_PATH)
 
     # Synchronously rebuild and persist SHAP TreeExplainer for the newly trained model
@@ -254,6 +258,13 @@ def train_pipeline() -> Tuple[XGBClassifier, Dict[str, Any], Dict[str, np.ndarra
     return model, test_metrics, split_indices
 
 
+def build_arg_parser():
+    import argparse
+    from ml.provenance import add_allow_dirty_argument
+    return add_allow_dirty_argument(argparse.ArgumentParser(description="Train the simulated-cohort XGBoost model"))
+
+
 if __name__ == "__main__":
-    model, metrics, splits = train_pipeline()
+    args = build_arg_parser().parse_args()
+    model, metrics, splits = train_pipeline(allow_dirty=args.allow_dirty)
     print("Base Model Training Complete!")

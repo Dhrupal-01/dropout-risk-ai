@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ml.provenance import assert_consistent_provenance, load_labelled_json
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning, load_labelled_json
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 FAIRNESS_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "fairness"
@@ -274,10 +274,13 @@ def render_fairness_markdown_report(
     report_path = Path(report_path) if report_path else REPORT_PATH
     benchmark_dir = Path(benchmark_dir) if benchmark_dir else BENCHMARK_ARTIFACTS_DIR
 
+    fairness_artifacts = load_labelled_json(sorted(fairness_dir.glob("*.json")))
     assert_consistent_provenance({
-        **load_labelled_json(sorted(fairness_dir.glob("*.json"))),
+        **fairness_artifacts,
         **load_labelled_json(sorted(benchmark_dir.glob("*.json"))),
     })
+    dirty_warning = dirty_artifact_warning(fairness_artifacts)
+    dirty_block = f"\n{dirty_warning}\n" if dirty_warning else ""
 
     # Load JSON artifacts
     def _load_json(filename: str) -> Dict[str, Any]:
@@ -307,7 +310,7 @@ def render_fairness_markdown_report(
 ### DropoutGuard — AI-Powered Academic Dropout Prediction & Intervention System
 **Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
-
+{dirty_block}
 ---
 
 ## 1. Executive Summary & Audit Mandate

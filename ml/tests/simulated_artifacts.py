@@ -57,8 +57,10 @@ def build_simulated_artifacts() -> Path:
     from ml.models.train import train_pipeline
 
     generate_processed_feature_dataset(output_path=PROCESSED_DATA_PATH)
-    train_pipeline()
-    run_calibration_pipeline()
+    # Temp-dir artifacts only: allow a dirty tree (developers run tests on uncommitted changes);
+    # the temp JSON records allow_dirty=true.
+    train_pipeline(allow_dirty=True)
+    run_calibration_pipeline(allow_dirty=True)
     SHAPExplainerService(force_rebuild=True)
     save_intervention_catalog()
     _built = True

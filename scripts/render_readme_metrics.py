@@ -9,6 +9,8 @@ import re
 import sys
 from pathlib import Path
 
+from ml.provenance import dirty_artifact_warning
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 README_PATH = BASE_DIR / "README.md"
 MODEL_METRICS_PATH = BASE_DIR / "ml" / "artifacts" / "model_metrics.json"
@@ -47,7 +49,12 @@ def render_metrics_block() -> str:
     econ_gap = gaps["economic_proxy"] * 100.0
     fg_gap = gaps["first_generation"] * 100.0
 
+    dirty_warning = dirty_artifact_warning({
+        MODEL_METRICS_PATH.name: model_metrics,
+        FAIRNESS_METRICS_PATH.name: fairness_metrics,
+    })
     lines = [
+        *([dirty_warning, ""] if dirty_warning else []),
         f"- **At-Risk Recall (Sensitivity)**: `{recall:.2f}%` (Minimizes missed vulnerable students)",
         f"- **At-Risk Precision**: `{precision:.2f}%` (Prevents mentor alert fatigue)",
         f"- **Minority Class F1 Score**: `{f1_min:.4f}`",

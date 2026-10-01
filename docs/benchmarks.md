@@ -1,5 +1,7 @@
 # Real-Data Benchmark Evaluation Report
 
+> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded commit does not fully identify the code.** `oulad_snapshot_t14_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t28_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t56_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t84_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `sim_to_real.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_end_of_sem1_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_end_of_sem1_sensitivity.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_enrolment_time_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_enrolment_time_sensitivity.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_full_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_full_sensitivity.json` (commit `9e3c7f6`, allow_dirty=not recorded)
+
 > Rigorous, leak-free empirical evaluation on official educational benchmarks: UCI ID 697 and OULAD (UCI ID 349).
 > Conducted via the standardized evaluation harness across temporal holdouts, Leave-One-Course/Module-Out, and repeated cross-validation.
 > Point estimates and 95% bootstrap confidence intervals (1,000 resamples of out-of-fold predictions).

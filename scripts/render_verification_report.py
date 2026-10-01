@@ -5,7 +5,8 @@ The report is built ONLY from:
 - the junit XML written by `python -m pytest verification --junitxml=<tmp>`
   (test id, outcome, skip reason, failure message per test case, and the suite totals)
 - `git rev-parse HEAD` and whether tracked files had uncommitted changes
-- the SHA-256 of `python -m pip freeze`
+- the SHA-256 of the installed package list (`python -m pip freeze --exclude-editable`, normalised),
+  and whether it equals requirements.lock
 
 There is no hand-written text: headings and column labels only. Failing tests stay in the report.
 
@@ -24,6 +25,7 @@ from typing import Dict, List
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 REPORT_PATH = BASE_DIR / "verification" / "REPORT.md"
+LOCK_PATH = BASE_DIR / "requirements.lock"
 OUTCOMES = ["passed", "failed", "error", "skipped"]
 
 
@@ -69,14 +71,26 @@ def parse_junit(xml_path: Path) -> Dict:
     return {"cases": cases, "totals": totals, "timestamp": suite.get("timestamp", "")}
 
 
+def package_lines(text: str) -> List[str]:
+    """Sorted package pins from pip-freeze or lock-file text; comments, blanks and editable installs dropped."""
+    lines = [line.strip() for line in text.splitlines()]
+    return sorted(line for line in lines if line and not line.startswith("#") and not line.startswith("-e "))
+
+
+def package_fingerprint(text: str) -> str:
+    return hashlib.sha256("\n".join(package_lines(text)).encode("utf-8")).hexdigest()
+
+
 def build_metadata() -> Dict[str, str]:
     head = _run(["git", "rev-parse", "HEAD"]).stdout.strip()
     dirty = bool(_run(["git", "status", "--porcelain", "--untracked-files=no"]).stdout.strip())
-    freeze = _run([sys.executable, "-m", "pip", "freeze"]).stdout
+    freeze = _run([sys.executable, "-m", "pip", "freeze", "--exclude-editable"]).stdout
+    lock_matches = LOCK_PATH.exists() and package_lines(freeze) == package_lines(LOCK_PATH.read_text(encoding="utf-8"))
     return {
         "git HEAD": head,
         "tracked files modified": str(dirty).lower(),
-        "pip freeze sha256": hashlib.sha256(freeze.encode("utf-8")).hexdigest(),
+        "pip freeze --exclude-editable sha256": package_fingerprint(freeze),
+        "matches requirements.lock": str(bool(lock_matches)).lower(),
         "python": platform.python_version(),
     }
 

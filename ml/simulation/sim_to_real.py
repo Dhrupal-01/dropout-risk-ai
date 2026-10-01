@@ -20,6 +20,7 @@ Computes ROC-AUC and PR-AUC with 95% bootstrap confidence intervals (1,000 resam
 saves ml/artifacts/benchmarks/sim_to_real.json, and updates docs/benchmarks.md.
 """
 
+import argparse
 from datetime import datetime, timezone
 import json
 import logging
@@ -34,7 +35,7 @@ from sklearn.preprocessing import StandardScaler
 
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 from ml.evaluation.harness import compute_bootstrap_cis
-from ml.provenance import build_provenance, uci_inputs
+from ml.provenance import add_allow_dirty_argument, build_provenance, require_clean_tree, uci_inputs
 from ml.simulation.uci_proxies import build_uci_proxies, split_uci_estimation_holdout
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -86,10 +87,12 @@ def load_simulated_proxies(n_students: int = 2000, seed: int = 42) -> Tuple[pd.D
     return X, y
 
 
-def run_sim_to_real_benchmark(n_bootstraps: int = 1000) -> Dict[str, Any]:
+def run_sim_to_real_benchmark(n_bootstraps: int = 1000, allow_dirty: bool = False) -> Dict[str, Any]:
     """
     Executes cross-domain and within-domain transfer evaluations.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in the JSON provenance).
     """
+    require_clean_tree(allow_dirty)
     logger.info("Loading UCI benchmark proxies (shared estimation/holdout split)...")
     X_uci_tr, X_uci_te, y_uci_tr, y_uci_te = uci_train_holdout()
     logger.info("Generating calibrated simulated cohort proxies...")
@@ -186,7 +189,7 @@ def run_sim_to_real_benchmark(n_bootstraps: int = 1000) -> Dict[str, Any]:
     }
 
     # Inputs: the real UCI file and the generator assumptions the simulated cohort is drawn from
-    results["provenance"] = build_provenance({**uci_inputs(), ASSUMPTIONS_PATH.name: ASSUMPTIONS_PATH})
+    results["provenance"] = build_provenance({**uci_inputs(), ASSUMPTIONS_PATH.name: ASSUMPTIONS_PATH}, allow_dirty=allow_dirty)
 
     BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
@@ -196,5 +199,10 @@ def run_sim_to_real_benchmark(n_bootstraps: int = 1000) -> Dict[str, Any]:
     return results
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    return add_allow_dirty_argument(argparse.ArgumentParser(description="Sim-to-real transfer benchmark"))
+
+
 if __name__ == "__main__":
-    run_sim_to_real_benchmark()
+    args = build_arg_parser().parse_args()
+    run_sim_to_real_benchmark(allow_dirty=args.allow_dirty)

@@ -28,7 +28,7 @@ from ml.config import (
     FAIRNESS_METRICS_PATH
 )
 from ml.models.calibrate import predict_student_risk
-from ml.provenance import ProvenanceError, build_provenance, simulated_inputs
+from ml.provenance import ProvenanceError, add_allow_dirty_argument, build_provenance, require_clean_tree, simulated_inputs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -174,6 +174,7 @@ def run_comprehensive_fairness_audit(
     metrics_path: Optional[Path] = None,
     report_path: Optional[Path] = None,
     benchmark_dir: Optional[Path] = None,
+    allow_dirty: bool = False,
 ) -> Dict[str, Any]:
     """
     Executes comprehensive fairness audit on both the held-out test split (N=300)
@@ -181,7 +182,9 @@ def run_comprehensive_fairness_audit(
     fairness_metrics.json (with provenance), then renders the report through
     scripts/render_fairness_report.py. Output paths default to the repository locations.
     If the renderer refuses (mixed or missing provenance), no report is written.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in the JSON provenance).
     """
+    require_clean_tree(allow_dirty)
     metrics_path = Path(metrics_path) if metrics_path else FAIRNESS_METRICS_PATH
     fairness_dir = Path(fairness_dir) if fairness_dir else FAIRNESS_METRICS_PATH.parent / "fairness"
     report_path = Path(report_path) if report_path else FAIRNESS_REPORT_PATH
@@ -258,7 +261,7 @@ def run_comprehensive_fairness_audit(
     # -------------------------------------------------------------
     # Write Generator Sanity Check & Synchronize Report
     # -------------------------------------------------------------
-    provenance = build_provenance(simulated_inputs())
+    provenance = build_provenance(simulated_inputs(), allow_dirty=allow_dirty)
     gen_check_dict = {
         "benchmark": "generator_sanity_check_simulated_cohort",
         "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
@@ -323,7 +326,13 @@ def run_comprehensive_fairness_audit(
     return summary_dict
 
 
+def build_arg_parser():
+    import argparse
+    return add_allow_dirty_argument(argparse.ArgumentParser(description="Simulated-cohort fairness audit"))
+
+
 if __name__ == "__main__":
-    summary = run_comprehensive_fairness_audit()
+    args = build_arg_parser().parse_args()
+    summary = run_comprehensive_fairness_audit(allow_dirty=args.allow_dirty)
     print("Fairness Audit Completed Successfully!")
     print(json.dumps(summary, indent=2))

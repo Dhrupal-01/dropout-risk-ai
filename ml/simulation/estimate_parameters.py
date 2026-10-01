@@ -5,6 +5,7 @@ via standardised logistic regression, maps log-odds effects to Indian natural un
 persists estimated_parameters.json, and renders docs/simulation_mapping.md.
 """
 
+import argparse
 import json
 import logging
 from pathlib import Path
@@ -158,11 +159,15 @@ def get_simulated_feature_stds(
     return {feat: float(df[feat].std(ddof=1)) for feat in SIMULATED_SD_FEATURES}
 
 
-def estimate_all_parameters() -> Dict[str, Any]:
+def estimate_all_parameters(allow_dirty: bool = False) -> Dict[str, Any]:
     """
     Executes full parameter estimation pipeline, computes transfer effects,
-    and writes outputs.
+    and writes outputs. Refuses to run on a dirty tree unless allow_dirty
+    (recorded in the top-level `provenance` of estimated_parameters.json).
     """
+    from ml.provenance import require_clean_tree
+    require_clean_tree(allow_dirty)
+
     SIMULATION_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_MAPPING_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -207,6 +212,10 @@ def estimate_all_parameters() -> Dict[str, Any]:
             "indian_unit_coefficient": round(ind_beta, 5),
             "indian_unit_ci_95": [round(ind_lower, 5), round(ind_upper, 5)],
         }
+
+    # Provenance: real-data inputs of the estimation (no coefficient key is named "provenance")
+    from ml.provenance import build_provenance, merge_input_files, oulad_inputs, uci_inputs
+    all_effects["provenance"] = build_provenance(merge_input_files(uci_inputs(), oulad_inputs()), allow_dirty=allow_dirty)
 
     # Save JSON artifact
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
@@ -338,5 +347,11 @@ def render_simulation_mapping(effects: Dict[str, Any]):
     logger.info("Successfully rendered simulation mapping to %s", DOCS_MAPPING_PATH)
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    from ml.provenance import add_allow_dirty_argument
+    return add_allow_dirty_argument(argparse.ArgumentParser(description="Estimate simulation parameters from UCI and OULAD"))
+
+
 if __name__ == "__main__":
-    estimate_all_parameters()
+    args = build_arg_parser().parse_args()
+    estimate_all_parameters(allow_dirty=args.allow_dirty)

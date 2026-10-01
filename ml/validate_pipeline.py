@@ -56,10 +56,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline_validation(regenerate: bool = False):
+def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False):
     """
     Executes end-to-end ML validation suite.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in every JSON it writes).
     """
+    from ml.provenance import require_clean_tree
+    require_clean_tree(allow_dirty)
+
     print("=" * 80)
     print(" DROPOUTGUARD — AI-POWERED DROPOUT PREDICTION & INTERVENTION SYSTEM ")
     print(" Comprehensive Machine Learning Core Validation & Clinical Report ")
@@ -74,8 +78,8 @@ def run_pipeline_validation(regenerate: bool = False):
         from ml.models.calibrate import run_calibration_pipeline
         
         generate_processed_feature_dataset(n_students=2000, seed=RANDOM_SEED)
-        train_pipeline()
-        run_calibration_pipeline()
+        train_pipeline(allow_dirty=allow_dirty)
+        run_calibration_pipeline(allow_dirty=allow_dirty)
         SHAPExplainerService().build_and_save_explainer()
 
     # Load artifacts
@@ -149,7 +153,8 @@ def run_pipeline_validation(regenerate: bool = False):
 
     METRICS_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(METRICS_REPORT_PATH, "w", encoding="utf-8") as f:
-        json.dump(mm, f, indent=2)
+        from ml.provenance import build_provenance, simulated_inputs
+        json.dump({**mm, "provenance": build_provenance(simulated_inputs(), allow_dirty=allow_dirty)}, f, indent=2)
 
     # =========================================================================
     # SECTION 2: PROBABILITY CALIBRATION RELIABILITY CHECK (10% BINS)
@@ -179,7 +184,7 @@ def run_pipeline_validation(regenerate: bool = False):
     print("\n" + "-" * 80)
     print("SECTION 3: QUANTITATIVE FAIRNESS AUDIT (Single Split vs. 5-Fold Cross-Validation)")
     print("-" * 80)
-    audit_full = run_comprehensive_fairness_audit()
+    audit_full = run_comprehensive_fairness_audit(allow_dirty=allow_dirty)
     audit_test = audit_full["test_split"]
     audit_cv = audit_full["cross_validation"]
 
@@ -601,9 +606,14 @@ def run_pipeline_validation(regenerate: bool = False):
         raise exc
 
 
-if __name__ == "__main__":
+def build_arg_parser() -> argparse.ArgumentParser:
+    from ml.provenance import add_allow_dirty_argument
+
     parser = argparse.ArgumentParser(description="DropoutGuard ML Core Validation")
     parser.add_argument("--regenerate", action="store_true", help="Force clean retraining and pipeline execution")
-    args = parser.parse_args()
+    return add_allow_dirty_argument(parser)
 
-    run_pipeline_validation(regenerate=args.regenerate)
+
+if __name__ == "__main__":
+    args = build_arg_parser().parse_args()
+    run_pipeline_validation(regenerate=args.regenerate, allow_dirty=args.allow_dirty)

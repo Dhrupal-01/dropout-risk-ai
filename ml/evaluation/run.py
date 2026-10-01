@@ -14,7 +14,7 @@ from typing import Dict, Optional
 import pandas as pd
 
 from ml.evaluation.harness import run_benchmark_for_dataset
-from ml.provenance import ProvenanceError, build_provenance, oulad_inputs, uci_inputs
+from ml.provenance import ProvenanceError, add_allow_dirty_argument, build_provenance, oulad_inputs, require_clean_tree, uci_inputs
 from ml.sources.uci import FEATURE_SETS, get_uci_benchmark_dataset
 from scripts.render_benchmark_report import render_benchmark_report
 
@@ -43,19 +43,20 @@ def count_non_withdrawn_registrations(tables: Dict[str, pd.DataFrame]) -> int:
     return int((merged["final_result"].astype(str).str.strip() != "Withdrawn").sum())
 
 
-def run_uci_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None):
+def run_uci_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, allow_dirty: bool = False):
     """
     Executes full evaluation across all feature sets and label variants for UCI ID 697.
     - Feature sets: enrolment_time, end_of_sem1, full
     - Label variants: primary (N=3630), sensitivity (N=4424)
     """
+    require_clean_tree(allow_dirty)
     print("=" * 80)
     print(" DROPOUTGUARD — BENCHMARK EVALUATION HARNESS ")
     print(" Source: UCI ID 697 (Portuguese Higher-Ed Dropout Benchmark)")
     print("=" * 80)
 
     start_time = time.time()
-    provenance = build_provenance(uci_inputs())
+    provenance = build_provenance(uci_inputs(), allow_dirty=allow_dirty)
     feature_sets = list(FEATURE_SETS.keys())
     label_variants = ["primary", "sensitivity"]
 
@@ -95,13 +96,14 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None):
     _render_report_if_consistent()
 
 
-def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, data_dir: Optional[Path] = None):
+def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, data_dir: Optional[Path] = None, allow_dirty: bool = False):
     """
     Executes OULAD time-based early-warning benchmark across snapshot horizons t in {14, 28, 56, 84}.
     - Predefined temporal split: train on 2013B + 2013J, test on 2014B + 2014J
     - Secondary: Leave-one-module-out across 7 modules
     - Evaluates Majority Class, Logistic Regression, XGBoost, and PyTorch GRU
     """
+    require_clean_tree(allow_dirty)
     from ml.sources.oulad import SNAPSHOT_DAYS, build_snapshot_dataset, load_raw_tables
 
     print("=" * 80)
@@ -112,7 +114,7 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     start_time = time.time()
     logger.info("Loading OULAD tables...")
     tables = load_raw_tables(data_dir=data_dir)
-    provenance = build_provenance(oulad_inputs(data_dir))
+    provenance = build_provenance(oulad_inputs(data_dir), allow_dirty=allow_dirty)
     min_population = count_non_withdrawn_registrations(tables)
     n_registrations_total = int(len(tables["studentInfo"]))
 
@@ -161,7 +163,7 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     _render_report_if_consistent()
 
 
-def main():
+def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="DropoutGuard Benchmark Evaluation Runner")
     parser.add_argument(
         "--source",
@@ -188,15 +190,19 @@ def main():
         default=None,
         help="Output directory for benchmark JSON artifacts",
     )
-    args = parser.parse_args()
+    return add_allow_dirty_argument(parser)
+
+
+def main():
+    args = build_arg_parser().parse_args()
 
     out_dir = Path(args.output_dir) if args.output_dir else None
     data_dir = Path(args.data_dir) if args.data_dir else None
 
     if args.source == "uci":
-        run_uci_benchmark_suite(seed=args.seed, output_dir=out_dir)
+        run_uci_benchmark_suite(seed=args.seed, output_dir=out_dir, allow_dirty=args.allow_dirty)
     elif args.source == "oulad":
-        run_oulad_benchmark_suite(seed=args.seed, output_dir=out_dir, data_dir=data_dir)
+        run_oulad_benchmark_suite(seed=args.seed, output_dir=out_dir, data_dir=data_dir, allow_dirty=args.allow_dirty)
     else:
         logger.error("Unsupported benchmark source '%s'", args.source)
         sys.exit(1)

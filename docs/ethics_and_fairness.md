@@ -3,6 +3,8 @@
 **Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
 
+> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded commit does not fully identify the code.** `generator_sanity_check.json` (commit `9e3c7f6`, allow_dirty=not recorded), `income_ablation.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_fairness.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_shift_check.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_fairness.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_mitigations.json` (commit `9e3c7f6`, allow_dirty=not recorded)
+
 ---
 
 ## 1. Executive Summary & Audit Mandate
