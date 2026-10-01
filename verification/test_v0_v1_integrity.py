@@ -3,7 +3,11 @@ Verification tests for V0 (Environment) and V1 (Test Integrity).
 """
 
 import ast
+import json
+import re
 import subprocess
+import sys
+from collections import defaultdict
 from pathlib import Path
 import tomllib
 import pytest
@@ -78,7 +82,7 @@ class TestV1TestIntegrity:
         import re
         # Collect tests from ml/tests
         res_ml = subprocess.run(
-            [".venv/bin/pytest", "ml/tests", "--collect-only", "-q"],
+            [sys.executable, "-m", "pytest", "ml/tests", "--collect-only", "-q"],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
@@ -93,7 +97,7 @@ class TestV1TestIntegrity:
 
         # Collect tests from backend/tests
         res_backend = subprocess.run(
-            [".venv/bin/pytest", "backend/tests", "--collect-only", "-q"],
+            [sys.executable, "-m", "pytest", "backend/tests", "--collect-only", "-q"],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
@@ -113,15 +117,70 @@ class TestV1TestIntegrity:
         assert total >= 251, f"Total test count dropped: {total} < 251"
 
     def test_v1_2_git_diff_baseline_tests(self):
-        """V1.2: Check for test deletions or blanket skip additions."""
-        cmd = ["git", "diff", f"{BASELINE_COMMIT}..HEAD", "--name-status", "--", "ml/tests", "backend/tests"]
-        res = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
-        # Verify no test files were deleted (status 'D')
-        for line in res.stdout.splitlines():
-            parts = line.split()
-            if parts:
-                status, path = parts[0], parts[1]
-                assert not status.startswith("D"), f"Test file was deleted since baseline: {path}"
+        """
+        V1.2: Since BASELINE, no test file was deleted, and every removed assert / numeric threshold /
+        tolerance line and every added skip / skipif / xfail line in ml/tests and backend/tests is listed
+        and must be reviewed in verification/reviewed_test_changes.json (file, sign, line, reason).
+        """
+        status = subprocess.run(
+            ["git", "diff", f"{BASELINE_COMMIT}..HEAD", "--name-status", "--", "ml/tests", "backend/tests"],
+            cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
+        )
+        deleted = [line.split()[1] for line in status.stdout.splitlines() if line.split() and line.split()[0].startswith("D")]
+        assert not deleted, f"Test files deleted since baseline: {deleted}"
+
+        diff = subprocess.run(
+            ["git", "diff", "-U0", f"{BASELINE_COMMIT}..HEAD", "--", "ml/tests", "backend/tests"],
+            cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
+        ).stdout
+
+        removed_check = re.compile(r"\bassert\b|pytest\.approx|\b(abs|rel|atol|rtol)\s*=|[<>]=?\s*-?\d")
+        added_skip = re.compile(r"\b(skip|skipif|xfail)\b")
+
+        # hunks: (file, [removed lines], [added lines])
+        hunks, current_file, hunk = [], None, None
+        for line in diff.splitlines():
+            if line.startswith("+++ "):
+                current_file = line[6:] if line.startswith("+++ b/") else None
+            elif line.startswith("--- "):
+                continue
+            elif line.startswith("@@"):
+                hunk = (current_file, [], [])
+                hunks.append(hunk)
+            elif hunk is not None and line.startswith("-"):
+                hunk[1].append(line[1:].strip())
+            elif hunk is not None and line.startswith("+"):
+                hunk[2].append(line[1:].strip())
+
+        flagged = []  # (file, sign, line, counterpart lines in the same hunk)
+        for path, removed, added in hunks:
+            if path is None:
+                continue
+            for text in removed:
+                if removed_check.search(text):
+                    counterpart = [a for a in added if removed_check.search(a)]
+                    flagged.append((path, "-", text, counterpart))
+            for text in added:
+                if added_skip.search(text):
+                    flagged.append((path, "+", text, []))
+
+        reviewed_path = PROJECT_ROOT / "verification" / "reviewed_test_changes.json"
+        reviewed = json.loads(reviewed_path.read_text(encoding="utf-8"))
+        reviewed_keys = {(r["file"], r["sign"], r["line"].strip()) for r in reviewed if r.get("reason", "").strip()}
+
+        unreviewed = [f for f in flagged if (f[0], f[1], f[2]) not in reviewed_keys]
+        if unreviewed:
+            by_file = defaultdict(list)
+            for path, sign, text, counterpart in unreviewed:
+                entry = f"  {sign} {text}"
+                if counterpart:
+                    entry += "".join(f"\n      (+ in same hunk) {c}" for c in counterpart)
+                by_file[path].append(entry)
+            listing = "\n".join(f"{path}\n" + "\n".join(entries) for path, entries in sorted(by_file.items()))
+            pytest.fail(
+                f"{len(unreviewed)} unreviewed assert/threshold removals or skip additions since {BASELINE_COMMIT} "
+                f"(add each to verification/reviewed_test_changes.json with a reason after review):\n{listing}"
+            )
 
     @pytest.mark.db
     @pytest.mark.data
