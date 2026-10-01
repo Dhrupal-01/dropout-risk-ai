@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 BENCHMARK_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "benchmarks"
+N_BOOTSTRAPS = 1000  # resamples for every reported 95% CI; recorded in each artifact
 
 
 def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray) -> Dict[str, float]:
@@ -289,7 +290,7 @@ def evaluate_split_strategy(
         oof_probs = accumulated_probs[evaluated_indices] / prediction_counts[evaluated_indices]
 
         # Compute point estimates and 95% bootstrap CIs
-        cis = compute_bootstrap_cis(y_eval, oof_probs, n_bootstraps=1000, seed=seed)
+        cis = compute_bootstrap_cis(y_eval, oof_probs, n_bootstraps=N_BOOTSTRAPS, seed=seed)
         cal_bins = compute_calibration_curve_data(y_eval, oof_probs, n_bins=10)
 
         results[model_name] = {
@@ -314,6 +315,8 @@ def run_benchmark_for_dataset(
     include_gru: bool = False,
     seed: int = 42,
     output_dir: Optional[Path] = None,
+    provenance: Optional[Dict[str, Any]] = None,
+    extra_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Executes full benchmark evaluation across split strategies:
@@ -321,8 +324,11 @@ def run_benchmark_for_dataset(
     2. Repeated Stratified 5-Fold CV (if include_repeated_cv=True)
     3. Leave-One-Group-Out (if groups provided)
 
-    Writes JSON benchmark artifact to ml/artifacts/benchmarks/
+    Writes JSON benchmark artifact to ml/artifacts/benchmarks/, including `provenance`
+    (input checksums, git commit, library versions) so renderers can refuse mixed inputs.
     """
+    if provenance is None:
+        raise ValueError("run_benchmark_for_dataset requires provenance (see ml.provenance.build_provenance)")
     out_dir = output_dir or BENCHMARK_ARTIFACTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -363,8 +369,12 @@ def run_benchmark_for_dataset(
         "feature_names": list(X.columns),
         "total_positives": int(np.sum(y)),
         "prevalence": round(float(np.mean(y)), 4),
+        "n_groups": int(len(np.unique(groups))) if groups is not None else None,
+        **(extra_metadata or {}),
+        "n_bootstraps": N_BOOTSTRAPS,
         "split_strategies": list(eval_results.keys()),
         "results": eval_results,
+        "provenance": provenance,
     }
 
     artifact_filename = f"{dataset_name.split('_')[0]}_{feature_set}_{label_variant}.json"

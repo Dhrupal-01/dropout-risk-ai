@@ -13,8 +13,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ml.provenance import assert_consistent_provenance, load_labelled_json
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 FAIRNESS_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "fairness"
+BENCHMARK_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "benchmarks"
 DOCS_DIR = BASE_DIR / "docs"
 REPORT_PATH = DOCS_DIR / "ethics_and_fairness.md"
 
@@ -257,13 +260,28 @@ def render_uci_feature_line(uci_data: Dict[str, Any]) -> str:
     )
 
 
-def render_fairness_markdown_report() -> None:
-    """Renders docs/ethics_and_fairness.md from serialized JSON artifacts."""
-    DOCS_DIR.mkdir(parents=True, exist_ok=True)
+def render_fairness_markdown_report(
+    fairness_dir: Optional[Path] = None,
+    report_path: Optional[Path] = None,
+    benchmark_dir: Optional[Path] = None,
+) -> Path:
+    """
+    Renders docs/ethics_and_fairness.md from serialized JSON artifacts.
+    Refuses (ProvenanceError, nothing written) unless every fairness artifact and every benchmark
+    artifact carries provenance and they agree on the checksum of each shared input file.
+    """
+    fairness_dir = Path(fairness_dir) if fairness_dir else FAIRNESS_ARTIFACTS_DIR
+    report_path = Path(report_path) if report_path else REPORT_PATH
+    benchmark_dir = Path(benchmark_dir) if benchmark_dir else BENCHMARK_ARTIFACTS_DIR
+
+    assert_consistent_provenance({
+        **load_labelled_json(sorted(fairness_dir.glob("*.json"))),
+        **load_labelled_json(sorted(benchmark_dir.glob("*.json"))),
+    })
 
     # Load JSON artifacts
     def _load_json(filename: str) -> Dict[str, Any]:
-        p = FAIRNESS_ARTIFACTS_DIR / filename
+        p = fairness_dir / filename
         if p.exists():
             with open(p, "r") as f:
                 return json.load(f)
@@ -277,6 +295,7 @@ def render_fairness_markdown_report() -> None:
     gen_data = _load_json("generator_sanity_check.json")
 
     uci_table = render_uci_audit_table(uci_data) if uci_data else "*UCI audit artifact not found.*"
+    uci_n = f"{uci_data['n_samples']:,}" if uci_data else "unknown (artifact not found)"
     uci_feature_line = render_uci_feature_line(uci_data) if uci_data else "*UCI audit artifact not found.*"
     mit_table = render_mitigations_table(uci_mit) if uci_mit else "*UCI mitigations artifact not found.*"
     oulad_table = render_oulad_audit_table(oulad_data) if oulad_data else "*OULAD audit artifact not found.*"
@@ -303,7 +322,7 @@ All evaluations in this report adhere to the following principles:
 ---
 
 ## 2. Real Higher Education Benchmark: UCI Dataset 697 Audit
-- **Dataset**: UCI "Predict Students' Dropout and Academic Success" (Portuguese Higher Education, $N = 3,630$, Enrolled excluded).
+- **Dataset**: UCI "Predict Students' Dropout and Academic Success" (Portuguese Higher Education, $N = {uci_n}$, Enrolled excluded).
 - **Feature Set**: {uci_feature_line}
 - **Inference Mode**: 5-Fold Stratified Cross-Validation out-of-fold risk probabilities.
 - **Selection Rate Threshold**: Top 20% predicted risk cohort.
@@ -313,7 +332,7 @@ All evaluations in this report adhere to the following principles:
 ---
 
 ## 3. Algorithmic Fairness Mitigations Comparative Benchmark
-Evaluates four mitigation approaches on an identical 70/30 stratified train/test split of the UCI cohort ($N = 3,630$, sensitive attribute: `gender`):
+Evaluates four mitigation approaches on an identical 70/30 stratified train/test split of the UCI cohort ($N = {uci_n}$, sensitive attribute: `gender`):
 1. **None**: Unmitigated baseline model ($L_2$-regularized Logistic Regression).
 2. **Sample Reweighing**: Inversely proportional joint class/group weights $w_i = \\frac{{N}}{{K \\cdot \\text{{count}}(s, y)}}$.
 3. **Group-Specific Thresholds**: Post-processing threshold optimization equalizing subgroup False Negative Rates to target cohort FNR.
@@ -370,10 +389,12 @@ Verification of synthetic data generator properties across $N = 2,000$ simulated
    Household income is used as an active model input via `income_slab_idx` and `financial_stress_index` exclusively as an objective need signal to prioritize and route emergency financial aid and fee-waiver interventions to economically vulnerable students. Only the duplicate raw string label (`family_income_slab`) and sensitive social categories are excluded from model training to prevent categorical bias. All socio-economic indicators are confidential, encrypted at rest, and never used for punitive academic actions.
 """
 
-    with open(REPORT_PATH, "w") as f:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(report_path, "w") as f:
         f.write(content.strip() + "\n")
+    return report_path
 
 
 if __name__ == "__main__":
-    render_fairness_markdown_report()
-    print(f"Rendered fairness report successfully to {REPORT_PATH}")
+    path = render_fairness_markdown_report()
+    print(f"Rendered fairness report successfully to {path}")

@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from PIL import Image, ImageDraw
 
 from ml.fairness.attributes import PROTECTED
+from ml.provenance import assert_consistent_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +277,21 @@ def generate_earliness_figure(artifacts: List[Dict[str, Any]], target_path: Path
     logger.info("Saved earliness curve figure to %s", target_path)
 
 
+def _single_value(artifacts: List[Dict[str, Any]], key: str, **filters: Any) -> Any:
+    """The one value of `key` shared by all artifacts matching `filters`; raises if missing or inconsistent."""
+    matching = [a for a in artifacts if all(a.get(k) == v for k, v in filters.items())]
+    values = {a.get(key) for a in matching}
+    if len(values) != 1 or None in values:
+        raise ValueError(f"Expected one recorded '{key}' for artifacts {filters}, found {values}")
+    return values.pop()
+
+
+def _cohort_line(art: Dict[str, Any], pos_label: str, neg_label: str) -> str:
+    """Class counts and prevalence for one UCI label variant, from its JSON."""
+    n, pos = art["n_samples"], art["total_positives"]
+    return f"{pos:,} {pos_label}, {n - pos:,} {neg_label}; Prevalence = {art['prevalence'] * 100:.2f}%"
+
+
 def _uci_feature_count(artifacts: List[Dict[str, Any]], feature_set: str) -> str:
     """Feature count recorded in the benchmark JSON for a UCI feature set."""
     counts = {a.get("n_features") for a in artifacts if a.get("feature_set") == feature_set}
@@ -306,10 +322,14 @@ def render_benchmark_report():
     if not json_files:
         raise FileNotFoundError(f"No benchmark JSON files found in {BENCHMARK_DIR}")
 
-    artifacts = []
+    labelled: Dict[str, Dict[str, Any]] = {}
     for jf in json_files:
         with open(jf, "r", encoding="utf-8") as f:
-            artifacts.append(json.load(f))
+            labelled[jf.name] = json.load(f)
+
+    # Refuse before writing any figure or doc: every artifact must carry provenance and agree on inputs
+    assert_consistent_provenance(labelled)
+    artifacts = list(labelled.values())
 
     uci_artifacts = [a for a in artifacts if "uci" in a.get("dataset", "").lower()]
     oulad_artifacts = [a for a in artifacts if "oulad" in a.get("dataset", "").lower()]
@@ -319,12 +339,13 @@ def render_benchmark_report():
     if oulad_artifacts:
         generate_earliness_figure(oulad_artifacts, EARLINESS_IMG_PATH)
 
+    n_boot = _single_value([a for a in artifacts if "dataset" in a], "n_bootstraps")
     lines: List[str] = [
         "# Real-Data Benchmark Evaluation Report",
         "",
         "> Rigorous, leak-free empirical evaluation on official educational benchmarks: UCI ID 697 and OULAD (UCI ID 349).",
         "> Conducted via the standardized evaluation harness across temporal holdouts, Leave-One-Course/Module-Out, and repeated cross-validation.",
-        "> Point estimates and 95% bootstrap confidence intervals (1,000 resamples of out-of-fold predictions).",
+        f"> Point estimates and 95% bootstrap confidence intervals ({n_boot:,} resamples of out-of-fold predictions).",
         "",
         "---",
         "",
@@ -332,18 +353,23 @@ def render_benchmark_report():
 
     # SECTION 1: UCI BENCHMARK
     if uci_artifacts:
+        uci_n_all = _single_value(uci_artifacts, "n_samples", label_variant="sensitivity")
+        uci_n_primary = _single_value(uci_artifacts, "n_samples", label_variant="primary")
+        uci_n_courses = _single_value(uci_artifacts, "n_groups")
+        uci_primary = next(a for a in uci_artifacts if a.get("label_variant") == "primary")
+        uci_sensitivity = next(a for a in uci_artifacts if a.get("label_variant") == "sensitivity")
         lines.extend([
             "## 1. Portuguese Higher Education Benchmark (UCI ID 697)",
             "",
-            "- **Dataset**: UCI ID 697 ($N = 4,424$, 17 Degree Programs / Courses)",
+            f"- **Dataset**: UCI ID 697 ($N = {uci_n_all:,}$, {uci_n_courses} Degree Programs / Courses)",
             "- **Feature Sets**:",
             f"  - `ENROLMENT_TIME`: Baseline features available at matriculation (admission credentials, family background, socio-economic signals, macroeconomic indicators; {_uci_feature_count(uci_artifacts, 'enrolment_time')} features).",
             f"  - `END_OF_SEM1`: `ENROLMENT_TIME` + 1st-semester curricular unit evaluations and approved units ({_uci_feature_count(uci_artifacts, 'end_of_sem1')} features). Zero 2nd-semester features.",
             f"  - `FULL`: Everything, including 2nd-semester curricular units ({_uci_feature_count(uci_artifacts, 'full')} features). Explicitly labeled as **not early warning**.",
             _uci_protected_line(uci_artifacts),
             "- **Label Variants**:",
-            "  - `Primary`: Binary outcome ($N = 3,630$). `Dropout = 1` vs `Graduate = 0`. Students with `Target == 'Enrolled'` are excluded.",
-            "  - `Sensitivity`: Binary outcome ($N = 4,424$). `Dropout = 1` vs `Graduate / Enrolled = 0`. Students with `Target == 'Enrolled'` are coded as $0$.",
+            f"  - `Primary`: Binary outcome ($N = {uci_n_primary:,}$). `Dropout = 1` vs `Graduate = 0`. Students with `Target == 'Enrolled'` are excluded.",
+            f"  - `Sensitivity`: Binary outcome ($N = {uci_n_all:,}$). `Dropout = 1` vs `Graduate / Enrolled = 0`. Students with `Target == 'Enrolled'` are coded as $0$.",
             "",
             "### Reliability & Probability Calibration",
             "",
@@ -354,8 +380,8 @@ def render_benchmark_report():
         ])
 
         for label_var, title, desc in [
-            ("primary", "UCI Primary Cohort Evaluation (Dropout vs Graduate, N = 3,630)", "Excludes active Enrolled students (1,421 Dropouts, 2,209 Graduates; Prevalence = 39.15%)."),
-            ("sensitivity", "UCI Sensitivity Cohort Evaluation (Enrolled as Negative, N = 4,424)", "Treats Enrolled students as non-dropouts (1,421 Dropouts, 3,003 Non-Dropouts; Prevalence = 32.12%)."),
+            ("primary", f"UCI Primary Cohort Evaluation (Dropout vs Graduate, N = {uci_n_primary:,})", f"Excludes active Enrolled students ({_cohort_line(uci_primary, 'Dropouts', 'Graduates')})."),
+            ("sensitivity", f"UCI Sensitivity Cohort Evaluation (Enrolled as Negative, N = {uci_n_all:,})", f"Treats Enrolled students as non-dropouts ({_cohort_line(uci_sensitivity, 'Dropouts', 'Non-Dropouts')})."),
         ]:
             lines.append(f"### {title}")
             lines.append("")
@@ -400,17 +426,20 @@ def render_benchmark_report():
 
     # SECTION 2: OULAD TIME-BASED EARLY WARNING BENCHMARK
     if oulad_artifacts:
+        oulad_n_registrations = _single_value(oulad_artifacts, "n_registrations_total")
+        oulad_n_modules = _single_value(oulad_artifacts, "n_groups")
+        oulad_horizons = ", ".join(str(a["snapshot_t"]) for a in sorted(oulad_artifacts, key=lambda a: a["snapshot_t"]))
         lines.extend([
             "## 2. Open University Learning Analytics Benchmark (OULAD / UCI ID 349)",
             "",
-            "- **Dataset**: OULAD ($N = 32,593$ student registrations across 7 degree modules).",
-            "- **Evaluation Horizons**: Time-bounded snapshots $t \\in \\{14, 28, 56, 84\\}$ days from course start.",
+            f"- **Dataset**: OULAD ($N = {oulad_n_registrations:,}$ student registrations across {oulad_n_modules} modules).",
+            f"- **Evaluation Horizons**: Time-bounded snapshots $t \\in \\{{{oulad_horizons}\\}}$ days from course start.",
             "- **Population Filtering**: Only registrations where `date_unregistration` is null or $> t$. Students withdrawing on or before $t$ are excluded.",
             "- **Temporal Cutoff**: Clickstream activity, weekly interaction sequences, and assessment submissions restricted strictly to `date <= t`.",
-            "- **Demographic Isolation**: `gender`, `age_band`, `imd_band`, `disability`, and `region` are strictly excluded from $X$ and held in an isolated audit frame.",
+            f"- **Demographic Isolation**: PROTECTED attributes ({', '.join(f'`{c}`' for c in PROTECTED['oulad'])}) are not in $X$ and are held in a separate audit frame. `highest_education` is an audited group that is also a model feature.",
             "- **Evaluation Protocol**:",
             "  - Primary: Temporal split — train on `2013B + 2013J`, test on `2014B + 2014J`.",
-            "  - Secondary: Leave-One-Module-Out (LOGO across 7 modules).",
+            f"  - Secondary: Leave-One-Module-Out (LOGO across {oulad_n_modules} modules).",
             "",
             "### Early-Warning Earliness Curves",
             "",
@@ -469,9 +498,9 @@ def render_benchmark_report():
             "## 3. Sim-to-Real Cross-Domain Transfer Benchmark",
             "",
             "- **Evaluation Scope**: Cross-domain generalization between empirical benchmark (UCI ID 697) and simulated Indian cohort.",
-            "- **Shared Proxies (6)**: `current_cgpa`, `backlog_count`, `has_scholarship`, `fee_payment_delay_days`, `is_first_generation`, `is_hosteler`.",
+            f"- **Shared Proxies ({len(s2r_data['shared_proxies'])})**: {', '.join(f'`{c}`' for c in s2r_data['shared_proxies'])}.",
             "- **Normalization**: Standardized within domain to reflect relative cohort position.",
-            "- **Confidence Intervals**: 95% bootstrap confidence intervals (1,000 resamples of holdout predictions).",
+            f"- **Confidence Intervals**: 95% bootstrap confidence intervals ({s2r_data['n_bootstraps']:,} resamples of holdout predictions).",
             "",
             "| Evaluation Mode | Training Domain | Test Domain | N (Train / Test) | ROC-AUC (95% CI) | PR-AUC (95% CI) |",
             "| :--- | :--- | :--- | :--- | :--- | :--- |",

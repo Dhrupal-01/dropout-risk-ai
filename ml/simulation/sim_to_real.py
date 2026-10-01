@@ -33,6 +33,7 @@ from sklearn.preprocessing import StandardScaler
 
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 from ml.evaluation.harness import compute_bootstrap_cis
+from ml.provenance import build_provenance, uci_inputs
 from ml.sources.uci import load_uci_clean_df
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 BENCHMARK_DIR = BASE_DIR / "ml" / "artifacts" / "benchmarks"
 OUTPUT_JSON_PATH = BENCHMARK_DIR / "sim_to_real.json"
+ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
 SHARED_PROXIES = [
     "current_cgpa",
     "backlog_count",
@@ -195,6 +197,9 @@ def run_sim_to_real_benchmark(n_bootstraps: int = 1000) -> Dict[str, Any]:
             },
         },
     }
+
+    # Inputs: the real UCI file and the generator assumptions the simulated cohort is drawn from
+    results["provenance"] = build_provenance({**uci_inputs(), ASSUMPTIONS_PATH.name: ASSUMPTIONS_PATH})
 
     BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:

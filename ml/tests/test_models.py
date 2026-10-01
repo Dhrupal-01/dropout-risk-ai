@@ -17,7 +17,6 @@ from ml.config import (
     MODEL_ARTIFACT_PATH,
     BASE_MODEL_PATH,
     FEATURE_NAMES_PATH,
-    FAIRNESS_REPORT_PATH,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
     get_risk_tier
@@ -141,9 +140,17 @@ class TestSHAPExplainability:
 class TestFairnessAudit:
     """Tests for the fairness and bias audit reporting."""
 
-    def test_fairness_audit_execution_and_report_file(self):
-        """Verify fairness audit runs and populates docs/ethics_and_fairness.md."""
-        audit_results = run_comprehensive_fairness_audit()
+    def test_fairness_audit_execution_and_report_file(self, tmp_path):
+        """Verify fairness audit runs and renders the ethics report (all outputs under tmp_path, never the tracked repo files)."""
+        report_path = tmp_path / "docs" / "ethics_and_fairness.md"
+        benchmark_dir = tmp_path / "benchmarks"
+        benchmark_dir.mkdir()
+        audit_results = run_comprehensive_fairness_audit(
+            fairness_dir=tmp_path / "fairness",
+            metrics_path=tmp_path / "fairness_metrics.json",
+            report_path=report_path,
+            benchmark_dir=benchmark_dir,
+        )
 
         assert "gender" in audit_results
         assert "economic_proxy" in audit_results
@@ -151,8 +158,8 @@ class TestFairnessAudit:
         assert "test_split" in audit_results
         assert "cross_validation" in audit_results
 
-        assert FAIRNESS_REPORT_PATH.exists()
-        content = FAIRNESS_REPORT_PATH.read_text()
+        assert report_path.exists()
+        content = report_path.read_text()
         assert len(content) > 500
         assert "Gender Disparity Gap" in content or "gender" in content
         assert "Economic Proxy Gap" in content or "economic_proxy" in content

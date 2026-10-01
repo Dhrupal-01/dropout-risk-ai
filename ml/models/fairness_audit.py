@@ -14,7 +14,7 @@ Outputs real, computed results directly to docs/ethics_and_fairness.md.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 import joblib
 import numpy as np
 import pandas as pd
@@ -28,6 +28,7 @@ from ml.config import (
     FAIRNESS_METRICS_PATH
 )
 from ml.models.calibrate import predict_student_risk
+from ml.provenance import ProvenanceError, build_provenance, simulated_inputs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -168,11 +169,22 @@ def compute_cross_validated_fairness_audit(n_splits: int = 5) -> Dict[str, Any]:
     }
 
 
-def run_comprehensive_fairness_audit() -> Dict[str, Any]:
+def run_comprehensive_fairness_audit(
+    fairness_dir: Optional[Path] = None,
+    metrics_path: Optional[Path] = None,
+    report_path: Optional[Path] = None,
+    benchmark_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
     """
     Executes comprehensive fairness audit on both the held-out test split (N=300)
-    and full 5-fold cross-validation (N=2,000), writing the verified report to docs/ethics_and_fairness.md.
+    and full 5-fold cross-validation (N=2,000). Writes generator_sanity_check.json and
+    fairness_metrics.json (with provenance), then renders the report through
+    scripts/render_fairness_report.py. Output paths default to the repository locations.
+    If the renderer refuses (mixed or missing provenance), no report is written.
     """
+    metrics_path = Path(metrics_path) if metrics_path else FAIRNESS_METRICS_PATH
+    fairness_dir = Path(fairness_dir) if fairness_dir else FAIRNESS_METRICS_PATH.parent / "fairness"
+    report_path = Path(report_path) if report_path else FAIRNESS_REPORT_PATH
     from sklearn.model_selection import train_test_split
     from ml.config import RANDOM_SEED
 
@@ -244,112 +256,26 @@ def run_comprehensive_fairness_audit() -> Dict[str, Any]:
     }
 
     # -------------------------------------------------------------
-    # Write Audit Report to docs/ethics_and_fairness.md
-    # -------------------------------------------------------------
-    FAIRNESS_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    
-    markdown_report = f"""# Ethics, Responsible AI & Algorithmic Fairness Audit Report
-### DropoutGuard — AI-Powered Academic Dropout Prediction & Intervention System
-**Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
-**Date Generated**: Quantitative System Audit & Cross-Validated Verification  
-**Audit Scope**: False-Negative-Rate (FNR) Parity, Equal Opportunity, and Demographic Parity across Vulnerable Subgroups.
-
----
-
-## 1. Executive Summary & Ethical Mandate
-In educational early-warning systems, the primary ethical risk is **unequal intervention access driven by disparate False Negative Rates (FNR)**. A False Negative represents an at-risk student who is missed by the AI system and thus denied proactive mentoring, financial counseling, or academic tutoring.
-
-DropoutGuard enforces an explicit **Fairness-First Audit Protocol**, verifying that the calibrated model does not systematically under-detect dropouts across gender or socio-economic strata.
-
-> [!IMPORTANT]
-> **Sample Size & Statistical Significance Note**:
-> In a single held-out test split of $N = 300$ students, the total number of False Negatives is small ($N = 17$ total FNs across the entire test set). Consequently, single-split disparity numbers are subject to small-sample variance and should be interpreted as **suggestive rather than conclusive**.
-> To provide greater statistical stability, we execute **5-Fold Stratified Cross-Validation ($N = 2,000$ out-of-fold predictions, $106$ total False Negatives across the full cohort)** alongside the single test split.
-
----
-
-## 2. Quantitative Fairness Audit Results
-
-### 2.1 Comparative Disparity Table: Single Split ($N=300$, $17$ FNs) vs. 5-Fold Cross-Validation ($N=2,000$, $106$ FNs)
-
-| Protected Attribute / Subgroup Breakdown | Single Test Split ($N=300$, $17$ Total FNs) | 5-Fold Cross-Validation ($N=2,000$, $106$ Total FNs) | Empirical Trend |
-| :--- | :--- | :--- | :--- |
-| **Gender Disparity Gap** (Female vs. Male FNR) | **{g_fnr_diff_t*100:.2f} percentage points** (FNR {fem_m_t['fnr_miss_rate']*100:.1f}% vs {male_m_t['fnr_miss_rate']*100:.1f}%) | **{g_cv['fnr_disparity']*100:.2f} percentage points** (FNR {g_cv['female']['fnr_miss_rate']*100:.1f}% vs {g_cv['male']['fnr_miss_rate']*100:.1f}%) | **Shrinks by {abs(g_fnr_diff_t - g_cv['fnr_disparity'])*100:.2f} pp** (Effective sample: 106 FNs) |
-| **Economic Proxy Gap** (<5 LPA vs. $\\ge$5 LPA) | **{inc_fnr_diff_t*100:.2f} percentage points** (FNR {low_inc_m_t['fnr_miss_rate']*100:.1f}% vs {high_inc_m_t['fnr_miss_rate']*100:.1f}%) | **{inc_cv['fnr_disparity']*100:.2f} percentage points** (FNR {inc_cv['lower_income_under_5lpa']['fnr_miss_rate']*100:.1f}% vs {inc_cv['higher_income_above_5lpa']['fnr_miss_rate']*100:.1f}%) | **Shrinks by {abs(inc_fnr_diff_t - inc_cv['fnr_disparity'])*100:.2f} pp** (Effective sample: 106 FNs) |
-| **First-Generation Gap** (First-Gen vs. Non-First-Gen) | **{fg_fnr_diff_t*100:.2f} percentage points** (FNR {fg_m_t['fnr_miss_rate']*100:.1f}% vs {nfg_m_t['fnr_miss_rate']*100:.1f}%) | **{fg_cv['fnr_disparity']*100:.2f} percentage points** (FNR {fg_cv['first_gen']['fnr_miss_rate']*100:.1f}% vs {fg_cv['non_first_gen']['fnr_miss_rate']*100:.1f}%) | **Shrinks by {abs(fg_fnr_diff_t - fg_cv['fnr_disparity'])*100:.2f} pp** (Effective sample: 106 FNs) |
-
----
-
-### 2.2 5-Fold Stratified Cross-Validation Full Metrics ($N = 2,000$ Students, $106$ Total FNs)
-
-#### A. Gender Parity Audit (Male vs. Female)
-
-| Subgroup | Sample Size ($N$) | Total FNs | Ground-Truth Base Rate | Selection Rate | Recall (TPR) | Miss Rate (FNR) | False Alarm Rate (FPR) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Female Students** | {g_cv['female']['n_samples']} | {g_cv['female']['false_negatives']} | {g_cv['female']['base_rate']*100:.1f}% | {g_cv['female']['selection_rate']*100:.1f}% | **{g_cv['female']['tpr_recall']*100:.2f}%** | **{g_cv['female']['fnr_miss_rate']*100:.2f}%** | {g_cv['female']['fpr_alarm_rate']*100:.2f}% |
-| **Male Students** | {g_cv['male']['n_samples']} | {g_cv['male']['false_negatives']} | {g_cv['male']['base_rate']*100:.1f}% | {g_cv['male']['selection_rate']*100:.1f}% | **{g_cv['male']['tpr_recall']*100:.2f}%** | **{g_cv['male']['fnr_miss_rate']*100:.2f}%** | {g_cv['male']['fpr_alarm_rate']*100:.2f}% |
-| **Cross-Validated Disparity** | — | — | — | — | **{abs(g_cv['female']['tpr_recall'] - g_cv['male']['tpr_recall'])*100:.2f}%** | **{g_cv['fnr_disparity']*100:.2f}%** (106 total FNs) | — |
-
-**Interpretation**: Across the full cross-validated cohort ($106$ total False Negatives), the cross-validated FNR disparity gap is **{g_cv['fnr_disparity']*100:.2f} percentage points** (Recall: {g_cv['female']['tpr_recall']*100:.1f}% female vs. {g_cv['male']['tpr_recall']*100:.1f}% male). This narrowing from the single-split gap ({g_fnr_diff_t*100:.2f} pp) is consistent with the single-split gaps being largely sampling noise, though not a formal statistical confirmation.
-
----
-
-#### B. Socio-Economic Proxy Audit (Family Income Bracket)
-
-| Income Bracket | Sample Size ($N$) | Total FNs | Ground-Truth Base Rate | Selection Rate | Recall (TPR) | Miss Rate (FNR) | False Alarm Rate (FPR) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Economically Weaker (<5 LPA)** | {inc_cv['lower_income_under_5lpa']['n_samples']} | {inc_cv['lower_income_under_5lpa']['false_negatives']} | {inc_cv['lower_income_under_5lpa']['base_rate']*100:.1f}% | {inc_cv['lower_income_under_5lpa']['selection_rate']*100:.1f}% | **{inc_cv['lower_income_under_5lpa']['tpr_recall']*100:.2f}%** | **{inc_cv['lower_income_under_5lpa']['fnr_miss_rate']*100:.2f}%** | {inc_cv['lower_income_under_5lpa']['fpr_alarm_rate']*100:.2f}% |
-| **Higher Income (>=5 LPA)** | {inc_cv['higher_income_above_5lpa']['n_samples']} | {inc_cv['higher_income_above_5lpa']['false_negatives']} | {inc_cv['higher_income_above_5lpa']['base_rate']*100:.1f}% | {inc_cv['higher_income_above_5lpa']['selection_rate']*100:.1f}% | **{inc_cv['higher_income_above_5lpa']['tpr_recall']*100:.2f}%** | **{inc_cv['higher_income_above_5lpa']['fnr_miss_rate']*100:.2f}%** | {inc_cv['higher_income_above_5lpa']['fpr_alarm_rate']*100:.2f}% |
-| **Cross-Validated Disparity** | — | — | — | — | **{abs(inc_cv['lower_income_under_5lpa']['tpr_recall'] - inc_cv['higher_income_above_5lpa']['tpr_recall'])*100:.2f}%** | **{inc_cv['fnr_disparity']*100:.2f}%** (106 total FNs) | — |
-
-**Interpretation**: Economically weaker students (<5 LPA) exhibit a higher ground-truth risk base rate ({inc_cv['lower_income_under_5lpa']['base_rate']*100:.1f}%), yet the cross-validated model achieves a Recall of **{inc_cv['lower_income_under_5lpa']['tpr_recall']*100:.2f}%**, with an FNR disparity gap of only **{inc_cv['fnr_disparity']*100:.2f} percentage points** across the 106-FN effective sample. This observation is consistent with stable detection across income brackets without strong subgroup disparity.
-
----
-
-#### C. First-Generation College Learner Audit
-
-| Status | Sample Size ($N$) | Total FNs | Ground-Truth Base Rate | Recall (TPR) | Miss Rate (FNR) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **First-Generation Learner** | {fg_cv['first_gen']['n_samples']} | {fg_cv['first_gen']['false_negatives']} | {fg_cv['first_gen']['base_rate']*100:.1f}% | **{fg_cv['first_gen']['tpr_recall']*100:.2f}%** | **{fg_cv['first_gen']['fnr_miss_rate']*100:.2f}%** |
-| **Non-First-Generation** | {fg_cv['non_first_gen']['n_samples']} | {fg_cv['non_first_gen']['false_negatives']} | {fg_cv['non_first_gen']['base_rate']*100:.1f}% | **{fg_cv['non_first_gen']['tpr_recall']*100:.2f}%** | **{fg_cv['non_first_gen']['fnr_miss_rate']*100:.2f}%** |
-| **Cross-Validated Disparity** | — | — | — | **{abs(fg_cv['first_gen']['tpr_recall'] - fg_cv['non_first_gen']['tpr_recall'])*100:.2f}%** | **{fg_cv['fnr_disparity']*100:.2f}%** (106 total FNs) |
-
-**Interpretation**: The cross-validated FNR disparity gap for first-generation learners is **{fg_cv['fnr_disparity']*100:.2f} percentage points** across the 106-FN effective sample, indicating that the larger single-split gap ({fg_fnr_diff_t*100:.2f} pp) was likely influenced by small subgroup sample sizes.
-
----
-
-## 3. Four Core Pillars of Responsible AI Governance in DropoutGuard
-
-1. **Human-in-the-Loop Decision Support**:
-   The system never executes autonomous punitive actions (e.g. debarment or scholarship cancellation). All outputs serve exclusively as confidential decision-support recommendations for designated faculty mentors.
-2. **Deficit Framing Avoidance**:
-   Risk assessments avoid pejorative labels. Interventions are framed as proactive resource allocations (e.g., "Peer Tutoring Referral" or "Financial Aid Desk Check-in") rather than student deficits.
-3. **SHAP-Verifiable Interpretability**:
-   Every risk probability is accompanied by signed SHAP local drivers, enabling mentors to verify the causal rationale before taking action.
-4. **Data Minimization, Need Signals & Confidentiality**:
-   Household income is used as an active model input via `income_slab_idx` and `financial_stress_index` exclusively as an objective need signal to prioritize and route emergency financial aid and fee-waiver interventions to economically vulnerable students. Only the duplicate raw string label (`family_income_slab`) and sensitive social categories are excluded from model training to prevent categorical bias. All socio-economic indicators are confidential, encrypted at rest, and never used for punitive academic actions.
-"""
-
-    # -------------------------------------------------------------
     # Write Generator Sanity Check & Synchronize Report
     # -------------------------------------------------------------
+    provenance = build_provenance(simulated_inputs())
     gen_check_dict = {
         "benchmark": "generator_sanity_check_simulated_cohort",
         "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
         "test_split_n300": test_split_summary,
         "cross_validation_n2000": cv_audit,
+        "provenance": provenance,
     }
 
-    fairness_dir = FAIRNESS_METRICS_PATH.parent / "fairness"
     fairness_dir.mkdir(parents=True, exist_ok=True)
     with open(fairness_dir / "generator_sanity_check.json", "w") as f:
         json.dump(gen_check_dict, f, indent=2)
 
     # Synchronize unified metrics file
     existing_metrics = {}
-    if FAIRNESS_METRICS_PATH.exists():
+    if metrics_path.exists():
         try:
-            with open(FAIRNESS_METRICS_PATH, "r") as f:
+            with open(metrics_path, "r") as f:
                 existing_metrics = json.load(f)
         except Exception:
             existing_metrics = {}
@@ -379,19 +305,20 @@ DropoutGuard enforces an explicit **Fairness-First Audit Protocol**, verifying t
         },
     }
 
-    with open(FAIRNESS_METRICS_PATH, "w") as f:
-        json.dump(existing_metrics, f, indent=2)
-    logger.info("Saved fairness metrics JSON to %s", FAIRNESS_METRICS_PATH)
+    existing_metrics["generator_sanity_check"]["provenance"] = provenance
 
-    # Render docs/ethics_and_fairness.md via centralized renderer
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(metrics_path, "w") as f:
+        json.dump(existing_metrics, f, indent=2)
+    logger.info("Saved fairness metrics JSON to %s", metrics_path)
+
+    # Render the report via the centralized renderer. A provenance refusal leaves the report untouched.
+    from scripts.render_fairness_report import render_fairness_markdown_report
     try:
-        from scripts.render_fairness_report import render_fairness_markdown_report
-        render_fairness_markdown_report()
-        logger.info("Successfully rendered %s", FAIRNESS_REPORT_PATH)
-    except Exception as exc:
-        logger.warning("Could not invoke render_fairness_markdown_report: %s; using fallback", exc)
-        with open(FAIRNESS_REPORT_PATH, "w") as f:
-            f.write(markdown_report.strip() + "\n")
+        render_fairness_markdown_report(fairness_dir=fairness_dir, report_path=report_path, benchmark_dir=benchmark_dir)
+        logger.info("Successfully rendered %s", report_path)
+    except ProvenanceError as exc:
+        logger.warning("Fairness report NOT rendered: %s", exc)
 
     return summary_dict
 

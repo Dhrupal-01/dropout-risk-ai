@@ -184,6 +184,23 @@ def test_audit_attributes_strictly_separated(mock_oulad_tables):
         assert attr in audit_df.columns, f"Audit attribute '{attr}' missing from audit_df!"
 
 
+def test_shared_builder_audit_frame_carries_audit_groups(mock_oulad_tables):
+    """
+    The single OULAD builder puts highest_education (raw labels), normalised imd_band and
+    imd_x_gender in the audit frame, so fairness code needs no post-processing of X.
+    highest_education stays in X as an encoded AUDIT_GROUP feature.
+    """
+    X, _, _, _, audit_df, feature_names = build_snapshot_dataset(t=14, tables=mock_oulad_tables)
+
+    assert "highest_education" in X.columns
+    assert list(X.columns) == feature_names
+    assert list(audit_df["highest_education"]) == list(
+        mock_oulad_tables["studentInfo"].set_index("id_student").loc[audit_df["id_student"], "highest_education"]
+    )
+    assert list(audit_df["imd_x_gender"]) == [f"{imd}_{g}" for imd, g in zip(audit_df["imd_band"], audit_df["gender"])]
+    assert not audit_df["imd_band"].isna().any()
+
+
 def test_schema_and_target_assertions(tmp_path):
     """
     Verifies that load_raw_tables raises AssertionError if studentInfo row count

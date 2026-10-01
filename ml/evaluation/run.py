@@ -9,8 +9,12 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import Dict, Optional
+
+import pandas as pd
 
 from ml.evaluation.harness import run_benchmark_for_dataset
+from ml.provenance import ProvenanceError, build_provenance, oulad_inputs, uci_inputs
 from ml.sources.uci import FEATURE_SETS, get_uci_benchmark_dataset
 from scripts.render_benchmark_report import render_benchmark_report
 
@@ -18,7 +22,28 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
+def _render_report_if_consistent() -> None:
+    """Renders docs/benchmarks.md; a provenance refusal (e.g. other sources not yet rerun) writes nothing."""
+    print("\n[i] Rendering docs/benchmarks.md and figures...")
+    try:
+        render_benchmark_report()
+        print(" [✓] Benchmark report and figures generated.")
+    except ProvenanceError as exc:
+        print(f" [✗] docs/benchmarks.md NOT rendered: {exc}")
+
+
+def count_non_withdrawn_registrations(tables: Dict[str, pd.DataFrame]) -> int:
+    """
+    Number of registrations (studentRegistration joined to studentInfo) whose final_result is not
+    'Withdrawn'. Lower bound for every snapshot population: students who did not withdraw are
+    still registered at any t.
+    """
+    keys = ["code_module", "code_presentation", "id_student"]
+    merged = pd.merge(tables["studentRegistration"][keys], tables["studentInfo"][keys + ["final_result"]], on=keys, how="inner")
+    return int((merged["final_result"].astype(str).str.strip() != "Withdrawn").sum())
+
+
+def run_uci_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None):
     """
     Executes full evaluation across all feature sets and label variants for UCI ID 697.
     - Feature sets: enrolment_time, end_of_sem1, full
@@ -30,6 +55,7 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
     print("=" * 80)
 
     start_time = time.time()
+    provenance = build_provenance(uci_inputs())
     feature_sets = list(FEATURE_SETS.keys())
     label_variants = ["primary", "sensitivity"]
 
@@ -54,6 +80,7 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
                 label_variant=lv,
                 seed=seed,
                 output_dir=output_dir,
+                provenance=provenance,
             )
 
             dt = time.time() - t0
@@ -65,10 +92,7 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
     print(f" ALL {total_runs} BENCHMARK RUNS COMPLETED IN {total_time:.1f}s ")
     print("=" * 80)
 
-    # Automatically generate markdown report and reliability diagram
-    print("\n[i] Generating docs/benchmarks.md and reliability curves...")
-    render_benchmark_report()
-    print(" [✓] Benchmarks report and figures successfully generated.")
+    _render_report_if_consistent()
 
 
 def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, data_dir: Optional[Path] = None):
@@ -88,6 +112,9 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     start_time = time.time()
     logger.info("Loading OULAD tables...")
     tables = load_raw_tables(data_dir=data_dir)
+    provenance = build_provenance(oulad_inputs(data_dir))
+    min_population = count_non_withdrawn_registrations(tables)
+    n_registrations_total = int(len(tables["studentInfo"]))
 
     total_runs = len(SNAPSHOT_DAYS)
     for idx, t in enumerate(SNAPSHOT_DAYS, 1):
@@ -100,6 +127,10 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
         logger.info(
             "Snapshot t=%d: %d samples, %d features, %d positives (%.2f%%)",
             t, len(y), X.shape[1], int(y.sum()), float(y.mean() * 100)
+        )
+        assert len(y) >= min_population, (
+            f"Snapshot t={t} population is {len(y)}, below the {min_population} registrations whose "
+            f"final_result is not Withdrawn (computed from the data). The input tables are incomplete or wrong."
         )
 
         artifact = run_benchmark_for_dataset(
@@ -114,6 +145,8 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
             include_gru=True,
             seed=seed,
             output_dir=output_dir,
+            provenance=provenance,
+            extra_metadata={"snapshot_t": t, "n_registrations_total": n_registrations_total},
         )
 
         dt = time.time() - t0
@@ -125,9 +158,7 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     print(f" ALL {total_runs} OULAD SNAPSHOT BENCHMARKS COMPLETED IN {total_time:.1f}s ")
     print("=" * 80)
 
-    print("\n[i] Updating docs/benchmarks.md and figures...")
-    render_benchmark_report()
-    print(" [✓] Benchmark report and figures successfully updated.")
+    _render_report_if_consistent()
 
 
 def main():

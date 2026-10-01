@@ -27,6 +27,7 @@ from ml.fairness.audit import audit_model_fairness
 from ml.fairness.income_ablation import run_income_ablation_experiment
 from ml.fairness.mitigation import compare_fairness_mitigations
 from ml.fairness.shift_check import run_oulad_presentation_shift_check
+from ml.provenance import ProvenanceError, build_provenance, merge_input_files, oulad_inputs, simulated_inputs, uci_inputs
 from ml.sources.oulad import build_snapshot_dataset, load_raw_tables
 from ml.sources.uci import get_uci_benchmark_dataset, load_uci_clean_df
 
@@ -117,6 +118,7 @@ def run_uci_audit_pipeline(
         n_bootstraps=n_bootstraps,
         seed=seed,
     )
+    uci_audit["base_rate"] = round(float(np.mean(y)), 4)
     uci_audit["feature_count"] = len(feature_names)
     uci_audit["feature_set"] = "END_OF_SEM1"
     uci_audit["excluded_protected_attributes"] = PROTECTED["uci"]
@@ -154,32 +156,16 @@ def run_oulad_audit_pipeline(
 ) -> Dict[str, Any]:
     """
     Executes fairness audit on OULAD snapshot t=56 temporal test holdout cohort (2014B/J).
-    Audits 7 attributes strictly excluded from feature matrix X:
-    - gender (M vs F)
-    - age_band (0-35, 35-55, 55<=)
-    - imd_band (deprivation deciles)
-    - disability (N vs Y)
-    - highest_education (5 qualifications)
-    - region (13 UK administrative regions)
-    - imd_x_gender (intersectional deprivation x gender)
+    The model trains on the benchmark feature matrix from the shared builder. Audited attributes:
+    - PROTECTED, never model features: gender, age_band, imd_band, disability, region, and the
+      intersection imd_x_gender
+    - AUDIT_GROUPS, also a documented model feature: highest_education
     """
     logger.info("Building OULAD snapshot t=%d for fairness audit...", t)
     raw_tables = load_raw_tables()
     X, y, splits, groups, audit_df, feature_names = build_snapshot_dataset(t=t, tables=raw_tables)
 
-    # Ensure highest_education is strictly in audit_df and dropped from X
-    if "highest_education" in X.columns:
-        X = X.drop(columns=["highest_education"])
-    if "highest_education" not in audit_df.columns:
-        info_df = raw_tables["studentInfo"]
-        pop_keys = audit_df[["code_module", "code_presentation", "id_student"]]
-        merged = pd.merge(pop_keys, info_df[["code_module", "code_presentation", "id_student", "highest_education"]], on=["code_module", "code_presentation", "id_student"], how="left")
-        audit_df["highest_education"] = merged["highest_education"].fillna("Unknown").values
-
-    # Clean imd_band formatting and add intersectional imd_x_gender
-    if "imd_band" in audit_df.columns:
-        audit_df["imd_band"] = audit_df["imd_band"].replace({"10-20": "10-20%"}).fillna("Missing")
-    audit_df["imd_x_gender"] = audit_df["imd_band"].astype(str) + "_" + audit_df["gender"].astype(str)
+    # X is used exactly as built by the shared OULAD builder (same matrix as the benchmark).
 
     # Train on 2013 presentations, evaluate on 2014 holdout presentations
     train_idx, test_idx = splits[0]
@@ -216,10 +202,12 @@ def run_oulad_audit_pipeline(
         seed=seed,
     )
     oulad_audit["snapshot_horizon_t"] = t
+    oulad_audit["base_rate"] = round(float(np.mean(y_test)), 4)
     oulad_audit["train_cohort"] = "2013B + 2013J"
     oulad_audit["test_cohort"] = "2014B + 2014J (Temporal Holdout)"
     oulad_audit["feature_count"] = X.shape[1]
-    oulad_audit["excluded_protected_attributes"] = list(attr_configs.keys())
+    oulad_audit["excluded_protected_attributes"] = PROTECTED["oulad"]
+    oulad_audit["audit_groups_used_as_features"] = AUDIT_GROUPS["oulad"]
 
     return oulad_audit
 
@@ -341,6 +329,8 @@ def run_all_fairness_audits(
     else:
         print("\n[1/5] Running UCI Higher Education Fairness Audit & Mitigations...")
         uci_audit, uci_mitigations = run_uci_audit_pipeline(n_splits=5, n_bootstraps=n_bootstraps, seed=seed)
+        uci_audit["provenance"] = build_provenance(uci_inputs())
+        uci_mitigations["provenance"] = build_provenance(uci_inputs())
         with open(uci_fair_path, "w") as f:
             json.dump(uci_audit, f, indent=2)
         with open(uci_mit_path, "w") as f:
@@ -356,6 +346,7 @@ def run_all_fairness_audits(
     else:
         print("\n[2/5] Running OULAD Day 56 Fairness Audit (Temporal Holdout 2014)...")
         oulad_audit = run_oulad_audit_pipeline(t=56, n_bootstraps=n_bootstraps, seed=seed)
+        oulad_audit["provenance"] = build_provenance(oulad_inputs())
         with open(oulad_fair_path, "w") as f:
             json.dump(oulad_audit, f, indent=2)
     print(f" ✓ Saved/Loaded OULAD audit ({len(oulad_audit.get('attributes', {}))} attributes).")
@@ -369,6 +360,7 @@ def run_all_fairness_audits(
     else:
         print("\n[3/5] Running OULAD Presentation Shift Check (2013 vs 2014)...")
         oulad_shift = run_oulad_presentation_shift_check(t=56, n_bootstraps=n_bootstraps, seed=seed)
+        oulad_shift["provenance"] = build_provenance(oulad_inputs())
         with open(oulad_shift_path, "w") as f:
             json.dump(oulad_shift, f, indent=2)
     print(" ✓ Saved/Loaded OULAD temporal presentation shift comparison.")
@@ -376,6 +368,7 @@ def run_all_fairness_audits(
     # 4. Generator Sanity Check
     print("\n[4/5] Running Generator Sanity Check on Simulated Cohort...")
     generator_check = run_generator_sanity_check_pipeline(seed=seed)
+    generator_check["provenance"] = build_provenance(simulated_inputs())
     with open(FAIRNESS_ARTIFACTS_DIR / "generator_sanity_check.json", "w") as f:
         json.dump(generator_check, f, indent=2)
     print(" ✓ Saved generator sanity check.")
@@ -383,6 +376,7 @@ def run_all_fairness_audits(
     # 5. Income Ablation Experiment
     print("\n[5/5] Running Income Feature Ablation Experiment...")
     income_ablation_res = run_income_ablation_experiment(seed=seed)
+    income_ablation_res["provenance"] = build_provenance(simulated_inputs())
     with open(FAIRNESS_ARTIFACTS_DIR / "income_ablation.json", "w") as f:
         json.dump(income_ablation_res, f, indent=2)
     print(" ✓ Saved income feature ablation results.")
@@ -392,15 +386,15 @@ def run_all_fairness_audits(
         "status": "completed",
         "phase": "Phase 4 - Fairness Audit & Mitigations",
         "uci_higher_ed": {
-            "n_samples": uci_audit.get("n_samples", 3630),
-            "base_rate": uci_audit.get("base_rate", 0.3209),
-            "selection_rate_top20": uci_audit.get("top_k_selection_rate", 0.20),
+            "n_samples": uci_audit["n_samples"],
+            "base_rate": uci_audit["base_rate"],
+            "top_k_pct": uci_audit["top_k_pct"],
             "attributes_audited": list(uci_audit.get("attributes", {}).keys()),
             "mitigations_comparison": uci_mitigations.get("comparison_table", []),
         },
         "oulad_learning_analytics": {
-            "n_samples_holdout": oulad_audit.get("n_samples", 15092),
-            "base_rate": oulad_audit.get("base_rate", 0.1543),
+            "n_samples_holdout": oulad_audit["n_samples"],
+            "base_rate": oulad_audit["base_rate"],
             "attributes_audited": list(oulad_audit.get("attributes", {}).keys()),
         },
         "generator_sanity_check": {
@@ -419,6 +413,7 @@ def run_all_fairness_audits(
         "income_ablation": {
             "comparison_table": income_ablation_res["comparison_table"],
         },
+        "provenance": build_provenance(merge_input_files(uci_inputs(), oulad_inputs(), simulated_inputs())),
     }
     with open(FAIRNESS_METRICS_PATH, "w") as f:
         json.dump(unified_summary, f, indent=2)
@@ -428,8 +423,11 @@ def run_all_fairness_audits(
     if render_docs:
         print("\nRendering docs/ethics_and_fairness.md from generated JSON artifacts...")
         from scripts.render_fairness_report import render_fairness_markdown_report
-        render_fairness_markdown_report()
-        print(" ✓ Generated docs/ethics_and_fairness.md successfully.")
+        try:
+            render_fairness_markdown_report()
+            print(" ✓ Generated docs/ethics_and_fairness.md successfully.")
+        except ProvenanceError as exc:
+            print(f" ✗ docs/ethics_and_fairness.md NOT rendered: {exc}")
 
     print("\n" + "=" * 80)
     print(" ALL FAIRNESS AUDITS COMPLETED SUCCESSFULLY! ")

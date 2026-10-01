@@ -127,7 +127,8 @@ def estimate_uci_parameters() -> Dict[str, Any]:
 
 def estimate_oulad_parameters() -> Dict[str, Any]:
     """
-    Extracts OULAD behavioral proxies at snapshot t=56 (Withdrawn vs Non-Withdrawn):
+    Extracts OULAD behavioral proxies at snapshot t=56 (Withdrawn vs Non-Withdrawn) from the
+    shared OULAD builder (ml.sources.oulad.build_snapshot_dataset, same X as the benchmark):
     - weekly clicks -> lms_logins_per_week
     - days since last activity -> days_since_last_lms_activity
     - mean submission lag -> assignment_submission_lag_days

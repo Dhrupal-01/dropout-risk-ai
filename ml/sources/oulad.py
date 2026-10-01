@@ -11,7 +11,7 @@ Strict Rules:
 - Label: final_result == "Withdrawn"
 - Features: date <= t ONLY
 - Static: num_of_prev_attempts, studied_credits, highest_education
-- Audit: gender, age_band, imd_band, disability, region strictly in separate audit frame
+- Audit: gender, age_band, imd_band, disability, region (+ highest_education, imd_x_gender) in a separate audit frame
 - Split: train on 2013B + 2013J, test on 2014B + 2014J; secondary LOGO across code_module
 """
 
@@ -196,7 +196,9 @@ def build_snapshot_dataset(
     - y: Binary outcome (1 for Withdrawn, 0 for Pass/Fail/Distinction).
     - predefined_splits: [(train_idx, test_idx)] where train is 2013B+2013J, test is 2014B+2014J.
     - groups: code_module values for Leave-One-Module-Out evaluation.
-    - audit_df: Demographic and protected attributes (gender, age_band, imd_band, disability, region).
+    - audit_df: PROTECTED attributes (gender, age_band, imd_band, disability, region), the AUDIT_GROUP
+      highest_education (raw labels), and imd_x_gender. This is the one OULAD builder: benchmarks,
+      fairness audits and parameter estimation all use X exactly as returned.
     - feature_names: Ordered list of feature column names in X.
     """
     if tables is None:
@@ -225,9 +227,16 @@ def build_snapshot_dataset(
     # 2. TARGET LABEL: final_result == "Withdrawn"
     y = (pop["final_result"].astype(str).str.strip() == "Withdrawn").astype(int).values
 
-    # 3. AUDIT FRAME ISOLATION: Demographics strictly excluded from model features
-    audit_cols = ["code_module", "code_presentation", "id_student", "gender", "age_band", "imd_band", "disability", "region"]
+    # 3. AUDIT FRAME ISOLATION: PROTECTED demographics are never model features (ml/fairness/attributes.py).
+    # highest_education is an AUDIT_GROUP: audited here (raw labels) and also an encoded model feature below.
+    audit_cols = [
+        "code_module", "code_presentation", "id_student",
+        "gender", "age_band", "imd_band", "disability", "region", "highest_education",
+    ]
     audit_df = pop[audit_cols].copy()
+    audit_df["highest_education"] = audit_df["highest_education"].fillna("Unknown")
+    audit_df["imd_band"] = audit_df["imd_band"].replace({"10-20": "10-20%"}).fillna("Missing")
+    audit_df["imd_x_gender"] = audit_df["imd_band"].astype(str) + "_" + audit_df["gender"].astype(str)
 
     # 4. STATIC FEATURES
     pop["highest_education_encoded"] = pop["highest_education"].map(EDUCATION_MAPPING).fillna(1).astype(int)
