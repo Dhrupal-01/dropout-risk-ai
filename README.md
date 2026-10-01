@@ -54,8 +54,59 @@ The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target
 - **ROC-AUC**: `0.9283`
 - **Overall Accuracy**: `86.67%`
 - **Brier Calibration Score**: `0.0997`
-- **Demographic Disparity**: Gender FNR gap $0.00\text{ pp}$, Economic proxy gap $0.00\text{ pp}$, First-Gen gap $0.00\text{ pp}$
+- **Demographic Disparity**: Gender FNR gap $7.93\text{ pp}$, Economic proxy gap $14.60\text{ pp}$, First-Gen gap $20.67\text{ pp}$
 <!-- METRICS:END -->
+
+---
+
+## Real-data benchmarks
+
+<!-- BENCHMARKS:START -->
+Generated from `ml/artifacts/benchmarks/*.json` (commit `9e3c7f6`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
+
+#### UCI 697: Portuguese higher education
+
+Primary label, Dropout vs Graduate (Enrolled excluded): n = 3,630, 1,421 dropouts, prevalence 0.3915. Repeated stratified 5-fold CV (3 repeats).
+
+| Feature set | Features | Model | ROC-AUC [95% CI] | PR-AUC [95% CI] |
+| :--- | ---: | :--- | :--- | :--- |
+| ENROLMENT_TIME | 22 | Majority class | 0.5012 [0.4844, 0.5191] | 0.3924 [0.3747, 0.4103] |
+| ENROLMENT_TIME | 22 | Logistic regression | 0.8044 [0.7896, 0.8183] | 0.7668 [0.7434, 0.7875] |
+| ENROLMENT_TIME | 22 | XGBoost | 0.8516 [0.8382, 0.8644] | 0.8227 [0.8046, 0.8387] |
+| END_OF_SEM1 | 28 | Majority class | 0.5012 [0.4844, 0.5191] | 0.3924 [0.3747, 0.4103] |
+| END_OF_SEM1 | 28 | Logistic regression | 0.9334 [0.9242, 0.9422] | 0.9279 [0.9178, 0.9373] |
+| END_OF_SEM1 | 28 | XGBoost | 0.9403 [0.9320, 0.9480] | 0.9343 [0.9250, 0.9427] |
+| FULL (not early warning) | 34 | Majority class | 0.5012 [0.4844, 0.5191] | 0.3924 [0.3747, 0.4103] |
+| FULL (not early warning) | 34 | Logistic regression | 0.9525 [0.9449, 0.9599] | 0.9503 [0.9427, 0.9574] |
+| FULL (not early warning) | 34 | XGBoost | 0.9588 [0.9521, 0.9652] | 0.9550 [0.9480, 0.9612] |
+
+> **Not validated on Indian college records.** This result is from a Portuguese polytechnic (UCI 697). The deployed model is trained on a simulated Indian cohort and has never been evaluated on real Indian student data.
+
+#### OULAD: UK online learning
+
+Label: Withdrawn. Temporal holdout: train 2013B + 2013J, test 2014B + 2014J. n = registrations still enrolled at day t.
+
+| t (days) | n | Test n | Prevalence | Model | ROC-AUC [95% CI] | PR-AUC [95% CI] |
+| ---: | ---: | ---: | ---: | :--- | :--- | :--- |
+| 14 | 28,119 | 16,027 | 0.2024 | Majority class | 0.5000 [0.5000, 0.5000] | 0.2123 [0.2061, 0.2182] |
+| 14 | 28,119 | 16,027 | 0.2024 | Logistic regression | 0.5909 [0.5798, 0.6016] | 0.2801 [0.2671, 0.2938] |
+| 14 | 28,119 | 16,027 | 0.2024 | XGBoost | 0.5964 [0.5853, 0.6078] | 0.2832 [0.2714, 0.2978] |
+| 14 | 28,119 | 16,027 | 0.2024 | GRU | 0.5963 [0.5853, 0.6071] | 0.2851 [0.2721, 0.2994] |
+| 28 | 27,538 | 15,729 | 0.1855 | Majority class | 0.5000 [0.5000, 0.5000] | 0.1973 [0.1915, 0.2035] |
+| 28 | 27,538 | 15,729 | 0.1855 | Logistic regression | 0.6555 [0.6442, 0.6662] | 0.3228 [0.3080, 0.3393] |
+| 28 | 27,538 | 15,729 | 0.1855 | XGBoost | 0.6744 [0.6641, 0.6851] | 0.3572 [0.3405, 0.3749] |
+| 28 | 27,538 | 15,729 | 0.1855 | GRU | 0.6603 [0.6494, 0.6708] | 0.3315 [0.3164, 0.3487] |
+| 56 | 26,522 | 15,092 | 0.1543 | Majority class | 0.5000 [0.5000, 0.5000] | 0.1635 [0.1575, 0.1694] |
+| 56 | 26,522 | 15,092 | 0.1543 | Logistic regression | 0.6645 [0.6529, 0.6756] | 0.2770 [0.2622, 0.2933] |
+| 56 | 26,522 | 15,092 | 0.1543 | XGBoost | 0.6916 [0.6801, 0.7024] | 0.2863 [0.2714, 0.3018] |
+| 56 | 26,522 | 15,092 | 0.1543 | GRU | 0.6884 [0.6773, 0.6988] | 0.2952 [0.2793, 0.3133] |
+| 84 | 25,724 | 14,590 | 0.1281 | Majority class | 0.5000 [0.5000, 0.5000] | 0.1347 [0.1295, 0.1400] |
+| 84 | 25,724 | 14,590 | 0.1281 | Logistic regression | 0.6769 [0.6641, 0.6887] | 0.2441 [0.2296, 0.2610] |
+| 84 | 25,724 | 14,590 | 0.1281 | XGBoost | 0.6789 [0.6667, 0.6910] | 0.2302 [0.2171, 0.2459] |
+| 84 | 25,724 | 14,590 | 0.1281 | GRU | 0.7036 [0.6919, 0.7154] | 0.2701 [0.2534, 0.2894] |
+
+> **Not validated on Indian college records.** This result is from UK distance-learning students (OULAD). The deployed model is trained on a simulated Indian cohort and has never been evaluated on real Indian student data.
+<!-- BENCHMARKS:END -->
 
 ---
 

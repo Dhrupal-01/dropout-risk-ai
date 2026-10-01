@@ -40,11 +40,12 @@ def render_metrics_block() -> str:
     brier = model_metrics.get("brier_score")
     brier_str = f"`{brier:.4f}`" if brier is not None else "TODO(citation)"
 
-    # Demographic disparity from test split
-    test_split_fairness = fairness_metrics.get("test_split", {})
-    gender_gap = test_split_fairness.get("gender", {}).get("fnr_disparity", 0.0) * 100.0
-    econ_gap = test_split_fairness.get("economic_proxy", {}).get("fnr_disparity", 0.0) * 100.0
-    fg_gap = test_split_fairness.get("first_generation", {}).get("fnr_disparity", 0.0) * 100.0
+    # Demographic FNR gaps on the simulated held-out test split (generator sanity check).
+    # Direct key access: a missing value must fail, never render as 0.0.
+    gaps = fairness_metrics["generator_sanity_check"]["test_split_fnr_gaps"]
+    gender_gap = gaps["gender"] * 100.0
+    econ_gap = gaps["economic_proxy"] * 100.0
+    fg_gap = gaps["first_generation"] * 100.0
 
     lines = [
         f"- **At-Risk Recall (Sensitivity)**: `{recall:.2f}%` (Minimizes missed vulnerable students)",

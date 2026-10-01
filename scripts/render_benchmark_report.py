@@ -625,6 +625,10 @@ def render_benchmark_report():
     logger.info("Successfully generated benchmark report at %s", REPORT_MD_PATH)
     print(f"Successfully generated benchmark report at {REPORT_MD_PATH}")
 
+    # Keep the README real-data benchmarks block in sync with the same artifacts
+    from scripts.render_readme_benchmarks import update_readme as update_readme_benchmarks
+    update_readme_benchmarks()
+
 
 if __name__ == "__main__":
     render_benchmark_report()
