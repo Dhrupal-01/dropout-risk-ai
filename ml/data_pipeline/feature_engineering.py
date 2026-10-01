@@ -19,15 +19,15 @@ from typing import Optional, Tuple, List, Dict
 import numpy as np
 import pandas as pd
 
+from ml.config import PROCESSED_DATA_PATH
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-PROCESSED_DATA_DIR = BASE_DIR / "data" / "processed"
-FEATURES_CSV_PATH = PROCESSED_DATA_DIR / "features.csv"
-FEATURE_METADATA_PATH = PROCESSED_DATA_DIR / "feature_metadata.json"
+FEATURES_CSV_PATH = PROCESSED_DATA_PATH
+FEATURE_METADATA_FILENAME = "feature_metadata.json"  # written next to the features CSV
 
 # Categorization of features for modeling, explainability, and fairness audits
 PILLAR_COLUMNS = {
@@ -213,11 +213,12 @@ def generate_processed_feature_dataset(
     
     # 5. Save feature metadata dictionary for backend and model services
     import json
-    with open(FEATURE_METADATA_PATH, "w") as f:
+    metadata_path = output_path.parent / FEATURE_METADATA_FILENAME
+    with open(metadata_path, "w") as f:
         json.dump(PILLAR_COLUMNS, f, indent=2)
 
     logger.info("Successfully produced %s: %d rows, %d columns.", output_path, len(processed_df), len(processed_df.columns))
-    logger.info("Saved feature metadata schema to %s", FEATURE_METADATA_PATH)
+    logger.info("Saved feature metadata schema to %s", metadata_path)
     
     return processed_df
 

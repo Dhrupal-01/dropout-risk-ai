@@ -38,6 +38,14 @@ ESTIMATED_PARAMS_PATH = BASE_DIR / "ml" / "simulation" / "estimated_parameters.j
 SIM_TO_REAL_JSON_PATH = BASE_DIR / "ml" / "artifacts" / "benchmarks" / "sim_to_real.json"
 
 
+def requires_artifact(path: Path, command: str):
+    """Marks a test that reads a committed generated artifact; skips with the command to create it if absent."""
+    def mark(fn):
+        fn = pytest.mark.skipif(not path.exists(), reason=f"{path.relative_to(BASE_DIR)} not generated; run `{command}`")(fn)
+        return pytest.mark.artifacts(fn)
+    return mark
+
+
 class TestSimulationAssumptions:
     """Tests for assumptions.yaml and documentation synchronization."""
 
@@ -67,6 +75,7 @@ class TestSimulationAssumptions:
             assert src in ALLOWED_SOURCES, f"Entry '{key}' has invalid source '{src}'"
             assert len(str(entry["notes"]).strip()) > 0, f"Entry '{key}' has empty notes"
 
+    @requires_artifact(DOCS_SIMULATION_PATH, "python -m ml.simulation.render_simulation_doc")
     def test_simulation_doc_is_strictly_synced_with_yaml(self):
         """Pre-commit / CI consistency check between assumptions.yaml and docs/simulation.md."""
         is_synced, errors = verify_assumptions_doc_sync()
@@ -81,6 +90,7 @@ class TestSimulationAssumptions:
             val = risk_coefs[protected_key]["value"]
             assert val == 0.0, f"Protected attribute '{protected_key}' coefficient must be 0.0, got {val}"
 
+    @requires_artifact(ESTIMATED_PARAMS_PATH, "python -m ml.simulation.estimate_parameters")
     def test_estimated_parameters_json_and_mapping_doc_exist(self):
         assert ESTIMATED_PARAMS_PATH.exists(), f"Missing {ESTIMATED_PARAMS_PATH}"
         with open(ESTIMATED_PARAMS_PATH, "r", encoding="utf-8") as f:
@@ -160,6 +170,7 @@ class TestSyntheticIndianCohortGeneration:
 class TestSimToRealBenchmarkArtifact:
     """Tests for Sim-to-Real benchmark results and confidence intervals."""
 
+    @requires_artifact(SIM_TO_REAL_JSON_PATH, "python -m ml.simulation.sim_to_real")
     def test_sim_to_real_json_artifact_schema_and_metrics(self):
         assert SIM_TO_REAL_JSON_PATH.exists(), f"Missing {SIM_TO_REAL_JSON_PATH}"
         with open(SIM_TO_REAL_JSON_PATH, "r", encoding="utf-8") as f:

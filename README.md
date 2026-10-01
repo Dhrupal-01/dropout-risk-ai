@@ -88,6 +88,21 @@ pip install -e .
 pip install -e ".[backend]"
 ```
 
+#### Install from the lock file (exact versions)
+
+`requirements.lock` pins every package (ML, backend and research extras, test tools) to the exact
+versions the test suite was run with. It was produced with `python -m pip freeze --exclude-editable`
+and has been verified on Python 3.14.5 (see its header). To reproduce that environment:
+
+```bash
+python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements.lock
+pip install -e . --no-deps                            # the project itself, without re-resolving
+pytest -m "not data" -q -rs                           # suite without the UCI / OULAD raw files
+```
+
+Regenerate the lock after an intentional upgrade with the same `pip freeze` command and commit it.
+
 ### 2. Configuration
 
 ```bash

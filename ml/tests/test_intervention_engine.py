@@ -124,7 +124,7 @@ class TestSHAPToInterventionMapping:
 
 
 @pytest.fixture(scope="module")
-def recourse_engine():
+def recourse_engine(simulated_artifacts):
     return CounterfactualRecourseEngine()
 
 

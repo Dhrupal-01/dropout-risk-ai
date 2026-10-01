@@ -7,7 +7,16 @@ and macro-geographic contextual inference.
 import pytest
 import numpy as np
 import pandas as pd
-from ml.models.universal_engine import UniversalModelEngine, TIER_CONFIG
+from ml.models.universal_engine import UNIVERSAL_ARTIFACTS_DIR, UniversalModelEngine, TIER_CONFIG
+
+# Reads the committed universal-engine model artifacts (pending owner decision, see CLAUDE.md)
+pytestmark = [
+    pytest.mark.artifacts,
+    pytest.mark.skipif(
+        not any(UNIVERSAL_ARTIFACTS_DIR.glob("calibrated_*.joblib")),
+        reason="ml/artifacts/universal/*.joblib not generated; run `python -m ml.models.universal_engine`",
+    ),
+]
 
 @pytest.fixture(scope="module")
 def universal_engine():

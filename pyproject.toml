@@ -13,7 +13,11 @@ dependencies = [
     "joblib",
     "ucimlrepo",
     "pytest",
-    "requests"
+    "requests",
+    "pyyaml",
+    "python-dotenv",
+    "pillow",
+    "scipy"
 ]
 
 [project.optional-dependencies]
@@ -43,12 +47,6 @@ extraPaths = [
     ".venv/lib/python3.14/site-packages"
 ]
 reportMissingImports = false
-
-[tool.pytest.ini_options]
-testpaths = ["ml/tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
 
 [tool.setuptools]
 packages = ["ml", "backend"]

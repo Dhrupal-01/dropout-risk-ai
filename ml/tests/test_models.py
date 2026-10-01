@@ -28,11 +28,9 @@ from ml.models.fairness_audit import run_comprehensive_fairness_audit
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_model_artifacts():
-    """Ensures model training and calibration artifacts exist."""
-    if not (BASE_MODEL_PATH.exists() and MODEL_ARTIFACT_PATH.exists() and FEATURE_NAMES_PATH.exists()):
-        train_pipeline()
-        run_calibration_pipeline()
+def setup_model_artifacts(simulated_artifacts):
+    """Model training and calibration artifacts, built for the session in a temp dir."""
+    return simulated_artifacts
 
 
 @pytest.fixture(scope="module")

@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from ml.config import (
+    ARTIFACTS_DIR,
     MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
     RISK_THRESHOLD_LOW,
@@ -33,7 +34,7 @@ from ml.data_pipeline.feature_engineering import build_engineered_features
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-INTERVENTION_CATALOG_PATH = Path(__file__).resolve().parents[1] / "artifacts" / "interventions.json"
+INTERVENTION_CATALOG_PATH = ARTIFACTS_DIR / "interventions.json"
 
 # =============================================================================
 # 1. STRUCTURED INTERVENTION CATALOG

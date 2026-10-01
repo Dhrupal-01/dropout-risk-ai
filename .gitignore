@@ -49,3 +49,6 @@ backend/.env
 # Backend (Alembic migration versions ARE tracked — they are schema source of truth)
 .mypy_cache/
 .ruff_cache/
+
+# Duplicate of docs/DROPOUTGUARD_COMPLETE_SYSTEM_DOCUMENTATION.txt (untracked in Phase 6)
+/DROPOUTGUARD_PROJECT_DOCUMENTATION.txt

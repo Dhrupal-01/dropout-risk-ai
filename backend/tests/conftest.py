@@ -32,6 +32,12 @@ else:
     os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
 os.environ["ENVIRONMENT"] = "test"
 
+# Generated ML artifacts are built per session in a temp dir, never in the repository.
+# Must precede any `ml.config` import (backend.app.* imports it).
+from ml.tests.simulated_artifacts import build_simulated_artifacts, redirect_artifacts_to_tempdir  # noqa: E402
+
+redirect_artifacts_to_tempdir()
+
 
 def _psycopg3(url: str | None) -> str | None:
     """Pin the psycopg3 driver, matching Settings._normalise_driver. Neon URLs are bare
@@ -59,7 +65,13 @@ def settings():
 
 
 @pytest.fixture(scope="session")
-def ml():
+def simulated_artifacts():
+    """Temp dir holding features.csv, the trained/calibrated model and the SHAP explainer."""
+    return build_simulated_artifacts()
+
+
+@pytest.fixture(scope="session")
+def ml(simulated_artifacts):
     """Process-wide MLService, loaded once (mirrors the app lifespan)."""
     from backend.app.services.ml_service import ml_service
 
@@ -68,7 +80,7 @@ def ml():
 
 
 @pytest.fixture(scope="session")
-def client():
+def client(simulated_artifacts):
     """
     TestClient that runs the real lifespan handler, so ML artifacts load exactly as they
     do in production.

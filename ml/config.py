@@ -11,8 +11,9 @@ from typing import Tuple, List
 # Base Directories
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
-PROCESSED_DATA_PATH = DATA_DIR / "processed" / "features.csv"
-ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts"
+# Overridable so the test suite can build generated artifacts in a temp dir instead of the repo
+PROCESSED_DATA_PATH = Path(os.getenv("DROPOUTGUARD_PROCESSED_DATA_PATH", str(DATA_DIR / "processed" / "features.csv")))
+ARTIFACTS_DIR = Path(os.getenv("DROPOUTGUARD_ARTIFACTS_DIR", str(BASE_DIR / "ml" / "artifacts")))
 DOCS_DIR = BASE_DIR / "docs"
 
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
