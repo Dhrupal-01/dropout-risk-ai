@@ -4,177 +4,177 @@
   "test_split_n300": {
     "gender": {
       "male": {
-        "n_samples": 176,
-        "base_rate": 0.3636,
-        "selection_rate": 0.3239,
-        "true_positives": 48,
-        "false_negatives": 16,
-        "true_negatives": 103,
-        "false_positives": 9,
-        "tpr_recall": 0.75,
-        "fnr_miss_rate": 0.25,
-        "fpr_alarm_rate": 0.0804
+        "n_samples": 175,
+        "base_rate": 0.3543,
+        "selection_rate": 0.3086,
+        "true_positives": 49,
+        "false_negatives": 13,
+        "true_negatives": 108,
+        "false_positives": 5,
+        "tpr_recall": 0.7903,
+        "fnr_miss_rate": 0.2097,
+        "fpr_alarm_rate": 0.0442
       },
       "female": {
-        "n_samples": 124,
-        "base_rate": 0.3306,
-        "selection_rate": 0.3387,
-        "true_positives": 34,
+        "n_samples": 125,
+        "base_rate": 0.36,
+        "selection_rate": 0.328,
+        "true_positives": 38,
         "false_negatives": 7,
-        "true_negatives": 75,
-        "false_positives": 8,
-        "tpr_recall": 0.8293,
-        "fnr_miss_rate": 0.1707,
-        "fpr_alarm_rate": 0.0964
+        "true_negatives": 77,
+        "false_positives": 3,
+        "tpr_recall": 0.8444,
+        "fnr_miss_rate": 0.1556,
+        "fpr_alarm_rate": 0.0375
       },
-      "fnr_disparity": 0.0793
+      "fnr_disparity": 0.0541
     },
     "economic_proxy": {
       "lower_income_under_5lpa": {
-        "n_samples": 173,
-        "base_rate": 0.3121,
-        "selection_rate": 0.3584,
-        "true_positives": 46,
-        "false_negatives": 8,
-        "true_negatives": 103,
-        "false_positives": 16,
-        "tpr_recall": 0.8519,
-        "fnr_miss_rate": 0.1481,
-        "fpr_alarm_rate": 0.1345
+        "n_samples": 182,
+        "base_rate": 0.3901,
+        "selection_rate": 0.3462,
+        "true_positives": 57,
+        "false_negatives": 14,
+        "true_negatives": 105,
+        "false_positives": 6,
+        "tpr_recall": 0.8028,
+        "fnr_miss_rate": 0.1972,
+        "fpr_alarm_rate": 0.0541
       },
       "higher_income_above_5lpa": {
-        "n_samples": 127,
-        "base_rate": 0.4016,
-        "selection_rate": 0.2913,
-        "true_positives": 36,
-        "false_negatives": 15,
-        "true_negatives": 75,
-        "false_positives": 1,
-        "tpr_recall": 0.7059,
-        "fnr_miss_rate": 0.2941,
-        "fpr_alarm_rate": 0.0132
+        "n_samples": 118,
+        "base_rate": 0.3051,
+        "selection_rate": 0.2712,
+        "true_positives": 30,
+        "false_negatives": 6,
+        "true_negatives": 80,
+        "false_positives": 2,
+        "tpr_recall": 0.8333,
+        "fnr_miss_rate": 0.1667,
+        "fpr_alarm_rate": 0.0244
       },
-      "fnr_disparity": 0.146
+      "fnr_disparity": 0.0305
     },
     "first_generation": {
       "first_gen": {
-        "n_samples": 102,
-        "base_rate": 0.2941,
-        "selection_rate": 0.2745,
-        "true_positives": 19,
-        "false_negatives": 11,
+        "n_samples": 104,
+        "base_rate": 0.3558,
+        "selection_rate": 0.3269,
+        "true_positives": 30,
+        "false_negatives": 7,
         "true_negatives": 63,
-        "false_positives": 9,
-        "tpr_recall": 0.6333,
-        "fnr_miss_rate": 0.3667,
-        "fpr_alarm_rate": 0.125
+        "false_positives": 4,
+        "tpr_recall": 0.8108,
+        "fnr_miss_rate": 0.1892,
+        "fpr_alarm_rate": 0.0597
       },
       "non_first_gen": {
-        "n_samples": 198,
-        "base_rate": 0.3788,
-        "selection_rate": 0.3586,
-        "true_positives": 63,
-        "false_negatives": 12,
-        "true_negatives": 115,
-        "false_positives": 8,
-        "tpr_recall": 0.84,
-        "fnr_miss_rate": 0.16,
-        "fpr_alarm_rate": 0.065
+        "n_samples": 196,
+        "base_rate": 0.3571,
+        "selection_rate": 0.3112,
+        "true_positives": 57,
+        "false_negatives": 13,
+        "true_negatives": 122,
+        "false_positives": 4,
+        "tpr_recall": 0.8143,
+        "fnr_miss_rate": 0.1857,
+        "fpr_alarm_rate": 0.0317
       },
-      "fnr_disparity": 0.2067
+      "fnr_disparity": 0.0035
     }
   },
   "cross_validation_n2000": {
     "evaluation_scope": "5-Fold Stratified Cross-Validation (N = 2000 out-of-fold samples)",
-    "total_false_negatives": 159,
+    "total_false_negatives": 155,
     "gender": {
       "male": {
         "n_samples": 1155,
-        "base_rate": 0.3584,
-        "selection_rate": 0.329,
-        "true_positives": 319,
-        "false_negatives": 95,
-        "true_negatives": 680,
-        "false_positives": 61,
-        "tpr_recall": 0.7705,
-        "fnr_miss_rate": 0.2295,
-        "fpr_alarm_rate": 0.0823
+        "base_rate": 0.361,
+        "selection_rate": 0.3273,
+        "true_positives": 326,
+        "false_negatives": 91,
+        "true_negatives": 686,
+        "false_positives": 52,
+        "tpr_recall": 0.7818,
+        "fnr_miss_rate": 0.2182,
+        "fpr_alarm_rate": 0.0705
       },
       "female": {
         "n_samples": 845,
-        "base_rate": 0.342,
-        "selection_rate": 0.3124,
-        "true_positives": 225,
+        "base_rate": 0.3479,
+        "selection_rate": 0.3136,
+        "true_positives": 230,
         "false_negatives": 64,
-        "true_negatives": 517,
-        "false_positives": 39,
-        "tpr_recall": 0.7785,
-        "fnr_miss_rate": 0.2215,
-        "fpr_alarm_rate": 0.0701
+        "true_negatives": 516,
+        "false_positives": 35,
+        "tpr_recall": 0.7823,
+        "fnr_miss_rate": 0.2177,
+        "fpr_alarm_rate": 0.0635
       },
-      "fnr_disparity": 0.008,
-      "disparate_impact_ratio": 0.95
+      "fnr_disparity": 0.0005,
+      "disparate_impact_ratio": 0.958
     },
     "economic_proxy": {
       "lower_income_under_5lpa": {
         "n_samples": 1206,
-        "base_rate": 0.3566,
-        "selection_rate": 0.3358,
-        "true_positives": 341,
-        "false_negatives": 89,
-        "true_negatives": 712,
-        "false_positives": 64,
-        "tpr_recall": 0.793,
-        "fnr_miss_rate": 0.207,
-        "fpr_alarm_rate": 0.0825
+        "base_rate": 0.3682,
+        "selection_rate": 0.3408,
+        "true_positives": 354,
+        "false_negatives": 90,
+        "true_negatives": 705,
+        "false_positives": 57,
+        "tpr_recall": 0.7973,
+        "fnr_miss_rate": 0.2027,
+        "fpr_alarm_rate": 0.0748
       },
       "higher_income_above_5lpa": {
         "n_samples": 794,
-        "base_rate": 0.3438,
-        "selection_rate": 0.301,
-        "true_positives": 203,
-        "false_negatives": 70,
-        "true_negatives": 485,
-        "false_positives": 36,
-        "tpr_recall": 0.7436,
-        "fnr_miss_rate": 0.2564,
-        "fpr_alarm_rate": 0.0691
+        "base_rate": 0.3363,
+        "selection_rate": 0.2922,
+        "true_positives": 202,
+        "false_negatives": 65,
+        "true_negatives": 497,
+        "false_positives": 30,
+        "tpr_recall": 0.7566,
+        "fnr_miss_rate": 0.2434,
+        "fpr_alarm_rate": 0.0569
       },
-      "fnr_disparity": 0.0494
+      "fnr_disparity": 0.0407
     },
     "first_generation": {
       "first_gen": {
         "n_samples": 761,
-        "base_rate": 0.3456,
-        "selection_rate": 0.3193,
-        "true_positives": 205,
-        "false_negatives": 58,
-        "true_negatives": 460,
-        "false_positives": 38,
-        "tpr_recall": 0.7795,
-        "fnr_miss_rate": 0.2205,
-        "fpr_alarm_rate": 0.0763
+        "base_rate": 0.3574,
+        "selection_rate": 0.3259,
+        "true_positives": 216,
+        "false_negatives": 56,
+        "true_negatives": 457,
+        "false_positives": 32,
+        "tpr_recall": 0.7941,
+        "fnr_miss_rate": 0.2059,
+        "fpr_alarm_rate": 0.0654
       },
       "non_first_gen": {
         "n_samples": 1239,
-        "base_rate": 0.3551,
-        "selection_rate": 0.3236,
-        "true_positives": 339,
-        "false_negatives": 101,
-        "true_negatives": 737,
-        "false_positives": 62,
-        "tpr_recall": 0.7705,
-        "fnr_miss_rate": 0.2295,
-        "fpr_alarm_rate": 0.0776
+        "base_rate": 0.3543,
+        "selection_rate": 0.3188,
+        "true_positives": 340,
+        "false_negatives": 99,
+        "true_negatives": 745,
+        "false_positives": 55,
+        "tpr_recall": 0.7745,
+        "fnr_miss_rate": 0.2255,
+        "fpr_alarm_rate": 0.0688
       },
-      "fnr_disparity": 0.009
+      "fnr_disparity": 0.0196
     }
   },
   "provenance": {
     "input_files": {
       "calibrated_model.joblib": {
         "path": "ml/artifacts/calibrated_model.joblib",
-        "sha256": "c79ee338146eb993041fc31174999f1df6249e6b412f1891e4e5ac9a8711bc54"
+        "sha256": "6abf2b1629ec8da60fc9df639fac6412dfff3ffd0506f627bb66c829726e12f9"
       },
       "feature_names.json": {
         "path": "ml/artifacts/feature_names.json",
@@ -182,11 +182,34 @@
       },
       "features.csv": {
         "path": "data/processed/features.csv",
-        "sha256": "1106b0dada834847d0ad1ad5905f33b96a45ebfc82a300d4348af4682e7c1a62"
+        "sha256": "ba3a8bb27464b6ebaa841fd36209a8332230138bfd8029b6069ad4cb035ac1bd"
       }
     },
-    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
-    "git_dirty": true,
+    "git_commit": "59c706f7855adad78626cb12f7e7af1a3e32fd1d",
+    "run_id": "20261002T174953Z-59c706f-696d3f",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/sim_to_real.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json",
+      "ml/artifacts/fairness/generator_sanity_check.json",
+      "ml/artifacts/fairness/oulad_fairness.json",
+      "ml/artifacts/fairness/oulad_shift_check.json",
+      "ml/artifacts/fairness/uci_fairness.json",
+      "ml/artifacts/fairness/uci_mitigations.json",
+      "ml/artifacts/fairness_metrics.json",
+      "ml/artifacts/model_metrics.json",
+      "ml/simulation/estimated_parameters.json"
+    ],
     "python": "3.14.5",
     "library_versions": {
       "numpy": "2.5.2",

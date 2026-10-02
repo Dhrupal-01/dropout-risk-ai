@@ -1834,8 +1834,18 @@
         "sha256": "d1b28303dea802ad87b4484e1196e878e06824850b9a4fe8aa34693439fe87e9"
       }
     },
-    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
-    "git_dirty": true,
+    "git_commit": "59c706f7855adad78626cb12f7e7af1a3e32fd1d",
+    "run_id": "20261002T174953Z-59c706f-696d3f",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json"
+    ],
     "python": "3.14.5",
     "library_versions": {
       "numpy": "2.5.2",

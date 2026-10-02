@@ -1,7 +1,5 @@
 # Real-Data Benchmark Evaluation Report
 
-> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded commit does not fully identify the code.** `oulad_snapshot_t14_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t28_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t56_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_snapshot_t84_withdrawn.json` (commit `9e3c7f6`, allow_dirty=not recorded), `sim_to_real.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_end_of_sem1_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_end_of_sem1_sensitivity.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_enrolment_time_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_enrolment_time_sensitivity.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_full_primary.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_full_sensitivity.json` (commit `9e3c7f6`, allow_dirty=not recorded)
-
 > Rigorous, leak-free empirical evaluation on official educational benchmarks: UCI ID 697 and OULAD (UCI ID 349).
 > Conducted via the standardized evaluation harness across temporal holdouts, Leave-One-Course/Module-Out, and repeated cross-validation.
 > Point estimates and 95% bootstrap confidence intervals (1,000 resamples of out-of-fold predictions).
@@ -225,8 +223,8 @@ Out-of-fold predictions from all held-out modules pooled before scoring, which c
 | Evaluation Mode | Training Domain | Test Domain | N (Train / Test) | ROC-AUC (95% CI) | PR-AUC (95% CI) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | Baseline: Trained on UCI proxies, tested on UCI holdout (Real-on-Real) | UCI (ID 697) | UCI (ID 697) | 2904 / 726 | 0.9399 [0.9203, 0.9587] | 0.9329 [0.9119, 0.9525] |
-| Baseline: Trained on Simulated proxies, tested on Simulated holdout (Sim-on-Sim) | Simulated Indian Cohort | Simulated Indian Cohort | 1600 / 400 | 0.9017 [0.8672, 0.9328] | 0.8627 [0.8116, 0.9045] |
-| Transfer: Trained on Simulated proxies, tested on UCI holdout (Sim-to-Real) | Simulated Indian Cohort | UCI (ID 697) | 1600 / 726 | 0.9365 [0.9171, 0.9551] | 0.9276 [0.9050, 0.9476] |
-| Transfer: Trained on UCI proxies, tested on Simulated holdout (Real-to-Sim) | UCI (ID 697) | Simulated Indian Cohort | 2904 / 400 | 0.8993 [0.8664, 0.9303] | 0.8480 [0.7932, 0.8963] |
+| Baseline: Trained on Simulated proxies, tested on Simulated holdout (Sim-on-Sim) | Simulated Indian Cohort | Simulated Indian Cohort | 1600 / 400 | 0.9307 [0.9035, 0.9541] | 0.9056 [0.8689, 0.9384] |
+| Transfer: Trained on Simulated proxies, tested on UCI holdout (Sim-to-Real) | Simulated Indian Cohort | UCI (ID 697) | 1600 / 726 | 0.9378 [0.9187, 0.9565] | 0.9298 [0.9077, 0.9491] |
+| Transfer: Trained on UCI proxies, tested on Simulated holdout (Real-to-Sim) | UCI (ID 697) | Simulated Indian Cohort | 2904 / 400 | 0.9330 [0.9062, 0.9553] | 0.9077 [0.8708, 0.9396] |
 
 ---

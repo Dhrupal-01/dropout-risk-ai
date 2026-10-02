@@ -723,8 +723,27 @@
         "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
       }
     },
-    "git_commit": "9e3c7f6231978feb9e269f49a03e12e2d3668454",
-    "git_dirty": true,
+    "git_commit": "59c706f7855adad78626cb12f7e7af1a3e32fd1d",
+    "run_id": "20261002T174953Z-59c706f-696d3f",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/sim_to_real.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json",
+      "ml/artifacts/fairness/generator_sanity_check.json",
+      "ml/artifacts/fairness_metrics.json",
+      "ml/artifacts/model_metrics.json",
+      "ml/simulation/estimated_parameters.json"
+    ],
     "python": "3.14.5",
     "library_versions": {
       "numpy": "2.5.2",

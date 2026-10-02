@@ -3,8 +3,6 @@
 **Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
 
-> **Warning: generated from a working tree with uncommitted changes (git_dirty=true); the recorded commit does not fully identify the code.** `generator_sanity_check.json` (commit `9e3c7f6`, allow_dirty=not recorded), `income_ablation.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_fairness.json` (commit `9e3c7f6`, allow_dirty=not recorded), `oulad_shift_check.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_fairness.json` (commit `9e3c7f6`, allow_dirty=not recorded), `uci_mitigations.json` (commit `9e3c7f6`, allow_dirty=not recorded)
-
 ---
 
 ## 1. Executive Summary & Audit Mandate
@@ -52,7 +50,7 @@ Evaluates four mitigation approaches on an identical 70/30 stratified train/test
 | **None (Unmitigated)** | gender | 0.942 | 0.938 | 84.7% | 90.5% | 0.0805 | **7.21%** |
 | **Sample Reweighing** | gender | 0.942 | 0.938 | 86.2% | 86.0% | 0.0859 | **8.90%** |
 | **Group-Specific Thresholds (FNR Parity)** | gender | 0.942 | 0.938 | 81.7% | 87.9% | 0.0805 | **1.48%** |
-| **Fairlearn ExponentiatedGradient** | gender | 0.893 | 0.835 | 76.5% | 87.9% | 0.0970 | **5.93%** |
+| **Fairlearn ExponentiatedGradient** | gender | 0.893 | 0.835 | 77.7% | 86.2% | 0.0970 | **4.36%** |
 
 ---
 
@@ -174,17 +172,17 @@ Evaluates model performance and disaggregated False Negative Rates across househ
 
 | Feature Configuration | Predictor Features | ROC-AUC | PR-AUC | Recall | Precision | Brier Score | FNR (<2 LPA) | FNR (>8 LPA) | FNR Disparity Gap |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **With Income Features (37 features)** | 37 | 0.929 | 0.908 | 77.1% | 87.7% | 0.0914 | 45.0% | 44.1% | **0.88%** |
-| **Without Income Features (35 features)** | 35 | 0.929 | 0.908 | 77.4% | 87.7% | 0.0913 | 43.6% | 44.1% | **-0.47%** |
+| **With Income Features (37 features)** | 37 | 0.935 | 0.916 | 78.9% | 88.8% | 0.0867 | 46.3% | 45.1% | **1.25%** |
+| **Without Income Features (35 features)** | 35 | 0.936 | 0.917 | 78.9% | 89.2% | 0.0861 | 46.9% | 44.0% | **2.95%** |
 
 #### Disaggregated Performance Across Income Slabs (Simulated Cohort)
 
 | Income Bracket | $N$ Students | Actual Dropouts | Base Rate | FNR (With Income Features) | FNR (Without Income Features) | FNR Difference (Without - With) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **<2 LPA** | 432 | 149 | 34.5% | 44.97% | 43.62% | -1.35% |
-| **2-5 LPA** | 774 | 281 | 36.3% | 43.06% | 43.77% | 0.71% |
-| **5-8 LPA** | 509 | 180 | 35.4% | 45.56% | 45.56% | 0.00% |
-| **>8 LPA** | 285 | 93 | 32.6% | 44.09% | 44.09% | 0.00% |
+| **<2 LPA** | 432 | 162 | 37.5% | 46.30% | 46.91% | 0.61% |
+| **2-5 LPA** | 774 | 282 | 36.4% | 43.26% | 43.26% | 0.00% |
+| **5-8 LPA** | 509 | 176 | 34.6% | 46.02% | 46.02% | 0.00% |
+| **>8 LPA** | 285 | 91 | 31.9% | 45.05% | 43.96% | -1.09% |
 
 ---
 
@@ -197,9 +195,9 @@ Verification of synthetic data generator properties across $N = 2,000$ simulated
 
 | Demographic Slice | Single Held-Out Test Split ($N=300$) | 5-Fold Cross-Validation ($N=2,000$ Out-of-Fold) | Empirical Difference |
 | :--- | :--- | :--- | :--- |
-| **Gender Disparity Gap** (Female vs Male FNR) | **7.93%** | **0.80%** | **7.13%** |
-| **Economic Proxy Gap** (<5 LPA vs $\ge$5 LPA) | **14.60%** | **4.94%** | **9.66%** |
-| **First-Generation Gap** (First-Gen vs Non-First-Gen) | **20.67%** | **0.90%** | **19.77%** |
+| **Gender Disparity Gap** (Female vs Male FNR) | **5.41%** | **0.05%** | **5.36%** |
+| **Economic Proxy Gap** (<5 LPA vs $\ge$5 LPA) | **3.05%** | **4.07%** | **1.02%** |
+| **First-Generation Gap** (First-Gen vs Non-First-Gen) | **0.35%** | **1.96%** | **1.61%** |
 
 ---
 
