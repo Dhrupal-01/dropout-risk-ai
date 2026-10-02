@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from ml.provenance import ProvenanceError, assert_consistent_provenance, dirty_artifact_warning
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 README_PATH = BASE_DIR / "README.md"
@@ -55,21 +55,14 @@ def _single(artifacts: List[Dict[str, Any]], key: str) -> Any:
 def render_benchmarks_block() -> str:
     uci = _load(sorted(BENCHMARK_DIR.glob("uci_*_primary.json")))
     oulad = _load(sorted(BENCHMARK_DIR.glob("oulad_snapshot_t*_withdrawn.json")))
+    # Fails (ProvenanceError) on missing provenance, mixed git commits or mixed input checksums.
     assert_consistent_provenance({**uci, **oulad})
 
     uci_by_fs = {a["feature_set"]: a for a in uci.values()}
     oulad_sorted = sorted(oulad.values(), key=lambda a: a["snapshot_t"])
     every = list(uci.values()) + oulad_sorted
 
-    commits = {a["provenance"]["git_commit"] for a in every}
-    if len(commits) != 1:
-        # A refusal, not a crash: mid-pipeline (UCI rerun, OULAD not yet) the JSONs legitimately differ;
-        # callers such as ml.evaluation.run skip the render, and the final render step writes it.
-        raise ProvenanceError(
-            f"Refusing to render the README benchmarks block: benchmark JSONs record different git commits "
-            f"{sorted(c[:7] for c in commits)}; regenerate them from one commit."
-        )
-    commit = commits.pop()
+    commit = every[0]["provenance"]["git_commit"]  # one commit across all, checked above
     inputs = {}
     for a in every:
         for name, info in a["provenance"]["input_files"].items():

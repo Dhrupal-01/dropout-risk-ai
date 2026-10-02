@@ -3,6 +3,7 @@ Generates docs/simulation.md from ml/simulation/assumptions.yaml and provides
 consistency verification between the YAML specification and the rendered documentation.
 """
 
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 import yaml
@@ -10,6 +11,7 @@ import yaml
 BASE_DIR = Path(__file__).resolve().parents[2]
 YAML_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
 DOCS_SIM_PATH = BASE_DIR / "docs" / "simulation.md"
+ESTIMATED_PARAMETERS_PATH = BASE_DIR / "ml" / "simulation" / "estimated_parameters.json"
 
 ALLOWED_SOURCES = {
     "estimated_from_uci",
@@ -104,6 +106,10 @@ def render_markdown(data: Dict[str, Any]) -> str:
 
 
 def generate_simulation_doc() -> None:
+    # value_from entries resolve from estimated_parameters.json: refuse if it has no provenance.
+    from ml.provenance import assert_consistent_provenance, load_labelled_json
+
+    assert_consistent_provenance(load_labelled_json([ESTIMATED_PARAMETERS_PATH]))
     data = load_assumptions()
     flat = extract_all_keys(data)
     validate_assumptions_structure(flat)
@@ -144,3 +150,4 @@ if __name__ == "__main__":
         print("Verification passed: docs/simulation.md is in sync with assumptions.yaml")
     else:
         print("Verification failed:", errs)
+        sys.exit(1)

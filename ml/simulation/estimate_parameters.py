@@ -2,7 +2,8 @@
 Parameter Estimation Script for Simulated Indian Cohort
 Estimates risk coefficients from real benchmarks (UCI ID 697 and OULAD UCI ID 349)
 via standardised logistic regression, maps log-odds effects to Indian natural units,
-persists estimated_parameters.json, and renders docs/simulation_mapping.md.
+persists estimated_parameters.json. docs/simulation_mapping.md is rendered from that JSON by
+`--render-mapping` (run by `python -m ml.pipeline run-all` after every step has succeeded).
 """
 
 import argparse
@@ -222,10 +223,16 @@ def estimate_all_parameters(allow_dirty: bool = False) -> Dict[str, Any]:
         json.dump(all_effects, f, indent=2)
     logger.info("Saved estimated parameters to %s", OUTPUT_JSON_PATH)
 
-    # Render docs/simulation_mapping.md
-    render_simulation_mapping(all_effects)
-
     return all_effects
+
+
+def render_simulation_mapping_from_json(json_path: Path = OUTPUT_JSON_PATH) -> None:
+    """Renders docs/simulation_mapping.md from estimated_parameters.json; refuses without provenance."""
+    from ml.provenance import assert_consistent_provenance, load_labelled_json
+
+    artifacts = load_labelled_json([json_path])
+    assert_consistent_provenance(artifacts)
+    render_simulation_mapping(artifacts[Path(json_path).name])
 
 
 def render_simulation_mapping(effects: Dict[str, Any]):
@@ -349,9 +356,18 @@ def render_simulation_mapping(effects: Dict[str, Any]):
 
 def build_arg_parser() -> argparse.ArgumentParser:
     from ml.provenance import add_allow_dirty_argument
-    return add_allow_dirty_argument(argparse.ArgumentParser(description="Estimate simulation parameters from UCI and OULAD"))
+    parser = argparse.ArgumentParser(description="Estimate simulation parameters from UCI and OULAD")
+    parser.add_argument(
+        "--render-mapping",
+        action="store_true",
+        help="Only render docs/simulation_mapping.md from the existing estimated_parameters.json",
+    )
+    return add_allow_dirty_argument(parser)
 
 
 if __name__ == "__main__":
     args = build_arg_parser().parse_args()
-    estimate_all_parameters(allow_dirty=args.allow_dirty)
+    if args.render_mapping:
+        render_simulation_mapping_from_json()
+    else:
+        estimate_all_parameters(allow_dirty=args.allow_dirty)

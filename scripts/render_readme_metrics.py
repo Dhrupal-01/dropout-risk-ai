@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-from ml.provenance import dirty_artifact_warning
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 README_PATH = BASE_DIR / "README.md"
@@ -31,6 +31,12 @@ def render_metrics_block() -> str:
 
     with open(FAIRNESS_METRICS_PATH, "r", encoding="utf-8") as f:
         fairness_metrics = json.load(f)
+
+    # Fails (ProvenanceError) on missing provenance, mixed git commits or mixed input checksums.
+    assert_consistent_provenance({
+        MODEL_METRICS_PATH.name: model_metrics,
+        FAIRNESS_METRICS_PATH.name: fairness_metrics,
+    })
 
     recall = model_metrics["recall_at_risk_minority"] * 100.0
     precision = model_metrics["precision_at_risk_minority"] * 100.0

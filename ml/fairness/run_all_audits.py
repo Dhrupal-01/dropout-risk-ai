@@ -8,7 +8,8 @@ Executes full suite of algorithmic fairness evaluations across real and simulate
 5. Generator Sanity Check (Simulated Indian Cohort, N=2,000, 5-fold CV + Test Split)
 6. Income Feature Ablation Experiment (Simulated Cohort, with vs without financial stress features)
 
-Serializes all audit artifacts to ml/artifacts/fairness/ and renders docs/ethics_and_fairness.md.
+Serializes all audit artifacts to ml/artifacts/fairness/. docs/ethics_and_fairness.md is rendered
+separately (scripts.render_fairness_report, run by `python -m ml.pipeline run-all`).
 """
 
 import argparse
@@ -29,7 +30,6 @@ from ml.fairness.income_ablation import run_income_ablation_experiment
 from ml.fairness.mitigation import compare_fairness_mitigations
 from ml.fairness.shift_check import run_oulad_presentation_shift_check
 from ml.provenance import (
-    ProvenanceError,
     add_allow_dirty_argument,
     build_provenance,
     merge_input_files,
@@ -313,12 +313,11 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
 def run_all_fairness_audits(
     n_bootstraps: int = 1000,
     seed: int = 42,
-    render_docs: bool = True,
     force_rerun: bool = False,
     allow_dirty: bool = False,
 ) -> Dict[str, Any]:
     """
-    Executes all Phase 4 fairness audits, writes JSON artifacts, and triggers doc rendering.
+    Executes all Phase 4 fairness audits and writes JSON artifacts (no doc rendering).
     Uses existing artifacts if force_rerun is False and files exist.
     Refuses to run on a dirty tree unless allow_dirty (recorded in each JSON's provenance).
     """
@@ -431,16 +430,6 @@ def run_all_fairness_audits(
     with open(FAIRNESS_METRICS_PATH, "w") as f:
         json.dump(unified_summary, f, indent=2)
     print(f" ✓ Synchronized unified summary to {FAIRNESS_METRICS_PATH}")
-
-    # 7. Render docs/ethics_and_fairness.md
-    if render_docs:
-        print("\nRendering docs/ethics_and_fairness.md from generated JSON artifacts...")
-        from scripts.render_fairness_report import render_fairness_markdown_report
-        try:
-            render_fairness_markdown_report()
-            print(" ✓ Generated docs/ethics_and_fairness.md successfully.")
-        except ProvenanceError as exc:
-            print(f" ✗ docs/ethics_and_fairness.md NOT rendered: {exc}")
 
     print("\n" + "=" * 80)
     print(" ALL FAIRNESS AUDITS COMPLETED SUCCESSFULLY! ")

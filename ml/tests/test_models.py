@@ -139,17 +139,19 @@ class TestFairnessAudit:
     """Tests for the fairness and bias audit reporting."""
 
     def test_fairness_audit_execution_and_report_file(self, tmp_path):
-        """Verify fairness audit runs and renders the ethics report (all outputs under tmp_path, never the tracked repo files)."""
+        """Verify fairness audit runs and its JSON renders the ethics report (all outputs under tmp_path, never the tracked repo files)."""
+        from scripts.render_fairness_report import render_fairness_markdown_report
+
         report_path = tmp_path / "docs" / "ethics_and_fairness.md"
         benchmark_dir = tmp_path / "benchmarks"
         benchmark_dir.mkdir()
         audit_results = run_comprehensive_fairness_audit(
             fairness_dir=tmp_path / "fairness",
             metrics_path=tmp_path / "fairness_metrics.json",
-            report_path=report_path,
-            benchmark_dir=benchmark_dir,
             allow_dirty=True,  # writes only under tmp_path
         )
+        # The audit writes JSON only; the report is rendered separately (as run-all does).
+        render_fairness_markdown_report(fairness_dir=tmp_path / "fairness", report_path=report_path, benchmark_dir=benchmark_dir)
 
         assert "gender" in audit_results
         assert "economic_proxy" in audit_results

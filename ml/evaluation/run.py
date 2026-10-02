@@ -2,6 +2,9 @@
 Benchmark Runner CLI Entrypoint
 Usage:
     python -m ml.evaluation.run --source uci
+
+Writes benchmark JSON only. Docs are rendered by the renderer commands, which
+`python -m ml.pipeline run-all` runs after every step has succeeded.
 """
 
 import argparse
@@ -14,22 +17,11 @@ from typing import Dict, Optional
 import pandas as pd
 
 from ml.evaluation.harness import run_benchmark_for_dataset
-from ml.provenance import ProvenanceError, add_allow_dirty_argument, build_provenance, oulad_inputs, require_clean_tree, uci_inputs
+from ml.provenance import add_allow_dirty_argument, build_provenance, oulad_inputs, require_clean_tree, uci_inputs
 from ml.sources.uci import FEATURE_SETS, get_uci_benchmark_dataset
-from scripts.render_benchmark_report import render_benchmark_report
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-
-def _render_report_if_consistent() -> None:
-    """Renders docs/benchmarks.md; a provenance refusal (e.g. other sources not yet rerun) writes nothing."""
-    print("\n[i] Rendering docs/benchmarks.md and figures...")
-    try:
-        render_benchmark_report()
-        print(" [✓] Benchmark report and figures generated.")
-    except ProvenanceError as exc:
-        print(f" [✗] docs/benchmarks.md NOT rendered: {exc}")
 
 
 def count_non_withdrawn_registrations(tables: Dict[str, pd.DataFrame]) -> int:
@@ -92,8 +84,6 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, a
     print("\n" + "=" * 80)
     print(f" ALL {total_runs} BENCHMARK RUNS COMPLETED IN {total_time:.1f}s ")
     print("=" * 80)
-
-    _render_report_if_consistent()
 
 
 def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, data_dir: Optional[Path] = None, allow_dirty: bool = False):
@@ -159,8 +149,6 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     print("\n" + "=" * 80)
     print(f" ALL {total_runs} OULAD SNAPSHOT BENCHMARKS COMPLETED IN {total_time:.1f}s ")
     print("=" * 80)
-
-    _render_report_if_consistent()
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

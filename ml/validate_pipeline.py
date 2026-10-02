@@ -8,6 +8,7 @@ Executes / validates the entire ML core:
 3. Quantitative Fairness & Bias Audit (Gender, Economic Proxy, First-Gen)
 4. Comprehensive Report Cards for 6 Representative Students across the Risk Spectrum
 5. Loud Sanity Assertions verifying clinical validity, absence of target leakage, and counterfactual effectiveness.
+Writes model_metrics.json / fairness_metrics.json; it does not render README.md.
 """
 
 import sys
@@ -611,20 +612,8 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
     print("\n" + "=" * 80)
     print(" ALL SANITY ASSERTIONS AND CLINICAL SAFETY CHECKS PASSED WITH ZERO ERRORS ")
     print("=" * 80)
-
-    # 7. Deterministically sync README.md metrics from generated JSON artifacts
-    try:
-        import sys
-        from ml.config import BASE_DIR
-        if str(BASE_DIR) not in sys.path:
-            sys.path.insert(0, str(BASE_DIR))
-        from scripts.render_readme_metrics import update_readme
-        print("\n [i] Updating README.md metrics from JSON artifacts...")
-        update_readme()
-        print(" [✓] PASS: README.md metrics successfully synchronized with model_metrics.json & fairness_metrics.json.")
-    except Exception as exc:
-        logger.error("Could not automatically update README.md metrics: %s", exc)
-        raise exc
+    # README.md metrics are rendered separately (python -m scripts.render_readme_metrics, run by
+    # `python -m ml.pipeline run-all` after every step has succeeded).
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

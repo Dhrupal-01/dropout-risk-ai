@@ -4,15 +4,17 @@ Provenance for benchmark and fairness artifacts.
 Every benchmark/fairness JSON records:
 - SHA-256 of each input file
 - the git commit (and whether tracked files had uncommitted changes)
+- the pipeline run id (set by `python -m ml.pipeline run-all`; null for a standalone step)
 - Python and library versions
 
 Renderers call assert_consistent_provenance() and refuse to combine artifacts whose
-input checksums differ, or artifacts that carry no provenance at all.
+input checksums or git commits differ, or artifacts that carry no provenance at all.
 """
 
 import argparse
 import fnmatch
 import importlib
+import os
 import platform
 import re
 import subprocess
@@ -25,6 +27,10 @@ from ml.sources.integrity import sha256_file
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 LIBRARIES = ["numpy", "pandas", "sklearn", "xgboost", "shap", "torch", "fairlearn"]
+
+# Set by ml.pipeline for every step of one run-all invocation.
+RUN_ID_ENV = "DROPOUTGUARD_RUN_ID"
+RUN_COMMIT_ENV = "DROPOUTGUARD_RUN_COMMIT"
 
 
 class ProvenanceError(RuntimeError):
@@ -172,12 +178,19 @@ def build_provenance(input_files: Dict[str, Path], allow_dirty: bool = False) ->
     Re-checks the tree at write time; raises DirtyTreeError on a dirty tree unless allow_dirty.
     """
     dirty = require_clean_tree(allow_dirty)
+    commit = _git("rev-parse", "HEAD")
+    run_commit = os.environ.get(RUN_COMMIT_ENV)
+    if run_commit and commit != run_commit:
+        raise ProvenanceError(
+            f"HEAD moved during pipeline run: run started at {run_commit[:7]}, HEAD is now {str(commit)[:7]}."
+        )
     return {
         "input_files": {
             name: {"path": _relative(Path(p)), "sha256": _sha256(Path(p))}
             for name, p in sorted(input_files.items())
         },
-        "git_commit": _git("rev-parse", "HEAD"),
+        "git_commit": commit,
+        "run_id": os.environ.get(RUN_ID_ENV),
         "git_dirty": dirty,
         "allow_dirty": bool(allow_dirty),
         "uncommitted_generated_outputs": sorted(split_modified_files()[1]),
@@ -222,14 +235,24 @@ def simulated_inputs() -> Dict[str, Path]:
 def assert_consistent_provenance(artifacts: Dict[str, Dict[str, Any]]) -> None:
     """
     `artifacts` maps an artifact label (e.g. its file name) to its loaded JSON.
-    Raises ProvenanceError if any artifact has no provenance, or if the same input file
-    name was recorded with different SHA-256 checksums by different artifacts.
+    Raises ProvenanceError if any artifact has no provenance, if the artifacts record different
+    git commits, or if the same input file name was recorded with different SHA-256 checksums.
     """
     missing = sorted(label for label, art in artifacts.items() if not (art or {}).get("provenance"))
     if missing:
         raise ProvenanceError(
             f"Refusing to render: these artifacts have no provenance (input checksums unknown): {missing}. "
             "Regenerate them with the current pipeline before rendering."
+        )
+
+    commits = {art["provenance"].get("git_commit") for art in artifacts.values()}
+    if len(commits) != 1:
+        by_commit: Dict[str, list] = {}
+        for label, art in sorted(artifacts.items()):
+            by_commit.setdefault(str(art["provenance"].get("git_commit"))[:7], []).append(label)
+        raise ProvenanceError(
+            f"Refusing to render: artifacts record different git commits {sorted(by_commit)}: {by_commit}. "
+            "Regenerate them from one commit (python -m ml.pipeline run-all)."
         )
 
     seen: Dict[str, Dict[str, list]] = {}
