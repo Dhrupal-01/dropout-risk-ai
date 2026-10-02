@@ -99,26 +99,8 @@ def client(simulated_artifacts):
         yield test_client
 
 
-def alembic_config_for(url: str):
-    """Alembic config pointed at an explicit database."""
-    from alembic.config import Config
-
-    config = Config(str(PROJECT_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
-    config.set_main_option("sqlalchemy.url", url)
-    return config
-
-
-def _reset_schema(engine) -> None:
-    """Drop every table plus Alembic's bookkeeping, leaving a clean slate."""
-    from sqlalchemy import text
-
-    import backend.app.models  # noqa: F401 — populate metadata
-    from backend.app.db.base import Base
-
-    Base.metadata.drop_all(engine)
-    with engine.begin() as connection:
-        connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+# Defined in a side-effect-free module so verification can use them without importing this conftest.
+from backend.tests.db_helpers import _reset_schema, alembic_config_for  # noqa: E402,F401
 
 
 @pytest.fixture(scope="session")
