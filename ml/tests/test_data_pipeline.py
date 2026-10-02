@@ -52,31 +52,131 @@ class TestSyntheticIndianCohort:
             check_names=False
         )
 
-    def test_correlation_direction_and_magnitude(self, cohort_df):
-        """
-        Verify that the synthetic dropout label correlates logically with ground truth risk drivers:
-        - Attendance %: Negative correlation (higher attendance -> lower dropout)
-        - CGPA: Negative correlation (higher CGPA -> lower dropout)
-        - Backlogs: Positive correlation (more backlogs -> higher dropout)
-        - Fee Payment Delay: Positive correlation (longer delay -> higher dropout)
-        - LMS Inactivity: Positive correlation (higher inactivity -> higher dropout)
-        """
-        corr = cohort_df.select_dtypes(include=[np.number]).corr()["is_dropout"]
 
-        # 1. Attendance must negatively correlate with dropout (r < -0.30)
-        assert corr["attendance_percentage"] < -0.30, f"Expected strong negative correlation for attendance, got {corr['attendance_percentage']}"
+class TestGeneratorCoefficientRecovery:
+    """
+    The dropout labels must carry exactly the configured risk coefficients.
 
-        # 2. CGPA must negatively correlate with dropout (r < -0.35)
-        assert corr["current_cgpa"] < -0.35, f"Expected strong negative correlation for CGPA, got {corr['current_cgpa']}"
+    Scaling: coefficients are compared in raw generator units on the logit scale (no
+    standardisation, no rescaling factor). The generator draws
+        is_dropout ~ Bernoulli(sigmoid(beta_0 + x.beta + eps)),  eps ~ N(0, sigma^2),
+    so a plain logistic fit is attenuated by the noise. The fit here is the same logistic-normal
+    model with sigma = idiosyncratic_noise_std from assumptions.yaml, integrated out by
+    Gauss-Hermite quadrature, so its MLE targets the configured beta directly.
+    Intervals are Bonferroni-adjusted over the k nonzero coefficients (familywise 95%).
+    Seed and n are fixed and must not be tuned to make the test pass.
+    """
 
-        # 3. Backlog count must positively correlate with dropout (r > +0.35)
-        assert corr["backlog_count"] > 0.35, f"Expected strong positive correlation for backlogs, got {corr['backlog_count']}"
+    N_STUDENTS = 200_000
+    SEED = 42
+    FAMILYWISE_ALPHA = 0.05
+    QUADRATURE_NODES = 40
 
-        # 4. Fee payment delay must positively correlate with dropout (r > +0.10)
-        assert corr["fee_payment_delay_days"] > 0.10, f"Expected positive correlation for fee delay, got {corr['fee_payment_delay_days']}"
+    @pytest.fixture(scope="class")
+    @classmethod
+    def recovery(cls):
+        from scipy.optimize import minimize
+        from scipy.special import expit
+        from scipy.stats import norm
 
-        # 5. LMS inactivity recency must positively correlate with dropout (r > +0.20)
-        assert corr["days_since_last_lms_activity"] > 0.20, f"Expected positive correlation for LMS inactivity, got {corr['days_since_last_lms_activity']}"
+        from ml.data_pipeline.generate_synthetic_indian import load_simulation_assumptions
+
+        assumptions = load_simulation_assumptions()
+        coefficients = {k: v["value"] for k, v in assumptions["risk_coefficients"].items()}
+        sigma = float(coefficients.pop("idiosyncratic_noise_std"))
+        th = {k: float(v["value"]) for k, v in assumptions["regulations_and_thresholds"].items()}
+
+        df = generate_indian_student_cohort(n_students=cls.N_STUDENTS, seed=cls.SEED, output_path=None)
+
+        # Design columns mirror the generator's risk formula, built from its own output columns.
+        columns = {
+            name: df[name].astype(float).to_numpy()
+            for name in [
+                "current_cgpa", "backlog_count", "has_scholarship", "fee_payment_delay_days",
+                "is_first_generation", "lms_logins_per_week", "days_since_last_lms_activity",
+                "assignment_submission_lag_days", "attendance_percentage", "attendance_3m_trend",
+                "consecutive_absences", "cgpa_delta", "stem_core_fail_flag",
+            ]
+        }
+        columns["is_hosteler"] = (df["hostel_status"] == "Hosteler").astype(float).to_numpy()
+        columns["gender_male"] = (df["gender"] == "Male").astype(float).to_numpy()
+        for cat in ["obc", "sc", "st", "ews"]:
+            columns[f"category_{cat}"] = (df["category"] == cat.upper()).astype(float).to_numpy()
+        columns["interaction_low_att_high_fee"] = (
+            (df["attendance_percentage"] < th["dual_crisis_att_threshold"])
+            & (df["fee_payment_delay_days"] > th["dual_crisis_fee_threshold"])
+        ).astype(float).to_numpy()
+        columns["interaction_low_cgpa_high_backlogs"] = (
+            (df["current_cgpa"] < th["academic_crisis_cgpa_threshold"])
+            & (df["backlog_count"] >= th["academic_crisis_backlog_threshold"])
+        ).astype(float).to_numpy()
+        assert set(columns) == set(coefficients), (
+            f"Configured coefficients without a design column: {sorted(set(coefficients) - set(columns))}; "
+            f"design columns without a configured coefficient: {sorted(set(columns) - set(coefficients))}"
+        )
+
+        names = sorted(coefficients)
+        X = np.column_stack([np.ones(len(df))] + [columns[n] for n in names])
+        y = df["is_dropout"].to_numpy(dtype=float)
+
+        # Start from a plain logistic fit (IRLS).
+        beta = np.zeros(X.shape[1])
+        for _ in range(50):
+            p = expit(X @ beta)
+            step = np.linalg.solve(X.T @ (X * (p * (1 - p))[:, None]), X.T @ (y - p))
+            beta += step
+            if np.abs(step).max() < 1e-10:
+                break
+
+        nodes, weights = np.polynomial.hermite.hermgauss(cls.QUADRATURE_NODES)
+        eps = np.sqrt(2.0) * sigma * nodes
+        weights = weights / np.sqrt(np.pi)
+
+        def marginal(b):
+            P = expit((X @ b)[:, None] + eps[None, :])
+            p = np.clip(P @ weights, 1e-12, 1 - 1e-12)
+            return p, (P * (1 - P)) @ weights
+
+        def negloglik(b):
+            p, dp = marginal(b)
+            score = (y / p - (1 - y) / (1 - p)) * dp
+            return -np.sum(y * np.log(p) + (1 - y) * np.log(1 - p)), -(X.T @ score)
+
+        res = minimize(negloglik, beta, jac=True, method="L-BFGS-B", options={"maxiter": 2000, "gtol": 1e-8})
+        p, dp = marginal(res.x)
+        fisher = X.T @ (X * (dp ** 2 / (p * (1 - p)))[:, None])
+        se = np.sqrt(np.diag(np.linalg.inv(fisher)))
+
+        nonzero = [n for n in names if coefficients[n] != 0.0]
+        z = float(norm.ppf(1 - cls.FAMILYWISE_ALPHA / (2 * len(nonzero))))
+        rows = {
+            n: {"configured": float(coefficients[n]), "estimate": float(res.x[i]), "se": float(se[i]),
+                "lo": float(res.x[i] - z * se[i]), "hi": float(res.x[i] + z * se[i])}
+            for i, n in enumerate(names, start=1)
+        }
+        return {"result": res, "rows": rows, "nonzero": nonzero, "z": z}
+
+    @staticmethod
+    def _table(recovery):
+        return "\n".join(
+            f"  {n:36} configured={r['configured']:+.5f} estimate={r['estimate']:+.5f} "
+            f"CI=[{r['lo']:+.5f}, {r['hi']:+.5f}]"
+            for n, r in recovery["rows"].items()
+        ) + f"\n  (Bonferroni z = {recovery['z']:.4f})"
+
+    def test_fit_converged(self, recovery):
+        assert recovery["result"].success, recovery["result"].message
+
+    def test_generator_recovers_configured_coefficients(self, recovery):
+        """Each configured nonzero coefficient: estimate has its sign and the adjusted 95% CI contains it."""
+        assert len(recovery["nonzero"]) > 0
+        wrong_sign = [n for n in recovery["nonzero"]
+                      if np.sign(recovery["rows"][n]["estimate"]) != np.sign(recovery["rows"][n]["configured"])]
+        not_covered = [n for n in recovery["nonzero"]
+                       if not recovery["rows"][n]["lo"] <= recovery["rows"][n]["configured"] <= recovery["rows"][n]["hi"]]
+        assert not wrong_sign and not not_covered, (
+            f"wrong sign: {wrong_sign}; CI misses configured value: {not_covered}\n{self._table(recovery)}"
+        )
 
 
 class TestFeatureEngineering:

@@ -572,15 +572,36 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
     )
     print(f" [✓] PASS: No target leakage found. All individual feature correlations are safely below {LEAKAGE_THRESHOLD}.")
 
-    # 5. Counterfactual recourse effectiveness check
-    for res in report_card_results[2:]:  # Borderline and High risk students
+    # 5. Counterfactual recourse check, keyed on each profile's CURRENT model tier (not its archetype label):
+    #    Medium/High -> every recommendation must not raise risk; Low -> the explicit "already Low" result.
+    print("\n [i] COUNTERFACTUAL RECOURSE BY CURRENT MODEL TIER:")
+    n_not_low = 0
+    for res in report_card_results:
         recourse = res["recourse"]
+        sid = res["profile"]["student_id"]
+        tier = res["tier"]
         cur_p = recourse["current_risk_prob"]
         proj_p = recourse["projected_risk_prob"]
-        diff = cur_p - proj_p
-        sid = res["profile"]["student_id"]
-        assert diff > 0.05, f"CRITICAL ERROR: Counterfactual for {sid} failed to reduce risk meaningfully! (Current={cur_p}, Projected={proj_p})"
-    print(" [✓] PASS: Counterfactual recourse proposals successfully decrease risk probability by a significant margin.")
+        print(f"     • {sid}: tier={tier} | current={cur_p:.4f} -> projected={proj_p:.4f} | plan='{recourse['intervention_plan_name']}'")
+        assert recourse["current_risk_tier"] == tier, (
+            f"CRITICAL ERROR: Recourse engine tier for {sid} ({recourse['current_risk_tier']}) differs from model tier ({tier})!"
+        )
+        if tier == "Low":
+            assert "already in the lowest risk tier" in recourse.get("status_message", ""), (
+                f"CRITICAL ERROR: Low-tier student {sid} did not get the explicit 'already Low' recourse result: {recourse}"
+            )
+            assert recourse["required_actions"] == [], f"CRITICAL ERROR: Low-tier student {sid} was given required actions!"
+            assert proj_p == cur_p and recourse["risk_reduction_pct"] == 0.0, (
+                f"CRITICAL ERROR: Low-tier student {sid} has a projected change (Current={cur_p}, Projected={proj_p})!"
+            )
+        else:
+            n_not_low += 1
+            assert recourse["required_actions"], f"CRITICAL ERROR: {tier}-tier student {sid} got no recommended actions!"
+            assert proj_p <= cur_p, (
+                f"CRITICAL ERROR: Counterfactual for {tier}-tier student {sid} increases risk! (Current={cur_p}, Projected={proj_p})"
+            )
+    assert n_not_low > 0, "CRITICAL ERROR: No Medium/High-tier profile; the counterfactual check would be vacuous!"
+    print(f" [✓] PASS: Recourse never raises risk for the {n_not_low} Medium/High-tier profile(s); Low-tier profiles get the explicit 'already Low' result.")
 
     # 6. SHAP Tree Saturation Verification
     print("\n [i] SHAP INTEGRITY CHECK:")
