@@ -69,14 +69,18 @@ def get_student_interventions(
     # Reuse drivers stored at scoring time when they are detailed enough; otherwise
     # recompute from the immutable snapshot, which yields the same values.
     stored = prediction.top_drivers
-    drivers = (
-        stored[:top_k_drivers]
-        if stored and len(stored) >= top_k_drivers
-        else ml_service.explain_from_snapshot(snapshot, top_k=top_k_drivers)
-    )
+    drivers = stored[:top_k_drivers] if stored and len(stored) >= top_k_drivers else None
+    if drivers is None:
+        try:
+            drivers = ml_service.explain_from_snapshot(snapshot, top_k=top_k_drivers)
+        except Exception:
+            # Reasons are unavailable; the recourse engine reports drivers_available=false and
+            # rule-based alerts still apply. Never a 500 for a missing explanation.
+            logger.exception("SHAP drivers unavailable for student %s", student_id)
 
-    recommendations = ml_service.recommend_interventions(
-        drivers, max_recommendations=max_recommendations
+    recommendations = (
+        ml_service.recommend_interventions(drivers, max_recommendations=max_recommendations)
+        if drivers is not None else []
     )
 
     recourse = ml_service.generate_counterfactual_from_snapshot(

@@ -66,7 +66,7 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
     require_clean_tree(allow_dirty)
 
     print("=" * 80)
-    print(" DROPOUTGUARD — AI-POWERED DROPOUT PREDICTION & INTERVENTION SYSTEM ")
+    print(" DROPOUTGUARD — AI-POWERED EARLY-WARNING AND STUDENT SUPPORT SYSTEM ")
     print(" Comprehensive Machine Learning Core Validation & Clinical Report ")
     print(" Context: Smart India Hackathon 2026 (PSID 7-L) | SDG 4: Quality Education")
     print("=" * 80)

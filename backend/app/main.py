@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="AI-powered academic dropout prediction and intervention system (SIH 2026, PSID 7-L).",
+    description="AI-powered early-warning and student support system (SIH 2026, PSID 7-L).",
     version="0.1.0",
     lifespan=lifespan,
 )

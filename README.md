@@ -1,4 +1,4 @@
-# DropoutGuard — AI-Powered Academic Dropout Prediction & Intervention System
+# DropoutGuard — AI-Powered Early-Warning and Student Support System
 
 > **Smart India Hackathon 2026 (PSID 7-L)**  
 > **UN Sustainable Development Goal 4 (SDG 4: Quality Education)**  

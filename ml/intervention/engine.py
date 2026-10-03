@@ -21,6 +21,7 @@ import pandas as pd
 
 from ml.config import (
     ARTIFACTS_DIR,
+    ATTENDANCE_THRESHOLD,
     MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
     RISK_THRESHOLD_LOW,
@@ -316,6 +317,67 @@ def map_shap_drivers_to_interventions(
 # =============================================================================
 # 3. COUNTERFACTUAL RECOURSE GENERATOR ("Path to Improvement")
 # =============================================================================
+def _catalog_action_for(flag_feature: str) -> Tuple[Optional[str], Optional[str]]:
+    """First catalog item (catalog order) whose recommended_for lists the flag: (id, title)."""
+    for int_id, item in INTERVENTION_CATALOG.items():
+        if flag_feature in item.get("recommended_for", []):
+            return int_id, item.get("title")
+    return None, None
+
+
+def rule_based_alerts(features: Union[Dict[str, Any], pd.Series]) -> List[Dict[str, Any]]:
+    """
+    Rule-based alerts from the student's own values, independent of the model risk tier.
+    The attendance threshold comes from ml.config.ATTENDANCE_THRESHOLD, never from text.
+    """
+    f = dict(features)
+    alerts: List[Dict[str, Any]] = []
+
+    att = f.get("attendance_percentage")
+    att_flag = int(f.get("attendance_risk_flag", 0) or 0)
+    if (att is not None and float(att) < ATTENDANCE_THRESHOLD) or att_flag == 1:
+        int_id, title = _catalog_action_for("attendance_risk_flag")
+        alerts.append({
+            "code": "ATTENDANCE_BELOW_REQUIREMENT",
+            "feature_name": "attendance_percentage",
+            "value": None if att is None else round(float(att), 1),
+            "threshold": ATTENDANCE_THRESHOLD,
+            "message": (
+                f"attendance is {float(att):.1f}%, below the {ATTENDANCE_THRESHOLD:g}% requirement"
+                if att is not None else f"attendance is flagged as below the {ATTENDANCE_THRESHOLD:g}% requirement"
+            ),
+            "recommended_intervention_id": int_id,
+            "recommended_intervention_title": title,
+        })
+
+    if int(f.get("academic_crisis_flag", 0) or 0) == 1:
+        int_id, title = _catalog_action_for("academic_crisis_flag")
+        cgpa, backlogs = f.get("current_cgpa"), f.get("backlog_count")
+        details = []
+        if cgpa is not None:
+            details.append(f"CGPA {float(cgpa):.2f}")
+        if backlogs is not None:
+            details.append(f"{int(backlogs)} active backlog{'s' if int(backlogs) != 1 else ''}")
+        alerts.append({
+            "code": "ACADEMIC_CRISIS_FLAG",
+            "feature_name": "academic_crisis_flag",
+            "value": 1.0,
+            "threshold": None,
+            "message": "academic crisis flag is set" + (f" ({', '.join(details)})" if details else ""),
+            "recommended_intervention_id": int_id,
+            "recommended_intervention_title": title,
+        })
+    return alerts
+
+
+def _alert_sentences(alerts: List[Dict[str, Any]]) -> str:
+    parts = []
+    for a in alerts:
+        rec = f" Recommended: {a['recommended_intervention_title']}." if a.get("recommended_intervention_title") else ""
+        parts.append(f"{a['message'][0].upper()}{a['message'][1:]}.{rec}")
+    return " ".join(parts)
+
+
 class CounterfactualRecourseEngine:
     """
     Computes minimal actionable changes to student features that reliably shift
@@ -376,9 +438,33 @@ class CounterfactualRecourseEngine:
                 target_tier = "Low"
                 target_threshold = RISK_THRESHOLD_LOW
 
+        # Rule-based alerts come from the student's values and are reported for every tier
+        alerts = rule_based_alerts(base_df.iloc[0])
+        student_id = str(student_df["student_id"].iloc[0]) if "student_id" in student_df else "STUDENT"
+
+        # SHAP drivers: passed in, or computed here. A failure is logged and reported, never hidden.
+        drivers_available = top_shap_drivers is not None
+        drivers = top_shap_drivers
+        if drivers is None:
+            try:
+                drivers = SHAPExplainerService().explain_local_student(base_df.iloc[0], top_k=4)
+                drivers_available = True
+            except Exception:
+                logger.exception("SHAP drivers unavailable for %s; recourse continues without SHAP alignment", student_id)
+                drivers = []
+        shap_driver_features = {
+            d.get("feature_name", "") for d in drivers if d.get("impact_direction") == "RISK_INCREASING"
+        }
+
         if current_tier == "Low":
+            summary = f"Low model risk ({base_prob * 100:.1f}%)"
+            if alerts:
+                sentences = _alert_sentences(alerts)
+                summary += f", but {sentences[0].lower()}{sentences[1:]}"
+            else:
+                summary += ". No rule-based alerts."
             return {
-                "student_id": str(student_df.get("student_id", ["STUDENT"])[0] if "student_id" in student_df else "STUDENT"),
+                "student_id": student_id,
                 "current_risk_prob": round(base_prob, 4),
                 "current_risk_tier": current_tier,
                 "projected_risk_prob": round(base_prob, 4),
@@ -386,28 +472,12 @@ class CounterfactualRecourseEngine:
                 "risk_reduction_pct": 0.0,
                 "target_reached": True,
                 "intervention_plan_name": "Low-Risk Academic Maintenance Plan",
-                "status_message": "Student is already in the lowest risk tier. No urgent intervention required.",
+                "status_message": "Student is already in the lowest model risk tier, so no counterfactual projection is computed.",
                 "required_actions": [],
-                "counselor_summary": "Student is performing exceptionally well across all 4 pillars and remains in the Low Risk tier (prob < 33%). Continue regular progress monitoring."
+                "counselor_summary": summary,
+                "rule_based_alerts": alerts,
+                "drivers_available": drivers_available,
             }
-
-        # Extract primary risk driver features from SHAP
-        shap_driver_features = set()
-        if top_shap_drivers:
-            for d in top_shap_drivers:
-                if d.get("impact_direction") == "RISK_INCREASING":
-                    shap_driver_features.add(d.get("feature_name", ""))
-        else:
-            # Dynamically compute SHAP drivers if not passed
-            try:
-                from ml.models.explain_shap import SHAPExplainerService
-                explainer = SHAPExplainerService()
-                dyn_drivers = explainer.explain_local_student(base_df.iloc[0], top_k=4)
-                for d in dyn_drivers:
-                    if d.get("impact_direction") == "RISK_INCREASING":
-                        shap_driver_features.add(d.get("feature_name", ""))
-            except Exception:
-                pass
 
         # Identify driver categories
         has_academic_driver = any(f in shap_driver_features for f in [
@@ -626,8 +696,15 @@ class CounterfactualRecourseEngine:
         projected_prob = float(best_scenario["prob"])
         projected_tier = get_risk_tier(projected_prob)
 
+        summary = (
+            f"If the student executes the '{best_scenario['name']}' plan, their estimated risk is projected to decrease "
+            f"from {base_prob*100:.1f}% ({current_tier}) down to {projected_prob*100:.1f}% ({projected_tier}), "
+            f"achieving a {((base_prob - projected_prob)*100):.1f}% reduction."
+        )
+        if alerts:
+            summary += " " + _alert_sentences(alerts)
         return {
-            "student_id": str(student_df.get("student_id", ["STUDENT"])[0] if "student_id" in student_df else "STUDENT"),
+            "student_id": student_id,
             "current_risk_prob": round(base_prob, 4),
             "current_risk_tier": current_tier,
             "projected_risk_prob": round(projected_prob, 4),
@@ -636,7 +713,9 @@ class CounterfactualRecourseEngine:
             "target_reached": (projected_tier == target_tier or projected_prob < base_prob),
             "intervention_plan_name": best_scenario["name"],
             "required_actions": best_scenario["actions"],
-            "counselor_summary": f"If the student executes the '{best_scenario['name']}' plan, their dropout risk is projected to decrease from {base_prob*100:.1f}% ({current_tier}) down to {projected_prob*100:.1f}% ({projected_tier}), achieving a {((base_prob - projected_prob)*100):.1f}% reduction."
+            "counselor_summary": summary,
+            "rule_based_alerts": alerts,
+            "drivers_available": drivers_available,
         }
 
 

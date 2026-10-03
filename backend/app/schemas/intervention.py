@@ -66,6 +66,19 @@ class RecourseAction(BaseModel):
     plain_language_action: str
 
 
+class RuleBasedAlert(BaseModel):
+    """A rule on the student's own values (e.g. attendance below the requirement), independent of
+    the model risk tier. The threshold comes from ml.config, never from text."""
+
+    code: str
+    feature_name: str
+    value: Optional[float] = None
+    threshold: Optional[float] = None
+    message: str
+    recommended_intervention_id: Optional[str] = None
+    recommended_intervention_title: Optional[str] = None
+
+
 class CounterfactualRecourse(BaseModel):
     """
     Output of `CounterfactualRecourseEngine.generate_counterfactual`, passed through with
@@ -83,6 +96,10 @@ class CounterfactualRecourse(BaseModel):
     required_actions: List[RecourseAction] = Field(default_factory=list)
     counselor_summary: str
     status_message: Optional[str] = None
+    rule_based_alerts: List[RuleBasedAlert] = Field(default_factory=list)
+    drivers_available: bool = Field(
+        default=True, description="False when SHAP drivers could not be computed; reasons are then unavailable."
+    )
     is_projection: bool = Field(
         default=True, description="Always true - a simulation, never a guaranteed outcome."
     )

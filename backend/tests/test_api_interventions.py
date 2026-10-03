@@ -410,3 +410,71 @@ class TestHistoryProtection:
                 select(Student).where(Student.student_id == "DEL_GUARD")
             ).scalar_one_or_none()
         assert still_there is not None
+
+
+# --------------------------------------------- rule-based alerts and missing reasons (P1, M6)
+
+BANNED_PHRASES = ("performing exceptionally well", "No urgent intervention required")
+
+
+@pytest.fixture
+def low_tier_below_attendance_threshold(ml):
+    """A simulated-cohort student whose real-model tier is Low and whose attendance is below the
+    configured threshold. Fails (never skips) if the cohort has none."""
+    import pandas as pd
+    from ml.config import ATTENDANCE_THRESHOLD, PROCESSED_DATA_PATH
+    from backend.app.services.ml_service import RAW_FEATURE_COLUMNS
+
+    df = pd.read_csv(PROCESSED_DATA_PATH)
+    for _, row in df[df["attendance_percentage"] < ATTENDANCE_THRESHOLD].iterrows():
+        features = {c: row[c].item() if hasattr(row[c], "item") else row[c] for c in RAW_FEATURE_COLUMNS}
+        features["hostel_status"] = row["hostel_status"]
+        if ml.predict(features)["risk_tier"] == "Low":
+            return features
+    pytest.fail("No Low-tier student below the attendance threshold in the simulated cohort")
+
+
+@requires_db
+class TestRuleBasedAlerts:
+    def test_low_tier_student_below_threshold_gets_the_attendance_alert(
+        self, client, db_engine, low_tier_below_attendance_threshold
+    ):
+        from ml.config import ATTENDANCE_THRESHOLD
+
+        features = low_tier_below_attendance_threshold
+        assert client.post(PREDICT_URL, json=body("ALERT_LOW", features)).json()["risk_tier"] == "Low"
+        response = client.get(plan_url("ALERT_LOW"))
+        assert response.status_code == 200
+        recourse = response.json()["counterfactual_recourse"]
+
+        alerts = [a for a in recourse["rule_based_alerts"] if a["code"] == "ATTENDANCE_BELOW_REQUIREMENT"]
+        assert len(alerts) == 1
+        alert = alerts[0]
+        assert alert["threshold"] == ATTENDANCE_THRESHOLD
+        assert alert["value"] == pytest.approx(features["attendance_percentage"], abs=0.05)
+        assert alert["recommended_intervention_id"] and alert["recommended_intervention_title"]
+        assert recourse["counselor_summary"].startswith("Low model risk")
+        assert alert["message"] in recourse["counselor_summary"]
+        for phrase in BANNED_PHRASES:
+            assert phrase not in response.text
+
+    def test_reasons_unavailable_when_shap_fails(self, client, db_engine, high_risk_features, monkeypatch):
+        import ml.intervention.engine as engine
+        from backend.app.services.ml_service import ml_service
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("explainer exploded")
+
+        # Batch scoring without explanations stores no drivers, so the plan endpoint must compute them
+        scored = client.post(
+            "/api/v1/predict/batch",
+            json={"students": [body("NO_REASONS", high_risk_features)], "include_explanations": False},
+        )
+        assert scored.status_code == 201, scored.text
+        monkeypatch.setattr(ml_service, "explain_from_snapshot", boom)
+        monkeypatch.setattr(engine.SHAPExplainerService, "explain_local_student", boom)
+        response = client.get(plan_url("NO_REASONS"))
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["recommended_interventions"] == []
+        assert payload["counterfactual_recourse"]["drivers_available"] is False

@@ -38,6 +38,21 @@ FAIRNESS_METRICS_PATH = ARTIFACTS_DIR / "fairness_metrics.json"
 # Random Seed for Reproducibility
 RANDOM_SEED = int(os.getenv("RANDOM_SEED", "42"))
 
+ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
+
+
+def _attendance_threshold() -> float:
+    """Statutory attendance requirement (%), the one value shared by the generator, the
+    attendance_risk_flag feature and the rule-based alerts. A missing key raises."""
+    import yaml
+
+    with open(ASSUMPTIONS_PATH, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return float(data["regulations_and_thresholds"]["mandatory_attendance_threshold"]["value"])
+
+
+ATTENDANCE_THRESHOLD = _attendance_threshold()
+
 # Feature Exclusions for Model Training (IDs, targets, protected raw strings).
 # NOTE: Income IS used as a model input via `income_slab_idx` (serving as an objective
 # need signal for routing institutional financial support and feeding `financial_stress_index`).

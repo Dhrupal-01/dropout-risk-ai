@@ -152,6 +152,90 @@ class TestCounterfactualRecourse:
         assert len(recourse["required_actions"]) > 0
 
 
+BANNED_PHRASES = ("performing exceptionally well", "No urgent intervention required")
+
+
+def _first_catalog_item_for(flag):
+    return next(i for i, item in INTERVENTION_CATALOG.items() if flag in item["recommended_for"])
+
+
+class TestRuleBasedAlerts:
+    """Alerts come from the student's values and the configured threshold, for every tier."""
+
+    def test_attendance_alert_uses_configured_threshold(self, monkeypatch):
+        import ml.intervention.engine as engine
+
+        monkeypatch.setattr(engine, "ATTENDANCE_THRESHOLD", 80.0)
+        alerts = engine.rule_based_alerts({"attendance_percentage": 78.0, "attendance_risk_flag": 0})
+        assert [a["code"] for a in alerts] == ["ATTENDANCE_BELOW_REQUIREMENT"]
+        assert alerts[0]["threshold"] == 80.0
+        assert alerts[0]["message"] == "attendance is 78.0%, below the 80% requirement"
+
+    def test_threshold_is_the_assumptions_yaml_value(self):
+        import yaml
+        from ml.config import ASSUMPTIONS_PATH, ATTENDANCE_THRESHOLD
+
+        raw = yaml.safe_load(ASSUMPTIONS_PATH.read_text(encoding="utf-8"))
+        assert ATTENDANCE_THRESHOLD == float(raw["regulations_and_thresholds"]["mandatory_attendance_threshold"]["value"])
+
+    def test_no_alert_at_or_above_threshold(self):
+        from ml.config import ATTENDANCE_THRESHOLD
+        from ml.intervention.engine import rule_based_alerts
+
+        assert rule_based_alerts({"attendance_percentage": ATTENDANCE_THRESHOLD, "attendance_risk_flag": 0,
+                                  "academic_crisis_flag": 0}) == []
+
+    def test_recommended_actions_come_from_the_catalog(self):
+        from ml.intervention.engine import rule_based_alerts
+
+        alerts = rule_based_alerts({"attendance_percentage": 40.0, "attendance_risk_flag": 1,
+                                    "academic_crisis_flag": 1, "current_cgpa": 4.5, "backlog_count": 3})
+        by_code = {a["code"]: a for a in alerts}
+        att, acad = by_code["ATTENDANCE_BELOW_REQUIREMENT"], by_code["ACADEMIC_CRISIS_FLAG"]
+        assert att["recommended_intervention_id"] == _first_catalog_item_for("attendance_risk_flag")
+        assert acad["recommended_intervention_id"] == _first_catalog_item_for("academic_crisis_flag")
+        assert att["recommended_intervention_title"] == INTERVENTION_CATALOG[att["recommended_intervention_id"]]["title"]
+        assert acad["message"] == "academic crisis flag is set (CGPA 4.50, 3 active backlogs)"
+
+    def test_low_tier_student_below_threshold_gets_the_alert(self, recourse_engine):
+        from ml.config import ATTENDANCE_THRESHOLD, get_risk_tier
+
+        df = pd.read_csv(PROCESSED_DATA_PATH)
+        below = df[df["attendance_percentage"] < ATTENDANCE_THRESHOLD]
+        probs = recourse_engine.model.predict_proba(below[recourse_engine.feature_names])[:, 1]
+        low = below[[get_risk_tier(p) == "Low" for p in probs]]
+        assert len(low) > 0, "no Low-tier student below the attendance threshold in the simulated cohort"
+
+        student = low.iloc[0]
+        recourse = recourse_engine.generate_counterfactual(student)
+        assert recourse["current_risk_tier"] == "Low"
+        att = [a for a in recourse["rule_based_alerts"] if a["code"] == "ATTENDANCE_BELOW_REQUIREMENT"]
+        assert len(att) == 1
+        assert recourse["counselor_summary"].startswith("Low model risk")
+        assert att[0]["message"] in recourse["counselor_summary"]
+        assert att[0]["recommended_intervention_title"] in recourse["counselor_summary"]
+        for phrase in BANNED_PHRASES:
+            assert phrase not in str(recourse)
+
+    def test_shap_failure_is_logged_and_reported(self, recourse_engine, monkeypatch, caplog):
+        import logging
+        import ml.intervention.engine as engine
+
+        def boom(self, *args, **kwargs):
+            raise RuntimeError("explainer exploded")
+
+        monkeypatch.setattr(engine.SHAPExplainerService, "explain_local_student", boom)
+        student = pd.read_csv(PROCESSED_DATA_PATH).iloc[0]
+        with caplog.at_level(logging.ERROR, logger=engine.logger.name):
+            recourse = recourse_engine.generate_counterfactual(student, top_shap_drivers=None)
+        assert recourse["drivers_available"] is False
+        assert any("SHAP drivers unavailable" in r.getMessage() and r.exc_info for r in caplog.records)
+
+    def test_passed_drivers_are_available(self, recourse_engine):
+        student = pd.read_csv(PROCESSED_DATA_PATH).iloc[0]
+        assert recourse_engine.generate_counterfactual(student, top_shap_drivers=[])["drivers_available"] is True
+
+
 class TestPrioritizedMentorQueue:
     """Tests for sorting and queue generation."""
 

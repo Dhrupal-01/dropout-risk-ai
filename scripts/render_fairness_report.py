@@ -307,7 +307,7 @@ def render_fairness_markdown_report(
     gen_table = render_generator_sanity_tables(gen_data) if gen_data else "*Generator sanity check artifact not found.*"
 
     content = f"""# Ethics, Responsible AI & Algorithmic Fairness Audit Report
-### DropoutGuard — AI-Powered Academic Dropout Prediction & Intervention System
+### DropoutGuard — AI-Powered Early-Warning and Student Support System
 **Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
 {dirty_block}

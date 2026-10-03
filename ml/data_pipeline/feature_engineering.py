@@ -19,7 +19,7 @@ from typing import Optional, Tuple, List, Dict
 import numpy as np
 import pandas as pd
 
-from ml.config import PROCESSED_DATA_PATH
+from ml.config import ATTENDANCE_THRESHOLD, PROCESSED_DATA_PATH
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -113,9 +113,9 @@ def build_engineered_features(df_raw: pd.DataFrame) -> pd.DataFrame:
         else:
             df["attendance_3m_trend"] = 0.0
 
-    # Attendance risk flag (<75% mandatory threshold)
+    # Attendance risk flag (below the statutory threshold, ml.config.ATTENDANCE_THRESHOLD)
     if "attendance_risk_flag" not in df.columns:
-        df["attendance_risk_flag"] = (df["attendance_percentage"] < 75.0).astype(int)
+        df["attendance_risk_flag"] = (df["attendance_percentage"] < ATTENDANCE_THRESHOLD).astype(int)
 
     # ---------------------------------------------------------
     # 2. Pillar 2: Academic Performance Feature Engineering
