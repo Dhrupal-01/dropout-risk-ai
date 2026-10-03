@@ -63,6 +63,33 @@ def prepare_training_data(
     return X, y, feature_cols, df
 
 
+# Monotone constraints for the simulated-cohort production model (owner decision, audit M3).
+# -1: a higher value never raises predicted risk; +1: a higher value never lowers it.
+# Features not listed are unconstrained. Never applied to the benchmark harness models.
+MONOTONE_CONSTRAINTS: Dict[str, int] = {
+    "att_core1": -1, "att_core2": -1, "att_lab": -1, "att_elective": -1,
+    "attendance_month_1": -1, "attendance_month_2": -1, "attendance_month_3": -1,
+    "attendance_percentage": -1,
+    "attendance_3m_trend": -1,
+    "attendance_risk_flag": 1,
+    "consecutive_absences": 1,
+    "subject_attendance_std": 1,
+    "interaction_att_x_fee": 1,
+    "interaction_att_x_cgpa_drop": 1,
+    "current_cgpa": -1,
+    "backlog_count": 1,
+    "fee_payment_delay_days": 1,
+}
+
+
+def monotone_constraints_for(feature_names: List[str]) -> Tuple[int, ...]:
+    """Constraint vector in model column order; raises if a constrained feature is missing."""
+    missing = sorted(set(MONOTONE_CONSTRAINTS) - set(feature_names))
+    if missing:
+        raise ValueError(f"Monotone-constrained features missing from the model inputs: {missing}")
+    return tuple(MONOTONE_CONSTRAINTS.get(name, 0) for name in feature_names)
+
+
 def train_and_compare_imbalance_methods(
     X_train: pd.DataFrame,
     y_train: pd.Series,
@@ -75,6 +102,7 @@ def train_and_compare_imbalance_methods(
     2. Method B: SMOTE oversampling on training split only
     Compares validation minority-class F1 and Recall, returning the champion model.
     """
+    constraints = monotone_constraints_for(list(X_train.columns))
     n_neg = (y_train == 0).sum()
     n_pos = (y_train == 1).sum()
     scale_weight = float(n_neg) / max(float(n_pos), 1.0)
@@ -90,6 +118,7 @@ def train_and_compare_imbalance_methods(
         subsample=0.85,
         colsample_bytree=0.85,
         scale_pos_weight=scale_weight,
+        monotone_constraints=constraints,
         random_state=RANDOM_SEED,
         eval_metric="logloss"
     )
@@ -115,6 +144,7 @@ def train_and_compare_imbalance_methods(
         learning_rate=0.06,
         subsample=0.85,
         colsample_bytree=0.85,
+        monotone_constraints=constraints,
         random_state=RANDOM_SEED,
         eval_metric="logloss"
     )
