@@ -12,6 +12,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 YAML_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
 DOCS_SIM_PATH = BASE_DIR / "docs" / "simulation.md"
 ESTIMATED_PARAMETERS_PATH = BASE_DIR / "ml" / "simulation" / "estimated_parameters.json"
+SENSITIVITY_PATH = BASE_DIR / "ml" / "artifacts" / "simulation_sensitivity.json"
 
 ALLOWED_SOURCES = {
     "estimated_from_uci",
@@ -105,16 +106,43 @@ def render_markdown(data: Dict[str, Any]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+def _ci(metric: Dict[str, Any]) -> str:
+    return f"{metric['point']:.4f} [{metric['ci_lower']:.4f}, {metric['ci_upper']:.4f}]"
+
+
+def render_sensitivity_section(sensitivity: Dict[str, Any]) -> str:
+    """Markdown table for ml/artifacts/simulation_sensitivity.json (every value read from the JSON)."""
+    lines = [
+        "## Sensitivity to `cohort_metadata.target_base_rate`",
+        "",
+        "There is no published national higher-education dropout rate for India, so the simulated base "
+        "rate is an assumption. The cohort is regenerated and the model retrained at each rate; metrics "
+        "are on the held-out test split with 95% bootstrap CIs. Simulated data only, not real-world accuracy.",
+        "",
+        "| target_base_rate | Observed dropout rate | n (test) | ROC-AUC | PR-AUC | Brier |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in sensitivity["results"]:
+        m = r["metrics"]
+        lines.append(
+            f"| {r['target_base_rate']} | {r['observed_dropout_rate']:.4f} | {r['n_test']} | "
+            f"{_ci(m['roc_auc'])} | {_ci(m['pr_auc'])} | {_ci(m['brier_score'])} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def generate_simulation_doc() -> None:
-    # value_from entries resolve from estimated_parameters.json: refuse if it has no provenance.
+    # value_from entries resolve from estimated_parameters.json and the sensitivity table comes from
+    # simulation_sensitivity.json: refuse on missing provenance, mixed commits or mixed checksums.
     from ml.provenance import assert_consistent_provenance, load_labelled_json
 
-    assert_consistent_provenance(load_labelled_json([ESTIMATED_PARAMETERS_PATH]))
+    artifacts = load_labelled_json([ESTIMATED_PARAMETERS_PATH, SENSITIVITY_PATH])
+    assert_consistent_provenance(artifacts)
     data = load_assumptions()
     flat = extract_all_keys(data)
     validate_assumptions_structure(flat)
 
-    content = render_markdown(data)
+    content = render_markdown(data) + "\n" + render_sensitivity_section(artifacts[SENSITIVITY_PATH.name])
     DOCS_SIM_PATH.parent.mkdir(parents=True, exist_ok=True)
     DOCS_SIM_PATH.write_text(content, encoding="utf-8")
     print(f"Successfully generated {DOCS_SIM_PATH} with {len(flat)} parameters.")

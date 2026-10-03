@@ -126,6 +126,7 @@ WRITERS = [
     ("ml.models.calibrate", "run_calibration_pipeline"),
     ("ml.validate_pipeline", "run_pipeline_validation"),
     ("ml.simulation.estimate_parameters", "estimate_all_parameters"),
+    ("ml.simulation.sensitivity", "run_sensitivity_analysis"),
 ]
 
 

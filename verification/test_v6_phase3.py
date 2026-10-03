@@ -77,7 +77,7 @@ class TestV6Phase3Simulation:
         from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
         from backend.app.services.ml_service import RAW_FEATURE_COLUMNS, LABEL_COLUMNS
 
-        df = generate_indian_student_cohort(n_students=50, seed=42)
+        df = generate_indian_student_cohort(n_students=50, seed=42, output_path=None)
         # Must contain all RAW_FEATURE_COLUMNS
         for col in RAW_FEATURE_COLUMNS:
             assert col in df.columns, f"Missing raw feature column: {col}"
@@ -111,7 +111,7 @@ class TestV6Phase3Simulation:
         rates = []
         has_prob_under_half_with_label_one = False
         for s in range(40, 60):
-            df = generate_indian_student_cohort(n_students=200, seed=s)
+            df = generate_indian_student_cohort(n_students=200, seed=s, output_path=None)
             rates.append(df["is_dropout"].mean())
             if ((df["ground_truth_risk_prob"] < 0.5) & (df["is_dropout"] == 1)).any():
                 has_prob_under_half_with_label_one = True

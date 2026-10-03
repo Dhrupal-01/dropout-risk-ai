@@ -21,6 +21,7 @@ CLAUDE_MD_ORDER = [
     ("ml.simulation.estimate_parameters", ()),
     ("ml.data_pipeline.feature_engineering", ()),
     ("ml.validate_pipeline", ("--regenerate",)),
+    ("ml.simulation.sensitivity", ()),
     ("ml.simulation.sim_to_real", ()),
     ("ml.fairness.run_all_audits", ("--force-rerun",)),
     ("scripts.render_benchmark_report", ()),

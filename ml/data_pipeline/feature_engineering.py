@@ -191,7 +191,8 @@ def build_engineered_features(df_raw: pd.DataFrame) -> pd.DataFrame:
 def generate_processed_feature_dataset(
     n_students: int = 2000,
     seed: int = 42,
-    output_path: Path = FEATURES_CSV_PATH
+    output_path: Path = FEATURES_CSV_PATH,
+    target_base_rate: Optional[float] = None,
 ) -> pd.DataFrame:
     """
     Executes the end-to-end data pipeline:
@@ -202,7 +203,10 @@ def generate_processed_feature_dataset(
     logger.info("Starting end-to-end feature engineering pipeline...")
     
     # 1. Generate the primary Indian collegiate cohort
-    raw_cohort = generate_indian_student_cohort(n_students=n_students, seed=seed)
+    # The raw cohort is not written anywhere; only the processed features CSV is saved below.
+    raw_cohort = generate_indian_student_cohort(
+        n_students=n_students, seed=seed, output_path=None, target_base_rate=target_base_rate
+    )
     
     # 3. Apply feature engineering transformations
     processed_df = build_engineered_features(raw_cohort)

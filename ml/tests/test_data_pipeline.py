@@ -97,10 +97,14 @@ class TestGeneratorCoefficientRecovery:
             for name in [
                 "current_cgpa", "backlog_count", "has_scholarship", "fee_payment_delay_days",
                 "is_first_generation", "lms_logins_per_week", "days_since_last_lms_activity",
-                "assignment_submission_lag_days", "attendance_percentage", "attendance_3m_trend",
+                "assignment_submission_lag_days", "attendance_3m_trend",
                 "consecutive_absences", "cgpa_delta", "stem_core_fail_flag",
             ]
         }
+        # Attendance enters the risk formula only as a hinge below the statutory threshold
+        columns["attendance_deficit_slope"] = np.maximum(
+            0.0, th["mandatory_attendance_threshold"] - df["attendance_percentage"].astype(float)
+        ).to_numpy()
         columns["is_hosteler"] = (df["hostel_status"] == "Hosteler").astype(float).to_numpy()
         columns["gender_male"] = (df["gender"] == "Male").astype(float).to_numpy()
         for cat in ["obc", "sc", "st", "ews"]:

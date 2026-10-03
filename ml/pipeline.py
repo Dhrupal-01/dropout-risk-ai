@@ -59,6 +59,7 @@ STEPS: List[Step] = [
     Step("3", "compute", "ml.simulation.estimate_parameters", (), "ml/simulation/estimated_parameters.json"),
     Step("4a", "compute", "ml.data_pipeline.feature_engineering", (), "data/processed/features.csv, data/processed/feature_metadata.json"),
     Step("4b", "compute", "ml.validate_pipeline", ("--regenerate",), "model artifacts (gitignored), ml/artifacts/model_metrics.json, ml/artifacts/fairness_metrics.json"),
+    Step("4c", "compute", "ml.simulation.sensitivity", (), "ml/artifacts/simulation_sensitivity.json"),
     Step("5", "compute", "ml.simulation.sim_to_real", (), "ml/artifacts/benchmarks/sim_to_real.json"),
     Step("6", "compute", "ml.fairness.run_all_audits", ("--force-rerun",), "ml/artifacts/fairness/*.json, ml/artifacts/fairness_metrics.json"),
     Step("7a", "render", "scripts.render_benchmark_report", (), "docs/benchmarks.md, docs/figures/*, README.md BENCHMARKS block"),
@@ -84,7 +85,7 @@ def computed_artifact_paths(base_dir: Path = BASE_DIR) -> List[Path]:
     return sorted(
         list((artifacts / "benchmarks").glob("*.json"))
         + list((artifacts / "fairness").glob("*.json"))
-        + [artifacts / "model_metrics.json", artifacts / "fairness_metrics.json",
+        + [artifacts / "model_metrics.json", artifacts / "fairness_metrics.json", artifacts / "simulation_sensitivity.json",
            base_dir / "ml" / "simulation" / "estimated_parameters.json"]
     )
 

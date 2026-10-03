@@ -122,25 +122,21 @@ def generate_indian_student_cohort(
     seed: int = 42,
     output_path: Optional[Path] = DEFAULT_OUTPUT_PATH,
     assumptions_path: Optional[Path] = None,
+    target_base_rate: Optional[float] = None,
 ) -> pd.DataFrame:
     """
     Generates a realistic cohort of Indian collegiate students using empirical parameters
     grounded in UCI ID 697, OULAD UCI ID 349, and Indian regulatory mandates.
+    `target_base_rate` overrides cohort_metadata.target_base_rate (sensitivity analysis only).
     """
     logger.info("Generating Indian college student cohort (N=%d, seed=%d)...", n_students, seed)
     rng = np.random.default_rng(seed)
 
     assumptions = load_simulation_assumptions(assumptions_path)
 
-    # Base rate and warning on TODO(citation)
-    target_rate_meta = assumptions.get("cohort_metadata", {}).get("target_base_rate", {})
-    target_base_rate = float(target_rate_meta.get("value", 0.355))
-    if target_rate_meta.get("source") == "TODO(citation)":
-        logger.warning(
-            "Target base rate %.4f is marked TODO(citation) in assumptions.yaml. "
-            "Using placeholder national baseline dropout rate for Indian higher education institutions.",
-            target_base_rate,
-        )
+    # Base rate: from assumptions.yaml (a missing key raises), unless explicitly overridden
+    if target_base_rate is None:
+        target_base_rate = float(get_param(assumptions, "cohort_metadata", "target_base_rate"))
 
     # 1. Demographics & Socioeconomic Parameters
     id_prefix = str(get_param(assumptions, "demographics_distribution", "student_id_prefix"))
@@ -239,14 +235,16 @@ def generate_indian_student_cohort(
 
     att_core1 = np.clip(rng.normal(adj_att_factor * 100.0, core1_std), att_min, att_max)
     att_core2 = np.clip(rng.normal(adj_att_factor * 100.0, core2_std), att_min, att_max)
-    att_lab = np.clip(rng.normal(adj_att_factor * 100.0 + lab_boost, lab_std), 15.0, att_max)
+    lab_att_min = float(get_param(assumptions, "attendance_distribution", "lab_attendance_min"))
+    att_lab = np.clip(rng.normal(adj_att_factor * 100.0 + lab_boost, lab_std), lab_att_min, att_max)
     att_elective = np.clip(rng.normal(adj_att_factor * 100.0 - elec_pen, elec_std), att_min, att_max)
 
     slope_noise_std = float(get_param(assumptions, "attendance_distribution", "attendance_slope_noise_std"))
     att_slope_latent = rng.normal(0.0, slope_noise_std, size=n_students)
-    attendance_month_1 = np.clip(rng.normal(adj_att_factor * 100.0 - att_slope_latent, 4.0), att_min, att_max)
-    attendance_month_2 = np.clip(rng.normal(adj_att_factor * 100.0, 4.0), att_min, att_max)
-    attendance_month_3 = np.clip(rng.normal(adj_att_factor * 100.0 + att_slope_latent, 4.0), att_min, att_max)
+    monthly_std = float(get_param(assumptions, "attendance_distribution", "monthly_noise_std"))
+    attendance_month_1 = np.clip(rng.normal(adj_att_factor * 100.0 - att_slope_latent, monthly_std), att_min, att_max)
+    attendance_month_2 = np.clip(rng.normal(adj_att_factor * 100.0, monthly_std), att_min, att_max)
+    attendance_month_3 = np.clip(rng.normal(adj_att_factor * 100.0 + att_slope_latent, monthly_std), att_min, att_max)
 
     weights = list(get_param(assumptions, "attendance_distribution", "month_weights"))
     attendance_percentage = np.round(weights[0] * attendance_month_1 + weights[1] * attendance_month_2 + weights[2] * attendance_month_3, 1)
@@ -293,7 +291,12 @@ def generate_indian_student_cohort(
     backlog_cgpa_decay = float(get_param(assumptions, "academic_distribution", "backlog_cgpa_decay"))
     backlog_att_boost = float(get_param(assumptions, "academic_distribution", "backlog_attendance_boost"))
     backlog_max = int(get_param(assumptions, "academic_distribution", "backlog_max"))
-    backlog_lambda = np.maximum(0.05, backlog_base_lam * np.exp(-backlog_cgpa_decay * current_cgpa) + backlog_att_boost * (attendance_percentage < 65.0))
+    backlog_lambda_floor = float(get_param(assumptions, "academic_distribution", "backlog_lambda_floor"))
+    backlog_att_thresh = float(get_param(assumptions, "academic_distribution", "backlog_attendance_threshold"))
+    backlog_lambda = np.maximum(
+        backlog_lambda_floor,
+        backlog_base_lam * np.exp(-backlog_cgpa_decay * current_cgpa) + backlog_att_boost * (attendance_percentage < backlog_att_thresh),
+    )
     backlog_count = np.clip(rng.poisson(lam=backlog_lambda, size=n_students), 0, backlog_max)
 
     internal_mult = float(get_param(assumptions, "academic_distribution", "internal_exam_cgpa_multiplier"))
@@ -312,7 +315,9 @@ def generate_indian_student_cohort(
     stem_core_fail_flag = (core1_exam_score < stem_pass_mark).astype(int)
 
     # 4. Learning Behavior Dynamics
-    base_engagement = (current_cgpa / cgpa_max) * 0.5 + (attendance_percentage / att_max) * 0.5
+    w_eng_cgpa = float(get_param(assumptions, "learning_behavior_distribution", "engagement_cgpa_weight"))
+    w_eng_att = float(get_param(assumptions, "learning_behavior_distribution", "engagement_attendance_weight"))
+    base_engagement = (current_cgpa / cgpa_max) * w_eng_cgpa + (attendance_percentage / att_max) * w_eng_att
 
     lms_mult = float(get_param(assumptions, "learning_behavior_distribution", "lms_mean_multiplier"))
     lms_std = float(get_param(assumptions, "learning_behavior_distribution", "lms_noise_std"))
@@ -341,7 +346,8 @@ def generate_indian_student_cohort(
 
     forum_lam = float(get_param(assumptions, "learning_behavior_distribution", "forum_base_lambda"))
     forum_max = int(get_param(assumptions, "learning_behavior_distribution", "forum_participation_max"))
-    forum_participation_count = np.clip(rng.poisson(lam=np.maximum(0.2, base_engagement * forum_lam), size=n_students), 0, forum_max)
+    forum_floor = float(get_param(assumptions, "learning_behavior_distribution", "forum_lambda_floor"))
+    forum_participation_count = np.clip(rng.poisson(lam=np.maximum(forum_floor, base_engagement * forum_lam), size=n_students), 0, forum_max)
 
     # 5. Risk Formula and Calibrated Intercept Beta_0
     # Retrieve risk coefficients from assumptions.yaml:
@@ -354,7 +360,7 @@ def generate_indian_student_cohort(
     b_lms_login = float(get_param(assumptions, "risk_coefficients", "lms_logins_per_week"))
     b_lms_inactive = float(get_param(assumptions, "risk_coefficients", "days_since_last_lms_activity"))
     b_sub_lag = float(get_param(assumptions, "risk_coefficients", "assignment_submission_lag_days"))
-    b_att_pct = float(get_param(assumptions, "risk_coefficients", "attendance_percentage"))
+    b_att_deficit = float(get_param(assumptions, "risk_coefficients", "attendance_deficit_slope"))
     b_att_trend = float(get_param(assumptions, "risk_coefficients", "attendance_3m_trend"))
     b_absences = float(get_param(assumptions, "risk_coefficients", "consecutive_absences"))
     b_cgpa_delta = float(get_param(assumptions, "risk_coefficients", "cgpa_delta"))
@@ -388,7 +394,7 @@ def generate_indian_student_cohort(
         + b_lms_login * lms_logins_per_week
         + b_lms_inactive * days_since_last_lms_activity
         + b_sub_lag * assignment_submission_lag_days
-        + b_att_pct * attendance_percentage
+        + b_att_deficit * np.maximum(0.0, mandatory_att_thresh - attendance_percentage)
         + b_att_trend * attendance_3m_trend
         + b_absences * consecutive_absences
         + b_cgpa_delta * cgpa_delta

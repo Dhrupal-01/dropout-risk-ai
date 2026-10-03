@@ -12,7 +12,6 @@ Tests:
 """
 
 import json
-import logging
 from pathlib import Path
 import pytest
 import numpy as np
@@ -170,10 +169,19 @@ class TestSyntheticIndianCohortGeneration:
         calibrated_p = 1.0 / (1.0 + np.exp(-(beta_0 + z)))
         assert abs(float(np.mean(calibrated_p)) - target_rate) < 1e-4
 
-    def test_target_base_rate_warning_logged(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            generate_indian_student_cohort(n_students=100, seed=42, output_path=None)
-        assert any("TODO(citation)" in record.message or "placeholder" in record.message for record in caplog.records)
+    def test_missing_target_base_rate_raises(self, tmp_path):
+        """No silent fallback: without cohort_metadata.target_base_rate the generator raises."""
+        raw = yaml.safe_load(ASSUMPTIONS_PATH.read_text(encoding="utf-8"))
+        del raw["cohort_metadata"]["target_base_rate"]
+        (tmp_path / "assumptions.yaml").write_text(yaml.safe_dump(raw), encoding="utf-8")
+        # value_from references resolve next to the yaml file
+        (tmp_path / "estimated_parameters.json").write_bytes(
+            (ASSUMPTIONS_PATH.parent / "estimated_parameters.json").read_bytes()
+        )
+        with pytest.raises(KeyError, match="target_base_rate"):
+            generate_indian_student_cohort(
+                n_students=100, seed=42, output_path=None, assumptions_path=tmp_path / "assumptions.yaml"
+            )
 
     def test_mean_dropout_rate_across_20_seeds_within_bounds(self):
         """Mean dropout rate across 20 random seeds must be within +-2 pp of target base rate (33.5% to 37.5%)."""
