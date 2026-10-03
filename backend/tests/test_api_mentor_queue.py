@@ -375,3 +375,12 @@ class TestMentorFiltersEndpoint:
         assert "FAC_Q1" in mentor_ids
         assert "FAC_Q2" in mentor_ids
 
+
+
+@requires_db
+class TestInvalidCursor:
+    @pytest.mark.parametrize("cursor", ["not-a-valid-cursor", "YWJj"])  # "YWJj" is base64 of "abc"
+    def test_undecodable_cursor_is_422(self, client, seeded_queue, cursor):
+        response = client.get(f"{QUEUE_URL}?limit=2&cursor={cursor}")
+        assert response.status_code == 422
+        assert response.json()["error"] == "invalid_cursor"

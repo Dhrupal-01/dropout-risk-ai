@@ -19,12 +19,44 @@ DOCS_DIR = BASE_DIR / "docs"
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Risk Thresholds (Configurable via environment)
-# Low: < RISK_THRESHOLD_LOW (e.g. 0.33)
-# Medium: [RISK_THRESHOLD_LOW, RISK_THRESHOLD_HIGH] (e.g. [0.33, 0.66])
-# High: > RISK_THRESHOLD_HIGH (e.g. 0.66)
-RISK_THRESHOLD_LOW = float(os.getenv("RISK_THRESHOLD_LOW", "0.33"))
-RISK_THRESHOLD_HIGH = float(os.getenv("RISK_THRESHOLD_HIGH", "0.66"))
+# Runtime settings shared by the API, the tests and the pipeline. One source: the process
+# environment first, then backend/.env, then .env (the same precedence pydantic-settings uses for
+# backend Settings), then the defaults below. os.environ is never modified.
+ENV_FILES = (BASE_DIR / "backend" / ".env", BASE_DIR / ".env")  # earlier file wins
+DEFAULT_RISK_THRESHOLD_LOW = 0.33
+DEFAULT_RISK_THRESHOLD_HIGH = 0.66
+DEFAULT_RANDOM_SEED = 42
+
+
+def _setting(name: str, default):
+    if name in os.environ:
+        return os.environ[name]
+    from dotenv import dotenv_values
+
+    for env_file in ENV_FILES:
+        if env_file.exists():
+            value = dotenv_values(env_file).get(name)
+            if value is not None:
+                return value
+    return default
+
+
+def validate_risk_thresholds(low: float, high: float) -> None:
+    """Raises ValueError unless 0 < low < high < 1."""
+    if not 0.0 < low < high < 1.0:
+        raise ValueError(
+            f"Invalid risk thresholds: need 0 < RISK_THRESHOLD_LOW < RISK_THRESHOLD_HIGH < 1, "
+            f"got low={low}, high={high}"
+        )
+
+
+# Risk Thresholds
+# Low: < RISK_THRESHOLD_LOW
+# Medium: [RISK_THRESHOLD_LOW, RISK_THRESHOLD_HIGH]
+# High: > RISK_THRESHOLD_HIGH
+RISK_THRESHOLD_LOW = float(_setting("RISK_THRESHOLD_LOW", DEFAULT_RISK_THRESHOLD_LOW))
+RISK_THRESHOLD_HIGH = float(_setting("RISK_THRESHOLD_HIGH", DEFAULT_RISK_THRESHOLD_HIGH))
+validate_risk_thresholds(RISK_THRESHOLD_LOW, RISK_THRESHOLD_HIGH)
 
 # Artifact File Paths
 MODEL_ARTIFACT_PATH = ARTIFACTS_DIR / "calibrated_model.joblib"
@@ -36,7 +68,7 @@ FAIRNESS_REPORT_PATH = DOCS_DIR / "ethics_and_fairness.md"
 FAIRNESS_METRICS_PATH = ARTIFACTS_DIR / "fairness_metrics.json"
 
 # Random Seed for Reproducibility
-RANDOM_SEED = int(os.getenv("RANDOM_SEED", "42"))
+RANDOM_SEED = int(_setting("RANDOM_SEED", DEFAULT_RANDOM_SEED))
 
 ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
 

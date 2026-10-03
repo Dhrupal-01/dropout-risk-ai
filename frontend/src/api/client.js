@@ -19,6 +19,8 @@ export const errorMap = {
   invalid_feature_payload: 'Invalid data format or feature contract violation.',
   model_unavailable: 'Scoring is temporarily unavailable. Retrying shortly...',
   internal_error: 'Something went wrong. Reference:',
+  invalid_cursor: 'The list position is no longer valid. Reload the first page.',
+  upload_too_large: 'The file is larger than the upload limit.',
 };
 
 // Response interceptor to handle and standardise error responses

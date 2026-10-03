@@ -87,3 +87,60 @@ class TestMlConfigReuse:
         assert backend_config.RISK_THRESHOLD_LOW == ml_config.RISK_THRESHOLD_LOW
         assert backend_config.RISK_THRESHOLD_HIGH == ml_config.RISK_THRESHOLD_HIGH
         assert backend_config.get_risk_tier is ml_config.get_risk_tier
+
+
+# ---------------------------------------------------- risk thresholds and seed: one source (C1)
+
+import json
+import os
+import subprocess
+import sys
+
+from backend.tests.db_guard import PROJECT_ROOT
+
+FAKE_DB = "postgresql+psycopg://u:p@db.invalid/x"
+PRINT_BOTH = (
+    "import json, ml.config as m; from backend.app.core.config import get_settings; s = get_settings(); "
+    "print(json.dumps({'settings': [s.RISK_THRESHOLD_LOW, s.RISK_THRESHOLD_HIGH, s.RANDOM_SEED], "
+    "'ml_config': [m.RISK_THRESHOLD_LOW, m.RISK_THRESHOLD_HIGH, m.RANDOM_SEED]}))"
+)
+
+
+def _run(code: str, **overrides) -> subprocess.CompletedProcess:
+    env = {k: v for k, v in os.environ.items() if k not in ("RISK_THRESHOLD_LOW", "RISK_THRESHOLD_HIGH", "RANDOM_SEED")}
+    env.update({"DATABASE_URL": FAKE_DB, **overrides})
+    return subprocess.run([sys.executable, "-c", code], cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
+
+
+class TestRiskThresholdSettings:
+    def test_server_and_ml_core_read_identical_values(self, settings):
+        import ml.config
+
+        assert (settings.RISK_THRESHOLD_LOW, settings.RISK_THRESHOLD_HIGH, settings.RANDOM_SEED) == (
+            ml.config.RISK_THRESHOLD_LOW, ml.config.RISK_THRESHOLD_HIGH, ml.config.RANDOM_SEED
+        )
+
+    def test_environment_override_reaches_both(self):
+        res = _run(PRINT_BOTH, RISK_THRESHOLD_LOW="0.25", RISK_THRESHOLD_HIGH="0.7", RANDOM_SEED="7")
+        assert res.returncode == 0, res.stderr[-2000:]
+        values = json.loads(res.stdout.strip().splitlines()[-1])
+        assert values["settings"] == values["ml_config"] == [0.25, 0.7, 7]
+
+    @pytest.mark.parametrize("low, high", [("0.7", "0.5"), ("0.5", "0.5"), ("0", "0.5"), ("0.3", "1"), ("-0.1", "0.5")])
+    def test_invalid_thresholds_fail_at_startup(self, low, high):
+        for code in ("import ml.config", "import backend.app.main"):
+            res = _run(code, RISK_THRESHOLD_LOW=low, RISK_THRESHOLD_HIGH=high)
+            assert res.returncode != 0, f"{code} started with low={low}, high={high}"
+            assert "Invalid risk thresholds" in res.stderr, res.stderr[-1000:]
+
+    @pytest.mark.parametrize("low, high", [(0.7, 0.5), (0.5, 0.5), (0.0, 0.5), (0.3, 1.0)])
+    def test_settings_rejects_invalid_thresholds(self, low, high):
+        with pytest.raises(ValidationError, match="Invalid risk thresholds"):
+            Settings(_env_file=None, DATABASE_URL=FAKE_DB, RISK_THRESHOLD_LOW=low, RISK_THRESHOLD_HIGH=high)
+
+    def test_settings_rejects_values_that_disagree_with_ml_config(self):
+        import ml.config
+
+        other_low = ml.config.RISK_THRESHOLD_LOW / 2
+        with pytest.raises(ValidationError, match="disagree with ml.config"):
+            Settings(_env_file=None, DATABASE_URL=FAKE_DB, RISK_THRESHOLD_LOW=other_low)

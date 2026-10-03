@@ -37,15 +37,22 @@ def _encode_cursor(priority_score: float, student_id: str) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii")
 
 
-def _decode_cursor(cursor_str: str) -> Optional[Tuple[float, str]]:
+class InvalidCursorError(Exception):
+    """Raised when a keyset cursor cannot be decoded; the client must restart from page 1 itself."""
+
+    def __init__(self, cursor: str) -> None:
+        self.cursor = cursor
+        super().__init__("The pagination cursor is not valid; request the first page without a cursor.")
+
+
+def _decode_cursor(cursor_str: str) -> Tuple[float, str]:
+    """Inverse of _encode_cursor. Any malformed cursor raises InvalidCursorError (never page 1)."""
     try:
         raw = base64.urlsafe_b64decode(cursor_str.encode("ascii")).decode("utf-8")
-        parts = raw.split("::", 1)
-        if len(parts) == 2:
-            return float.fromhex(parts[0]), parts[1]
-    except Exception:
-        pass
-    return None
+        score_hex, student_id = raw.split("::", 1)
+        return float.fromhex(score_hex), student_id
+    except (ValueError, UnicodeError) as exc:
+        raise InvalidCursorError(cursor_str) from exc
 
 
 def _latest_intervention_map(db: Session, student_uuids: List[Any]) -> Dict[Any, InterventionLog]:
@@ -140,7 +147,7 @@ def build_queue(
     rank_offset = offset
 
     # Keyset cursor pagination
-    decoded_cursor = _decode_cursor(cursor) if cursor else None
+    decoded_cursor = _decode_cursor(cursor) if cursor is not None else None
     if decoded_cursor:
         c_score, c_sid = decoded_cursor
         query = query.where(

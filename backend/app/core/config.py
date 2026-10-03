@@ -18,10 +18,12 @@ from ml.config import (  # noqa: F401
     FEATURE_NAMES_PATH,
     MODEL_ARTIFACT_PATH,
     PROCESSED_DATA_PATH,
+    RANDOM_SEED,
     RISK_THRESHOLD_HIGH,
     RISK_THRESHOLD_LOW,
     SHAP_EXPLAINER_PATH,
     get_risk_tier,
+    validate_risk_thresholds,
 )
 
 BASE_DIR = MODEL_ARTIFACT_PATH.parents[2]
@@ -73,6 +75,17 @@ class Settings(BaseSettings):
     ]
     CORS_ALLOW_CREDENTIALS: bool = True
 
+    # Risk tiering and seed. Same source and precedence as ml.config (env > backend/.env > .env >
+    # default), so the server, the tests and the pipeline always use one value; validated below.
+    RISK_THRESHOLD_LOW: float = RISK_THRESHOLD_LOW
+    RISK_THRESHOLD_HIGH: float = RISK_THRESHOLD_HIGH
+    RANDOM_SEED: int = RANDOM_SEED
+
+    # CSV upload limit (owner decision: 2 MB of file bytes). The envelope allowance covers multipart
+    # boundaries and part headers when the request Content-Length is checked before parsing.
+    MAX_UPLOAD_BYTES: int = Field(default=2_000_000, gt=0)
+    MAX_UPLOAD_ENVELOPE_BYTES: int = Field(default=65_536, ge=0)
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_origins(cls, v):
@@ -100,6 +113,23 @@ class Settings(BaseSettings):
     def ddl_database_url(self) -> str:
         """URL used for migrations: the direct endpoint when configured, else the default."""
         return self.MIGRATION_DATABASE_URL or self.DATABASE_URL
+
+    @model_validator(mode="after")
+    def _risk_thresholds_valid_and_shared(self) -> "Settings":
+        """0 < low < high < 1, and identical to ml.config, which does the actual tiering."""
+        validate_risk_thresholds(self.RISK_THRESHOLD_LOW, self.RISK_THRESHOLD_HIGH)
+        shared = {
+            "RISK_THRESHOLD_LOW": RISK_THRESHOLD_LOW,
+            "RISK_THRESHOLD_HIGH": RISK_THRESHOLD_HIGH,
+            "RANDOM_SEED": RANDOM_SEED,
+        }
+        mismatched = {k: (getattr(self, k), v) for k, v in shared.items() if getattr(self, k) != v}
+        if mismatched:
+            raise ValueError(
+                f"Settings disagree with ml.config (settings, ml.config): {mismatched}. "
+                "Set these only via the environment or .env so both read the same value."
+            )
+        return self
 
     @model_validator(mode="after")
     def _production_requires_postgres(self) -> "Settings":

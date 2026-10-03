@@ -8,12 +8,12 @@ handlers reuse that single in-memory instance and never touch joblib.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.v1.router import api_router
 from backend.app.core.config import get_settings
-from backend.app.core.errors import register_exception_handlers
+from backend.app.core.errors import register_exception_handlers, upload_too_large_response
 from backend.app.db.session import check_database_connection
 from backend.app.schemas.health import HealthResponse
 from backend.app.services.ml_service import ml_service
@@ -51,6 +51,26 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+CSV_UPLOAD_PATH = f"{settings.API_V1_PREFIX}/predict/batch/csv"
+
+
+@app.middleware("http")
+async def reject_oversized_csv_uploads(request: Request, call_next):
+    """
+    413 before any body is read or parsed when the declared Content-Length is over the file limit
+    plus the multipart envelope allowance. Registered before CORS so CORS still wraps the 413.
+    The endpoint's bounded read enforces the exact file-byte limit (and covers chunked uploads).
+    """
+    if request.method == "POST" and request.url.path == CSV_UPLOAD_PATH:
+        current = get_settings()
+        declared = request.headers.get("content-length")
+        if declared is not None and declared.isdigit() and (
+            int(declared) > current.MAX_UPLOAD_BYTES + current.MAX_UPLOAD_ENVELOPE_BYTES
+        ):
+            return upload_too_large_response(current.MAX_UPLOAD_BYTES)
+    return await call_next(request)
+
 
 # Explicit origins from the environment — never a wildcard alongside credentials.
 app.add_middleware(

@@ -585,3 +585,47 @@ class TestCsvBatch:
         )
         assert response.status_code == 201, response.text
         assert response.json()["total_students_evaluated"] == 5
+
+
+# --------------------------------------------------------------- CSV upload size limit (B2)
+
+def _csv_of_exact_size(features, size: int) -> bytes:
+    """A valid one-row CSV padded to exactly `size` bytes through an ignored extra column."""
+    import pandas as pd
+
+    def render(pad: str) -> bytes:
+        buffer = io.StringIO()
+        pd.DataFrame([dict(features, student_id="CSV_SIZE", padding=pad)]).to_csv(buffer, index=False)
+        return buffer.getvalue().encode()
+
+    base = len(render(""))
+    data = render("x" * (size - base))
+    assert len(data) == size
+    return data
+
+
+@requires_db
+class TestCsvUploadLimit:
+    def test_exactly_at_the_limit_is_accepted(self, client, db_engine, high_risk_features, settings):
+        data = _csv_of_exact_size(high_risk_features, settings.MAX_UPLOAD_BYTES)
+        response = client.post(CSV_URL, files={"file": ("cohort.csv", data, "text/csv")})
+        assert response.status_code == 201, response.text[:500]
+        assert response.json()["total_students_evaluated"] == 1
+
+    def test_one_byte_over_is_413(self, client, db_engine, high_risk_features, settings):
+        data = _csv_of_exact_size(high_risk_features, settings.MAX_UPLOAD_BYTES + 1)
+        response = client.post(CSV_URL, files={"file": ("cohort.csv", data, "text/csv")})
+        assert response.status_code == 413
+        assert response.json()["error"] == "upload_too_large"
+
+    def test_declared_length_over_limit_is_rejected_before_parsing(self, client, high_risk_features, settings, monkeypatch):
+        import pandas as pd
+
+        def must_not_parse(*args, **kwargs):
+            raise AssertionError("CSV was parsed despite an oversized Content-Length")
+
+        monkeypatch.setattr(pd, "read_csv", must_not_parse)
+        size = settings.MAX_UPLOAD_BYTES + settings.MAX_UPLOAD_ENVELOPE_BYTES + 1
+        response = client.post(CSV_URL, files={"file": ("cohort.csv", b"x" * size, "text/csv")})
+        assert response.status_code == 413
+        assert response.json()["error"] == "upload_too_large"
