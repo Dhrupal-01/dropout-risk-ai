@@ -1,4 +1,5 @@
 import client from './client';
+import { withAdminToken } from './adminToken';
 
 /**
  * Health probe API endpoint
@@ -85,7 +86,7 @@ export const getInterventionsCatalog = () => {
  * @returns {Promise<Object>} Created/updated log response
  */
 export const logIntervention = (payload) => {
-  return client.post('/api/v1/interventions/log', payload);
+  return withAdminToken(() => client.post('/api/v1/interventions/log', payload));
 };
 
 /**
@@ -94,7 +95,7 @@ export const logIntervention = (payload) => {
  * @returns {Promise<Object>} Calibrated risk and tier
  */
 export const predictStudent = (payload) => {
-  return client.post('/api/v1/predict', payload);
+  return withAdminToken(() => client.post('/api/v1/predict', payload));
 };
 
 /**
@@ -106,7 +107,7 @@ export const predictStudent = (payload) => {
 export const uploadBatchCsv = (file, sortByRiskDesc = true) => {
   const formData = new FormData();
   formData.append('file', file);
-  return client.post('/api/v1/predict/batch/csv', formData, {
+  return withAdminToken(() => client.post('/api/v1/predict/batch/csv', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -114,5 +115,5 @@ export const uploadBatchCsv = (file, sortByRiskDesc = true) => {
       sort_by_risk_desc: sortByRiskDesc,
       include_explanations: false, // Default false to optimize speed
     }
-  });
+  }));
 };

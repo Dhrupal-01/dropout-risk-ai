@@ -37,6 +37,13 @@ if os.environ.get("TEST_DATABASE_URL"):
 else:
     os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
 os.environ["ENVIRONMENT"] = "test"
+# Writes need the admin bearer token (backend/app/core/security.py). Tests use a fixed fake token;
+# the shared client sends it by default and auth tests override or omit it.
+# setdefault, so a session that also loads verification/conftest.py uses one token throughout.
+os.environ.setdefault("API_ADMIN_TOKEN", "test-admin-token-not-a-secret")
+os.environ.setdefault("PUBLIC_READ_ONLY", "true")
+TEST_ADMIN_TOKEN = os.environ["API_ADMIN_TOKEN"]
+AUTH_HEADER = {"Authorization": f"Bearer {TEST_ADMIN_TOKEN}"}
 
 # Generated ML artifacts are built per session in a temp dir, never in the repository.
 # Must precede any `ml.config` import (backend.app.* imports it).
@@ -95,7 +102,7 @@ def client(simulated_artifacts):
 
     from backend.app.main import app
 
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=AUTH_HEADER) as test_client:
         yield test_client
 
 

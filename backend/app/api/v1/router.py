@@ -6,8 +6,9 @@ paths match the handover spec (/students/{id}/interventions) while the log and c
 routes stay under /interventions.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from backend.app.core.security import authorize
 from backend.app.api.v1.endpoints import (
     explain,
     interventions,
@@ -16,7 +17,9 @@ from backend.app.api.v1.endpoints import (
     stats,
 )
 
-api_router = APIRouter()
+# Every v1 route goes through authorize: writes need the admin token; reads are public while
+# PUBLIC_READ_ONLY is true (backend/app/core/security.py).
+api_router = APIRouter(dependencies=[Depends(authorize)])
 
 api_router.include_router(predict.router, tags=["predictions"])
 api_router.include_router(explain.router, tags=["explanations"])

@@ -50,6 +50,10 @@ TEST_DATABASE_URL = _psycopg3(os.environ.get("TEST_DATABASE_URL"))
 # time. The app under verification is pointed at the TEST database explicitly (or at a dummy URL
 # when none is set), never at the application database loaded from .env.
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL or "postgresql+psycopg://test:test@localhost:5432/test"
+# Writes need the admin bearer token; the verification client sends this fake one.
+os.environ.setdefault("API_ADMIN_TOKEN", "verification-admin-token-not-a-secret")
+os.environ.setdefault("PUBLIC_READ_ONLY", "true")
+VERIFICATION_ADMIN_TOKEN = os.environ["API_ADMIN_TOKEN"]
 os.environ.pop("MIGRATION_DATABASE_URL", None)
 
 
@@ -117,5 +121,5 @@ def client(db_engine):
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"Authorization": f"Bearer {VERIFICATION_ADMIN_TOKEN}"}) as test_client:
         yield test_client

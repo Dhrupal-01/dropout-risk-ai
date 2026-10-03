@@ -2,6 +2,7 @@
 Centralised API error handling.
 
 Contract:
+  401  missing or wrong admin bearer token (unauthorized)
   404  student not found
   413  CSV upload larger than Settings.MAX_UPLOAD_BYTES (upload_too_large)
   422  invalid feature payload (Pydantic validation or contract violation), invalid_cursor
@@ -43,6 +44,10 @@ class NoPredictionError(Exception):
     def __init__(self, student_id: str) -> None:
         self.student_id = student_id
         super().__init__(f"Student '{student_id}' has no prediction history")
+
+
+class UnauthorizedError(Exception):
+    """Raised when a request needs the admin bearer token and does not carry the right one."""
 
 
 class FeatureContractError(Exception):
@@ -121,6 +126,14 @@ def register_exception_handlers(app: FastAPI) -> None:
                 current_status=exc.current,
                 requested_status=exc.requested,
             ),
+        )
+
+    @app.exception_handler(UnauthorizedError)
+    async def _unauthorized(request: Request, exc: UnauthorizedError):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=_body("unauthorized", str(exc)),
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     @app.exception_handler(UploadTooLargeError)

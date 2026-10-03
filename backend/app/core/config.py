@@ -8,7 +8,7 @@ from `ml.config`, which stays the single source of truth for the ML core.
 from functools import lru_cache
 from typing import Annotated, List, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Re-exported from the ML core so the backend can never drift from the model contract.
@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     ]
     CORS_ALLOW_CREDENTIALS: bool = True
 
+    # Access control, first stage (owner decision): one shared admin bearer token for every write;
+    # reads stay public while PUBLIC_READ_ONLY is true. Per-mentor login comes later. Do not load
+    # real student data until per-mentor authentication exists.
+    API_ADMIN_TOKEN: Optional[SecretStr] = None
+    PUBLIC_READ_ONLY: bool = True
+
     # Risk tiering and seed. Same source and precedence as ml.config (env > backend/.env > .env >
     # default), so the server, the tests and the pipeline always use one value; validated below.
     RISK_THRESHOLD_LOW: float = RISK_THRESHOLD_LOW
@@ -129,6 +135,18 @@ class Settings(BaseSettings):
                 f"Settings disagree with ml.config (settings, ml.config): {mismatched}. "
                 "Set these only via the environment or .env so both read the same value."
             )
+        return self
+
+    @field_validator("API_ADMIN_TOKEN", mode="before")
+    @classmethod
+    def _blank_token_is_unset(cls, v):
+        return None if v is None or (isinstance(v, str) and not v.strip()) else v
+
+    @model_validator(mode="after")
+    def _production_requires_admin_token(self) -> "Settings":
+        """A deployed API must not accept writes without a configured admin token."""
+        if self.ENVIRONMENT == "production" and self.API_ADMIN_TOKEN is None:
+            raise ValueError("ENVIRONMENT=production requires API_ADMIN_TOKEN (writes need a bearer token).")
         return self
 
     @model_validator(mode="after")

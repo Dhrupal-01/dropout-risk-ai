@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAdminToken } from './adminToken';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -21,7 +22,18 @@ export const errorMap = {
   internal_error: 'Something went wrong. Reference:',
   invalid_cursor: 'The list position is no longer valid. Reload the first page.',
   upload_too_large: 'The file is larger than the upload limit.',
+  unauthorized: 'The admin token is missing or wrong. Enter the correct admin token in the header and try again.',
+  admin_token_missing: 'This action needs the admin token. Enter it in the header.',
 };
+
+// Send the in-memory admin token when one is entered (writes need it; reads may, see PUBLIC_READ_ONLY).
+client.interceptors.request.use((config) => {
+  const token = getAdminToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Response interceptor to handle and standardise error responses
 client.interceptors.response.use(
@@ -47,7 +59,9 @@ client.interceptors.response.use(
         standardError.incident_id = data.incident_id;
 
         // Custom mappings as per UX spec
-        if (standardError.code === 'student_not_found') {
+        if (standardError.code === 'unauthorized') {
+          standardError.message = errorMap.unauthorized;
+        } else if (standardError.code === 'student_not_found') {
           standardError.message = 'Student not found.';
         } else if (standardError.code === 'no_prediction_history') {
           standardError.message = 'Not yet scored.';

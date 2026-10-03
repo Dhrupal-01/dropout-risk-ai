@@ -54,6 +54,16 @@ The backend must allow the frontend's origin in `CORS_ORIGINS` (repository `.env
 The app does not use that proxy as written: `src/api/client.js` always calls the absolute
 `VITE_API_BASE_URL` (an empty value falls back to the default).
 
+## Admin token (writes)
+
+Scoring a student, uploading a CSV and logging an intervention change data, so the API requires
+`Authorization: Bearer <API_ADMIN_TOKEN>` for them (first-stage access control; per-mentor login
+comes later). Enter the token in the "Admin token" field in the header. It is kept in memory only
+(`src/api/adminToken.js`): never in `localStorage`, `sessionStorage` or cookies, and a page reload
+clears it. Without it, write actions show an explanation instead of sending the request; a wrong
+token gets the `unauthorized` message. Do not load real student data until per-mentor
+authentication exists.
+
 ## Error messages
 
 API errors arrive as `{ "error": <code>, "message": ... }`. `src/api/client.js` maps the codes in

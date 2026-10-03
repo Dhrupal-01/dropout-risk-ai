@@ -15,6 +15,7 @@ import {
 } from '../api/endpoints';
 import RiskTierChip from '../components/RiskTierChip';
 import ShapChart from '../components/ShapChart';
+import AdminTokenNotice from '../components/AdminTokenNotice';
 
 const StudentDetail = () => {
   const { studentId } = useParams();
@@ -139,6 +140,9 @@ const StudentDetail = () => {
           This student exists in the database but has no predictive scoring records. 
           Run a manual scoring evaluation now to generate the risk calibration and TreeSHAP attribution profiles.
         </p>
+        <div className="max-w-md mx-auto mb-3">
+          <AdminTokenNotice />
+        </div>
         <button
           onClick={() => {
             // Trigger dummy initial predict payload matching features schema
@@ -717,6 +721,7 @@ const StudentDetail = () => {
             </div>
 
             {/* Modal footer actions */}
+            <AdminTokenNotice />
             <div className="flex items-center space-x-3 border-t border-border pt-4 select-none">
               <button
                 type="button"

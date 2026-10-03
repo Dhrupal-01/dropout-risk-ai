@@ -178,6 +178,14 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 Bare `postgresql://` URLs are rewritten to the psycopg3 driver automatically.
 `.env` is gitignored — never commit credentials.
 
+**Access control (first stage).** Every write (`/predict`, `/predict/batch`, `/predict/batch/csv`,
+`/interventions/log`) needs `Authorization: Bearer <API_ADMIN_TOKEN>`; without the right token the
+API returns 401 `unauthorized`. With no `API_ADMIN_TOKEN` set, all writes are refused, and
+`ENVIRONMENT=production` will not start without one. Reads are public while `PUBLIC_READ_ONLY=true`
+(the default) and need the same token when it is `false`. The frontend has an "Admin token" field
+in the header, kept in memory only. This is one shared token, not per-mentor login.
+**Do not load real student data until per-mentor authentication exists.**
+
 ### 3. Build the ML artifacts (required once)
 
 Model binaries and `features.csv` are gitignored, so a fresh clone has none. The backend
@@ -318,6 +326,7 @@ dropout-risk-ai/
 
 ## Limitations
 
+- **No per-mentor authentication yet**: one shared admin token protects writes, and reads are public by default. Do not load real student data until per-mentor authentication exists.
 - **Simulated Data Cohort**: The model is trained and evaluated exclusively on synthetic data generated via domain-informed rules and logistic formulas (`generate_synthetic_indian.py`). While the pipeline models Indian higher education patterns (attendance thresholds, backlogs, fee arrears), it has not been validated on real institutional student records.
 - **Absence of Temporal Validation**: The current validation uses static held-out and cross-validation splits rather than time-split validation across sequential academic terms. Temporal degradation and concept drift have not yet been evaluated across multi-semester horizons.
 - **Fairness Metrics Reflect Generator Assumptions**: The demographic parity and equalized opportunity evaluations reflect the distributions and functional dependencies programmed into the synthetic data generator rather than the systemic disparities observed in real-world educational institutions.
