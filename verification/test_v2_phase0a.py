@@ -14,55 +14,64 @@ from verification.conftest import BASELINE_COMMIT, PROJECT_ROOT
 
 class TestV2Phase0A:
     def test_v2_1_readme_metrics_consistency(self):
-        """V2.1: README metrics match model_metrics.json and fairness_metrics.json."""
-        readme_path = PROJECT_ROOT / "README.md"
-        assert readme_path.exists()
-        readme = readme_path.read_text(encoding="utf-8")
+        """V2.1: The README METRICS block is exactly what render_metrics_block() renders from the JSON.
 
-        # Parse metrics table from README
-        match = re.search(r"<!-- METRICS:START -->(.*?)<!-- METRICS:END -->", readme, re.DOTALL)
-        assert match, "README is missing <!-- METRICS:START --> markers"
-        table_text = match.group(1)
+        render_metrics_block() reads every metric with direct key access, so a key missing from
+        model_metrics.json or fairness_metrics.json raises and fails this test.
+        """
+        from scripts.render_readme_metrics import END_MARKER, START_MARKER, render_metrics_block
 
-        # Load JSON artifacts
-        model_metrics_path = PROJECT_ROOT / "ml" / "artifacts" / "model_metrics.json"
-        assert model_metrics_path.exists()
-        with open(model_metrics_path, "r") as f:
-            model_metrics = json.load(f)
+        readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+        match = re.search(re.escape(START_MARKER) + r"(.*?)" + re.escape(END_MARKER), readme, re.DOTALL)
+        assert match, "README is missing the METRICS markers"
+        assert match.group(1) == f"\n{render_metrics_block()}\n", (
+            "README METRICS block differs from render_metrics_block(); regenerate with "
+            "`python -m ml.pipeline run-all` (never hand-edit the block)"
+        )
 
-        fairness_metrics_path = PROJECT_ROOT / "ml" / "artifacts" / "fairness_metrics.json"
-        assert fairness_metrics_path.exists()
-        with open(fairness_metrics_path, "r") as f:
-            fairness_metrics = json.load(f)
-
-        # Check key metrics in table
-        for key in ["roc_auc", "pr_auc", "brier_score"]:
-            if key in model_metrics:
-                val_str = f"{model_metrics[key]:.4f}"
-                assert val_str in table_text, f"Metric {key}={val_str} not found in README table"
-
-    def test_v2_2_regeneration_test(self, tmp_path):
-        """V2.2: Doc renderers generate byte-matching documentation (ignoring generated timestamp)."""
-        import scripts.render_readme_metrics as rm
-        import scripts.render_fairness_report as rf
-        import scripts.render_benchmark_report as rb
+    def test_v2_2_regeneration_test(self, tmp_path, monkeypatch):
+        """V2.2: Re-rendering every generated doc from the committed JSON reproduces the committed files
+        byte for byte (README generated blocks, 4 docs, 2 figures). Outputs go to tmp_path only."""
+        import ml.simulation.estimate_parameters as ep
         import ml.simulation.render_simulation_doc as rs
+        import scripts.render_benchmark_report as rb
+        import scripts.render_fairness_report as rf
+        import scripts.render_readme_benchmarks as rrb
+        import scripts.render_readme_metrics as rrm
 
-        # 1. Fairness report
-        committed_fairness = PROJECT_ROOT / "docs" / "ethics_and_fairness.md"
-        assert committed_fairness.exists()
-        # Verify renderer function exists and runs
-        assert hasattr(rf, "render_fairness_markdown_report")
+        (tmp_path / "figures").mkdir()
+        readme_copy = tmp_path / "README.md"
+        readme_copy.write_bytes((PROJECT_ROOT / "README.md").read_bytes())
+        monkeypatch.setattr(rb, "REPORT_MD_PATH", tmp_path / "benchmarks.md")
+        monkeypatch.setattr(rb, "FIGURES_DIR", tmp_path / "figures")
+        monkeypatch.setattr(rb, "RELIABILITY_IMG_PATH", tmp_path / "figures" / "uci_reliability_curves.png")
+        monkeypatch.setattr(rb, "EARLINESS_IMG_PATH", tmp_path / "figures" / "earliness_curve.png")
+        monkeypatch.setattr(rrb, "README_PATH", readme_copy)
+        monkeypatch.setattr(rrm, "README_PATH", readme_copy)
+        monkeypatch.setattr(rs, "DOCS_SIM_PATH", tmp_path / "simulation.md")
+        monkeypatch.setattr(ep, "DOCS_MAPPING_PATH", tmp_path / "simulation_mapping.md")
 
-        # 2. Simulation docs
-        committed_sim = PROJECT_ROOT / "docs" / "simulation.md"
-        assert committed_sim.exists()
-        assert hasattr(rs, "generate_simulation_doc") or hasattr(rs, "render_markdown")
+        rb.render_benchmark_report()  # also re-renders the README BENCHMARKS block into the copy
+        rf.render_fairness_markdown_report(report_path=tmp_path / "ethics_and_fairness.md")
+        rrm.update_readme()
+        ep.render_simulation_mapping_from_json()
+        rs.generate_simulation_doc()
 
-        # 3. Benchmark report
-        committed_bm = PROJECT_ROOT / "docs" / "benchmarks.md"
-        assert committed_bm.exists()
-        assert hasattr(rb, "render_benchmark_report")
+        pairs = {
+            "README.md": readme_copy,
+            "docs/benchmarks.md": tmp_path / "benchmarks.md",
+            "docs/ethics_and_fairness.md": tmp_path / "ethics_and_fairness.md",
+            "docs/simulation.md": tmp_path / "simulation.md",
+            "docs/simulation_mapping.md": tmp_path / "simulation_mapping.md",
+            "docs/figures/uci_reliability_curves.png": tmp_path / "figures" / "uci_reliability_curves.png",
+            "docs/figures/earliness_curve.png": tmp_path / "figures" / "earliness_curve.png",
+        }
+        differs = [name for name, rendered in pairs.items()
+                   if rendered.read_bytes() != (PROJECT_ROOT / name).read_bytes()]
+        assert not differs, (
+            f"Committed generated files differ from a fresh render: {differs}. Regenerate with "
+            "`python -m ml.pipeline run-all`; never hand-edit generated docs."
+        )
 
     def test_v2_3_production_grade_and_dataset_claims_hygiene(self):
         """V2.3: 'production-grade' absent. README describes UCI/OULAD as benchmarks only."""

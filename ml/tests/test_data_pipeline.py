@@ -63,8 +63,11 @@ class TestGeneratorCoefficientRecovery:
     so a plain logistic fit is attenuated by the noise. The fit here is the same logistic-normal
     model with sigma = idiosyncratic_noise_std from assumptions.yaml, integrated out by
     Gauss-Hermite quadrature, so its MLE targets the configured beta directly.
-    Intervals are Bonferroni-adjusted over the k nonzero coefficients (familywise 95%).
-    Seed and n are fixed and must not be tuned to make the test pass.
+    Intervals are Bonferroni-adjusted over the k nonzero coefficients (familywise 95% for those k).
+    Rule (owner decision): every configured coefficient, including the zero-valued protected ones,
+    must lie inside its adjusted interval; the estimate's sign must match the configured sign only
+    where the adjusted interval excludes 0 (otherwise the sign of the point estimate is noise).
+    Seed, n and the interval width are fixed and must not be tuned to make the test pass.
     """
 
     N_STUDENTS = 200_000
@@ -168,14 +171,17 @@ class TestGeneratorCoefficientRecovery:
         assert recovery["result"].success, recovery["result"].message
 
     def test_generator_recovers_configured_coefficients(self, recovery):
-        """Each configured nonzero coefficient: estimate has its sign and the adjusted 95% CI contains it."""
-        assert len(recovery["nonzero"]) > 0
-        wrong_sign = [n for n in recovery["nonzero"]
-                      if np.sign(recovery["rows"][n]["estimate"]) != np.sign(recovery["rows"][n]["configured"])]
-        not_covered = [n for n in recovery["nonzero"]
-                       if not recovery["rows"][n]["lo"] <= recovery["rows"][n]["configured"] <= recovery["rows"][n]["hi"]]
+        """Every coefficient lies in its adjusted 95% CI; sign must match where that CI excludes 0."""
+        rows = recovery["rows"]
+        assert len(rows) > 0 and len(recovery["nonzero"]) > 0
+        not_covered = [n for n, r in rows.items() if not r["lo"] <= r["configured"] <= r["hi"]]
+        sign_resolved = [n for n in recovery["nonzero"] if rows[n]["lo"] > 0 or rows[n]["hi"] < 0]
+        assert sign_resolved, "no coefficient has an interval excluding 0; the sign rule would be vacuous"
+        wrong_sign = [n for n in sign_resolved if np.sign(rows[n]["estimate"]) != np.sign(rows[n]["configured"])]
         assert not wrong_sign and not not_covered, (
-            f"wrong sign: {wrong_sign}; CI misses configured value: {not_covered}\n{self._table(recovery)}"
+            f"wrong sign (CI excludes 0): {wrong_sign}; CI misses configured value: {not_covered}\n"
+            f"sign checked for {len(sign_resolved)} of {len(recovery['nonzero'])} nonzero coefficients\n"
+            f"{self._table(recovery)}"
         )
 
 

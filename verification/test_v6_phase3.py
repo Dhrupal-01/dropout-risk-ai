@@ -153,11 +153,13 @@ class TestV6Phase3Simulation:
         assert sim_to_real_path.exists()
         with open(sim_to_real_path, "r") as f:
             data = json.load(f)
-        transfer_evals = data.get("transfer_evaluations", {})
-        assert "sim_to_real" in transfer_evals and "real_to_sim" in transfer_evals, "sim_to_real.json must have both directions"
-
-        doc_path = PROJECT_ROOT / "docs" / "simulation_mapping.md"
-        assert doc_path.exists(), "docs/simulation_mapping.md missing"
+        transfer_evals = data["transfer_evaluations"]
+        directions = ["real_on_real", "sim_on_sim", "sim_to_real", "real_to_sim"]
+        assert set(directions) <= set(transfer_evals), f"sim_to_real.json directions: {sorted(transfer_evals)}"
+        for direction in directions:
+            for metric in ["roc_auc", "pr_auc"]:
+                m = transfer_evals[direction]["metrics"][metric]
+                assert m["ci_lower"] <= m["point"] <= m["ci_upper"], f"{direction}.{metric}: {m}"
 
         doc_path = PROJECT_ROOT / "docs" / "simulation_mapping.md"
         assert doc_path.exists(), "docs/simulation_mapping.md missing"

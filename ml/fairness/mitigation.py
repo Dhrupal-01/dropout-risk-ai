@@ -175,6 +175,8 @@ def compare_fairness_mitigations(
     clf = base_estimator or LogisticRegression(C=1.0, max_iter=1000, random_state=seed)
 
     results: Dict[str, Any] = {}
+    # Split identity, recorded on every condition so a reader can check they share one split.
+    split = {"n_train": int(len(y_train)), "n_test": int(len(y_test)), "seed": int(seed)}
 
     # -------------------------------------------------------------
     # 1. NONE (Unmitigated)
@@ -245,6 +247,9 @@ def compare_fairness_mitigations(
             "brier_score": results["none"]["brier_score"],
             "max_fnr_gap": results["none"]["max_fnr_gap"],
         }
+
+    for condition in results.values():
+        condition["split"] = dict(split)
 
     # Summary Comparison Rows
     comparison_table = [

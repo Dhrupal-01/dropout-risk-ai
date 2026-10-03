@@ -100,7 +100,18 @@ class TestV7Phase4Fairness:
         assert len(mitigations) >= 4, f"Expected 4 mitigation conditions, found {len(mitigations)}"
 
         uci_mit_file = PROJECT_ROOT / "ml" / "artifacts" / "fairness" / "uci_mitigations.json"
-        assert uci_mit_file.exists()
+        results = json.loads(uci_mit_file.read_text(encoding="utf-8"))["results"]
+        conditions = ["none", "sample_reweighing", "group_specific_thresholds", "fairlearn_exponentiated_gradient"]
+        assert sorted(results) == sorted(conditions), f"mitigation conditions: {sorted(results)}"
+        splits = {}
+        for name in conditions:
+            split = results[name].get("split")
+            assert split is not None, f"{name}: no split identity recorded (regenerate uci_mitigations.json)"
+            assert isinstance(split["n_train"], int) and split["n_train"] > 0, f"{name}: {split}"
+            assert isinstance(split["n_test"], int) and split["n_test"] > 0, f"{name}: {split}"
+            assert isinstance(split["seed"], int), f"{name}: {split}"
+            splits[name] = (split["n_train"], split["n_test"], split["seed"])
+        assert len(set(splits.values())) == 1, f"Mitigation conditions ran on different splits: {splits}"
 
     def test_v7_5_oulad_2013_vs_2014_shift_reported(self):
         """V7.5: OULAD 2013 vs 2014 gaps and income ablation are reported."""
@@ -111,7 +122,37 @@ class TestV7Phase4Fairness:
         assert "income_ablation" in data
 
         shift_file = PROJECT_ROOT / "ml" / "artifacts" / "fairness" / "oulad_shift_check.json"
-        assert shift_file.exists()
+        shift = json.loads(shift_file.read_text(encoding="utf-8"))
+
+        def check_interval(ci, label):
+            assert isinstance(ci, list) and len(ci) == 2 and ci[0] <= ci[1], f"{label}: interval {ci}"
+
+        attributes = None
+        for presentation in ["audit_2013", "audit_2014"]:
+            attrs = shift[presentation]["attributes"]
+            attributes = attributes or set(attrs)
+            assert set(attrs) == attributes, f"{presentation} audits {sorted(attrs)}, expected {sorted(attributes)}"
+            for attr, audit in attrs.items():
+                ok_groups = 0
+                for group, g in audit["groups"].items():
+                    label = f"{presentation}.{attr}.{group}"
+                    if g["status"] != "ok":
+                        assert g.get("insufficient_sample") is True, f"{label}: status {g['status']} not flagged"
+                        continue
+                    ok_groups += 1
+                    for metric in ["tpr", "fnr", "fpr", "selection_rate"]:
+                        check_interval(g["confidence_intervals_95"][metric], f"{label}.{metric}")
+                    gap = audit["gaps_vs_reference"][group]
+                    if not gap["is_reference"] and gap["status"] == "ok":
+                        check_interval(gap["fnr_gap_95ci"], f"{label}.fnr_gap")
+                assert ok_groups > 0, f"{presentation}.{attr}: no group with a reportable sample"
+
+        assert set(shift["shift_comparison"]) == attributes
+        for attr, comp in shift["shift_comparison"].items():
+            assert comp["groups"], f"shift_comparison.{attr} is empty"
+            for g in comp["groups"]:
+                for key in ["fnr_2013", "fnr_2014", "fnr_gap_2013", "fnr_gap_2014"]:
+                    assert key in g, f"shift_comparison.{attr}.{g.get('group')}: missing {key}"
 
     def test_v7_6_forbidden_claims_in_ethics_doc(self):
         """V7.6: docs/ethics_and_fairness.md contains no forbidden claims outside static section."""

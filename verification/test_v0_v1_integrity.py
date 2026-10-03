@@ -187,13 +187,14 @@ class TestV1TestIntegrity:
     def test_v1_3_zero_skipped_tests_when_resources_present(self):
         """V1.3: Zero skipped tests when all resources are available."""
         res = subprocess.run(
-            [".venv/bin/pytest", "ml/tests", "backend/tests", "-q", "-rs"],
+            [sys.executable, "-m", "pytest", "ml/tests", "backend/tests", "-q", "-rs"],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
-            check=True,
         )
-        assert "SKIPPED" not in res.stdout, f"Found skipped tests when resources available:\n{res.stdout}"
+        tail = "\n".join((res.stdout + res.stderr).splitlines()[-30:])
+        assert res.returncode == 0, f"Product suite failed (exit {res.returncode}). Last 30 lines:\n{tail}"
+        assert "SKIPPED" not in res.stdout, f"Found skipped tests when resources available. Last 30 lines:\n{tail}"
 
     def test_v1_4_no_trivially_passing_tests(self):
         """V1.4: Spot-check AST of newly added test files for empty assertions or dummy passes."""

@@ -1,6 +1,7 @@
 """Configuration loading, CORS safety, and credential hygiene."""
 
 import pytest
+from pydantic import ValidationError
 
 from backend.app.core.config import Settings, get_settings
 
@@ -17,7 +18,7 @@ class TestSettingsLoading:
     def test_database_url_is_required(self, monkeypatch):
         """No default credentials may be baked in."""
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Settings(_env_file=None)  # type: ignore[call-arg]
 
 
