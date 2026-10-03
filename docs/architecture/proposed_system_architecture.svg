@@ -410,11 +410,11 @@
       <text x="10" y="95" font-size="8.5" fill="#334155">• scale_pos_weight = 1.82</text>
       <text x="10" y="115" font-size="9.5" font-weight="700" fill="#0f172a">Platt Sigmoid Scaling:</text>
       <text x="10" y="132" font-size="8.5" fill="#334155">• 5-Fold Cross Validation</text>
-      <text x="10" y="147" font-size="8.5" fill="#334155">• Brier Score: 0.0689</text>
-      <text x="10" y="167" font-size="9.5" font-weight="700" fill="#0f172a">Validated Benchmarks:</text>
-      <text x="10" y="184" font-size="8.5" font-weight="700" fill="#15803d">• Recall: 83.96%</text>
-      <text x="10" y="199" font-size="8.5" font-weight="700" fill="#15803d">• Precision: 89.90%</text>
-      <text x="10" y="214" font-size="8.5" font-weight="700" fill="#15803d">• ROC-AUC: 0.9752</text>
+      <text x="10" y="147" font-size="8.5" fill="#334155">• Calibrated probabilities</text>
+      <text x="10" y="167" font-size="9.5" font-weight="700" fill="#0f172a">Metrics:</text>
+      <text x="10" y="184" font-size="8.5" fill="#334155">• See README (generated)</text>
+      <text x="10" y="199" font-size="8.5" fill="#334155">• Simulated cohort: pipeline</text>
+      <text x="10" y="214" font-size="8.5" fill="#334155">  validation, not real-world</text>
     </g>
 
     <!-- ML Module 3: TreeSHAP XAI -->

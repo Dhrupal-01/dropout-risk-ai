@@ -177,23 +177,13 @@ graph LR
 
 - **Base Classifier**: Cost-sensitive `XGBClassifier` with `scale_pos_weight = 1.82` and SMOTE minority oversampling on training splits.
 - **Platt Probability Calibration**: Evaluated using 5-fold cross-validation (`CalibratedClassifierCV(method='sigmoid', cv=5)`).
-- **Decile Calibration Reliability**: Achieves a **Brier Calibration Score of 0.0689** (where 0.0 represents perfect probabilistic calibration).
 - **Risk Tiers Mapped Centrally in `ml/config.py`**:
   - 🟢 **Low Risk**: $P(\text{dropout}) < 33\%$
   - 🟡 **Medium Risk**: $33\% \le P(\text{dropout}) \le 66\%$
   - 🔴 **High Risk**: $P(\text{dropout}) > 66\%$
 
-#### Benchmark Metrics on Held-Out Test Set ($N=300$)
-| Metric | Value | Industrial Floor / Target | Status |
-| :--- | :---: | :---: | :---: |
-| **Headline At-Risk Recall** | **83.96%** | $\ge 60.0\%$ | ✅ Passed |
-| **At-Risk Precision** | **89.90%** | $\ge 80.0\%$ | ✅ Passed |
-| **Minority F1 Score** | **0.8683** | $\ge 0.80$ | ✅ Passed |
-| **Macro-Averaged F1 Score** | **0.9000** | — | ✅ Passed |
-| **ROC-AUC Score** | **0.9752** | $\ge 0.90$ | ✅ Passed |
-| **Overall Accuracy** | **91.00%** | — | ✅ Passed |
-| **Brier Score Loss** | **0.0689** | $\le 0.10$ | ✅ Passed |
-| **Target Leakage Ceiling** | **Max $|r| = 0.665$** | $< 0.70$ | ✅ Passed |
+#### Model metrics on the held-out test split
+Current values: the generated metrics block in the README, section [Pipeline validation on simulated data](../README.md). These metrics come from a simulated cohort and validate the pipeline, not real-world accuracy.
 
 ---
 
@@ -430,17 +420,7 @@ dropout-risk-ai/
 
 ## 8. Testing, QA & Validation Report
 
-The test suite provides comprehensive coverage across the ML pipeline, backend API, database ORM, and migration integrity:
-
-```text
-============================= TEST SUITE SUMMARY =============================
-ml/tests/ (ML Core & Feature Pipeline):               27 / 27  PASSED (100%)
-backend/tests/ (FastAPI API, Schemas, ORM & Lifespan): 147 / 147 PASSED (100%)
-Total Passing Automated Tests:                        174 / 174 PASSED (100%)
-Test Execution Time:                                  ~10.69 seconds
-Warnings / Failures:                                  0 Failures, 0 Application Warnings
-==============================================================================
-```
+The test suite covers the ML pipeline, the backend API, the database ORM and migration integrity. Run `pytest -q -rs` for the product suites and `pytest verification -q -rs` for the audit suite. Results are not copied into this document: the current audit-suite results are generated from junit XML into [verification/REPORT.md](../verification/REPORT.md) by `python -m scripts.render_verification_report`.
 
 ---
 

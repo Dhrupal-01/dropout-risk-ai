@@ -166,7 +166,7 @@ The core model is built with **XGBoost (Extreme Gradient Boosting)**, chosen for
 
 - **Dataset Split**: Stratified 70% Training ($N=1,400$), 15% Validation ($N=300$), 15% Unseen Held-Out Test ($N=300$).
 - **Imbalance Comparison**: Evaluated **SMOTE (Synthetic Minority Over-sampling)** against cost-sensitive **Class-Weighting (`scale_pos_weight`)**.
-- **Result**: Class-Weighting achieved higher minority-class F1 ($0.8683$) and cleaner probability calibration than SMOTE without introducing synthetic interpolation artifacts into boundary regions.
+- **Result**: the strategy with the higher validation minority-class F1 is selected at training time and recorded in `ml/artifacts/model_metrics.json` (`imbalance_strategy`).
 
 ```python
 # Champion Hyperparameter Configuration
@@ -201,8 +201,7 @@ flowchart LR
     D -->|P > 0.66| G["HIGH RISK (Urgent Intervention)"]
 ```
 
-- **Calibration Quality**: Achieved a Brier Score of **0.0689** (where 0.0 is perfect calibration).
-- **Configurable Thresholds** (defined centrally in [ml/config.py](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/ml/config.py)):
+- **Configurable Thresholds** (defined centrally in [ml/config.py](../ml/config.py)):
   ```python
   RISK_THRESHOLD_LOW = 0.33     # Below 33% = Low Risk Tier
   RISK_THRESHOLD_HIGH = 0.66    # Above 66% = High Risk Tier
@@ -210,17 +209,9 @@ flowchart LR
 
 ---
 
-### 3.3 Test-Set Performance Metrics (Held-Out $N=300$)
+### 3.3 Test-Set Performance Metrics
 
-| Evaluation Metric | Score | Clinical / Operational Interpretation |
-|---|---|---|
-| **At-Risk Recall (Sensitivity)** | **$83.96\%$** | Minimizes missed dropouts (False Negatives). Successfully detects over 8 out of 10 students at risk. |
-| **At-Risk Precision** | **$89.90\%$** | High confidence when flagging students, preventing alert fatigue among mentors. |
-| **At-Risk Minority F1 Score** | **$0.8683$** | Harmonic balance between recall and precision on the minority dropout class. |
-| **Macro-Averaged F1 Score** | **$0.9000$** | High balanced performance across both retained and dropout classes. |
-| **ROC-AUC Score** | **$0.9752$** | Strong discriminative separation across the full risk spectrum. |
-| **Overall Accuracy** | **$91.00\%$** | Total correct predictions on unseen held-out students. |
-| **Brier Calibration Loss** | **$0.0689$** | True probabilistic reliability across decile buckets. |
+Current values: the generated metrics block in the README, section [Pipeline validation on simulated data](../README.md). These metrics come from a simulated cohort and validate the pipeline, not real-world accuracy.
 
 ---
 
@@ -249,7 +240,7 @@ DropoutGuard does not stop at prediction; it prescribes specific, actionable rem
 
 ### 5.1 Codified Intervention Catalog (12 Structured Actions)
 
-Interventions are defined in [ml/artifacts/interventions.json](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/ml/artifacts/interventions.json) across all 4 pillars:
+Interventions are defined in [ml/artifacts/interventions.json](../ml/artifacts/interventions.json) across all 4 pillars:
 
 ```json
 [
@@ -317,25 +308,7 @@ Required Actions:
 
 ## 6. Algorithmic Fairness & Bias Audit (Held-Out Test Set $N=300$)
 
-To ensure ethical, bias-free operation in compliance with responsible AI guidelines, we audited False Negative Rate (FNR) parity and Equal Opportunity across demographic subgroups on the held-out test split:
-
-```
-A. Gender Parity:
-   • Female Students (N=121): Recall = 86.67%, Miss Rate (FNR) = 13.33%
-   • Male Students   (N=179): Recall = 81.97%, Miss Rate (FNR) = 18.03%
-   • FNR Disparity Gap: 4.70 percentage points (Well within the 10pp fairness ceiling)
-   • Disparate Impact Ratio: 1.183 (Within the 80% four-fifths rule)
-
-B. Socio-Economic Income Proxy:
-   • Lower Income (<5 LPA) (N=189): Recall = 84.93%, Miss Rate (FNR) = 15.07%
-   • Higher Income (>=5 LPA)(N=111): Recall = 81.82%, Miss Rate (FNR) = 18.18%
-   • FNR Disparity Gap: 3.11 percentage points
-
-C. First-Generation College Learner:
-   • First-Gen Students (N=109): Recall = 82.50%, Miss Rate (FNR) = 17.50%
-   • Non-First-Gen      (N=191): Recall = 84.85%, Miss Rate (FNR) = 15.15%
-   • FNR Disparity Gap: 2.35 percentage points
-```
+False Negative Rate (FNR) parity and Equal Opportunity are audited across demographic subgroups on the held-out test split. The generated report with every number and its confidence interval is [docs/ethics_and_fairness.md](ethics_and_fairness.md) (section 7, Generator Sanity Check). These numbers come from a simulated cohort and reflect the generator's assumptions, not real-world fairness.
 
 ---
 

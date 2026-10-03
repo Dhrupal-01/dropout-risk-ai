@@ -1,8 +1,8 @@
 # DropoutGuard — Proposed System Architecture Specification
 ### Enterprise Architectural Diagram & Structural Breakdown for SIH 2026 (PSID 7-L)
 **Team Name**: COGNITEX | **Team ID**: 107  
-**Interactive Viewer**: [docs/architecture/system_architecture.html](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/architecture/system_architecture.html)  
-**Vector Graphic (SVG)**: [docs/architecture/proposed_system_architecture.svg](file:///Users/dhrupal/Documents/SIH%202026/dropout-risk-ai/docs/architecture/proposed_system_architecture.svg)
+**Interactive Viewer**: [docs/architecture/system_architecture.html](../../docs/architecture/system_architecture.html)  
+**Vector Graphic (SVG)**: [docs/architecture/proposed_system_architecture.svg](../../docs/architecture/proposed_system_architecture.svg)
 
 ---
 
@@ -89,7 +89,7 @@ graph TD
     %% ================= AI/ML ANALYTICS CORE =================
     subgraph MLAnalyticsCore ["5. AI / ML & Analytics Core (ml/)"]
         ML_FE["1. Feature Transformer<br/>• 37 Predictor Features<br/>• 4 Interaction Terms<br/>• Zero Target Leakage"]
-        ML_XGB["2. Calibrated XGBoost<br/>• Cost-Sensitive (SMOTE)<br/>• Platt Sigmoid Scaling (5-Fold)<br/>• 83.96% Recall, 89.90% Precision<br/>• Brier Score: 0.0689"]
+        ML_XGB["2. Calibrated XGBoost<br/>• Cost-Sensitive (SMOTE)<br/>• Platt Sigmoid Scaling (5-Fold)<br/>• Metrics: see README (simulated cohort)"]
         ML_SHAP["3. TreeSHAP XAI<br/>• Exact Tree Attribution (+/- pp)<br/>• Plain-Language Translator<br/>• Synchronous Explainer Cache"]
         ML_Recourse["4. Recourse Optimizer<br/>• Path to Improvement Solver<br/>• 12-Item Action Mapping<br/>• Quantitative Fairness Parity"]
     end
@@ -133,7 +133,7 @@ graph TD
 
 ### 5. AI / ML & Analytics Core (Bottom Right Section)
 - **4-Pillar Feature Engine**: Computes 37 domain predictors and non-linear interactions (*Absenteeism × Fee Delay*, *CGPA Deficit × Backlogs*).
-- **Cost-Sensitive XGBoost & Platt Calibrator**: Achieves **83.96% Recall**, **89.90% Precision**, **0.9752 ROC-AUC**, and a **0.0689 Brier score**.
+- **Cost-Sensitive XGBoost & Platt Calibrator**: current values are in the generated metrics block in the README, section [Pipeline validation on simulated data](../../README.md). These metrics come from a simulated cohort and validate the pipeline, not real-world accuracy.
 - **TreeSHAP Explainability Engine**: Computes signed percentage-point attributions and plain-language sentences in $<50\text{ms}$ per student.
 - **Counterfactual Recourse Engine**: Multi-objective optimization solving for the minimal achievable feature deltas required to transition a student to Low Risk.
 

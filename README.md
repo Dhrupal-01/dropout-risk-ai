@@ -9,7 +9,6 @@
 ## Quick Links & Documentation
 
 - [**Master Architecture & System Documentation**](docs/project_architecture_and_system_documentation.md) — Comprehensive end-to-end technical documentation
-- [**SIH Presentation Master Blueprint**](docs/presentation/sih_presentation_master_blueprint.md) & [PowerPoint Deck (.pptx)](docs/presentation/COGNITEX_PS7_DropoutGuard.pptx)
 - [**Frontend API Handover**](docs/frontend_api_handover.md) — Endpoint specifications, schemas & error codes
 - [Backend Architecture & Feature Contract](backend/README.md)
 - [ML Architecture, Feature Engineering & Pipeline Spec](docs/ml_architecture_and_pipeline.md)

@@ -155,3 +155,79 @@ class TestV2Phase0A:
             # If doc mentions target base rate, verify agreement
             pct = int(target_rate * 100)
             assert f"{pct}%" in gen_source or f"{target_rate}" in gen_source
+
+
+# ------------------------------------------------- hand-written docs: no typed metrics, no dead links
+
+GENERATED_DOCS = {"docs/benchmarks.md", "docs/ethics_and_fairness.md", "docs/simulation.md", "docs/simulation_mapping.md"}
+_KW = r"(?:roc[- ]?auc|recall|precision|brier|accuracy|f1)"
+# A whole number token; "top 10%" (a cutoff) and "95% CI" (a confidence level) are not metric values.
+_NUM = r"(?<![\d.])(?<!top )(?<!top-)\d+(?:\.\d+)?(?![\d.])(?!\s*%\s*(?:ci\b|confidence))"
+# A value written before the metric name must look like a value (decimal or percentage), so sample
+# sizes such as "(N=121): Recall" and colour codes such as "#334155" do not count.
+_VALUE = r"(?<![\d.#])(?:\d+\.\d+\s*%?|\d+\s*%)"
+TYPED_METRIC = re.compile(
+    rf"\b{_KW}\b(?:[^\w\n]{{0,8}}[a-z]+){{0,3}}?[^\w\n]{{0,8}}{_NUM}"  # metric name, up to 3 words, number
+    rf"|{_VALUE}[^\w\n]{{0,4}}{_KW}\b",  # value, then metric name
+    re.IGNORECASE,
+)
+
+
+def _tracked(*paths):
+    out = subprocess.run(["git", "ls-files", *paths], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
+    return out.stdout.split()
+
+
+def _hand_written_docs():
+    """README.md (outside its generated blocks) and docs/, minus generated docs and dated records in docs/tasks/."""
+    from ml.provenance import strip_generated_readme_blocks
+
+    for rel in _tracked("README.md", "docs"):
+        if rel in GENERATED_DOCS or rel.startswith("docs/tasks/") or not rel.endswith((".md", ".txt", ".html", ".svg")):
+            continue
+        text = (PROJECT_ROOT / rel).read_text(encoding="utf-8", errors="ignore")
+        yield rel, strip_generated_readme_blocks(text) if rel == "README.md" else text
+
+
+class TestV2HandWrittenDocs:
+    def test_v2_8_metric_pattern_catches_typed_values(self):
+        for bad in ["Achieves **83.96% Recall**", "Brier Calibration Score of 0.0689", "| **ROC-AUC Score** | **0.9752** |",
+                    "Recall = 85.57%", "Overall Accuracy: 91.00%", "minority-class F1 ($0.8683$)", "Precision: 89.90%"]:
+            assert TYPED_METRIC.search(bad), bad
+        for ok in ["precision at top 10% and 20%", "ROC-AUC of {point} (95% CI {lo}-{hi})", "ROC-AUC, PR-AUC and Brier",
+                   "Female Students (N=121): Recall", 'fill="#334155">• Brier']:
+            assert not TYPED_METRIC.search(ok), ok
+
+    def test_v2_8_no_typed_metrics_in_hand_written_docs(self):
+        """Metric values live only in generated docs and the README's generated blocks (simulated cohort)."""
+        hits = [
+            f"{rel}:{i}: {m.group(0)!r}"
+            for rel, text in _hand_written_docs()
+            for i, line in enumerate(text.splitlines(), 1)
+            for m in TYPED_METRIC.finditer(line)
+        ]
+        assert not hits, "Typed metric values in hand-written docs (link to the generated block instead):\n" + "\n".join(hits)
+
+    def test_v2_9_relative_links_resolve(self):
+        """Every relative link in README.md and docs/*.md points at a file in the repo; no file:// links."""
+        from urllib.parse import unquote
+
+        link = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+        broken, checked = [], 0
+        for rel in _tracked("README.md", "docs"):
+            if not rel.endswith(".md"):
+                continue
+            path = PROJECT_ROOT / rel
+            for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for target in link.findall(line):
+                    if target.startswith("file:"):
+                        broken.append(f"{rel}:{i}: machine-specific link {target}")
+                        continue
+                    if re.match(r"^(https?:|mailto:|#)", target):
+                        continue
+                    checked += 1
+                    resolved = (path.parent / unquote(target.split("#", 1)[0].split("?", 1)[0])).resolve()
+                    if not resolved.exists():
+                        broken.append(f"{rel}:{i}: {target}")
+        assert checked > 0
+        assert not broken, "Broken relative links:\n" + "\n".join(broken)
