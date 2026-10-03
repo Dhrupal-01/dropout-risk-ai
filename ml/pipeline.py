@@ -192,13 +192,13 @@ def dry_run() -> int:
         )
     except DirtyTreeError as exc:
         tree = f"would REFUSE ({exc})"
-    print(f"Preflight (checked once at start):")
+    print("Preflight (checked once at start):")
     print(f"  HEAD:             {provenance._git('rev-parse', 'HEAD')}")
     print(f"  tree:             {tree}")
     print(f"  artifact env:     {'would REFUSE, set: ' + str(preset) if preset else 'not redirected'}")
-    print(f"  run id:           <UTC timestamp>-<commit[:7]>-<6 hex>, generated at start, in every artifact's provenance")
+    print("  run id:           <UTC timestamp>-<commit[:7]>-<6 hex>, generated at start, in every artifact's provenance")
     print("\nRequired raw inputs:")
-    for name, path in {**uci_inputs(), **oulad_inputs()}.items():
+    for path in {**uci_inputs(), **oulad_inputs()}.values():
         print(f"  {'present' if Path(path).exists() else 'MISSING':<8} {os.path.relpath(path, BASE_DIR)}")
     for phase, title in [("compute", "Compute steps (stop at first failure)"), ("render", "Render steps (only after all compute steps and the run-id gate succeed)")]:
         print(f"\n{title}:")

@@ -19,7 +19,7 @@ For each demographic group:
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix

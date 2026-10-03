@@ -5,8 +5,6 @@ and rewrites only the text between <!-- METRICS:START --> and <!-- METRICS:END -
 """
 
 import json
-import re
-import sys
 from pathlib import Path
 
 from ml.provenance import assert_consistent_provenance, dirty_artifact_warning

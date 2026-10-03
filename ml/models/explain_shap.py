@@ -17,10 +17,8 @@ import shap
 from ml.config import (
     PROCESSED_DATA_PATH,
     BASE_MODEL_PATH,
-    MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
-    SHAP_EXPLAINER_PATH,
-    RANDOM_SEED
+    SHAP_EXPLAINER_PATH
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

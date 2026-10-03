@@ -6,7 +6,6 @@ Zero hardcoded secrets, central risk thresholds.
 
 import os
 from pathlib import Path
-from typing import Tuple, List
 
 # Base Directories
 BASE_DIR = Path(__file__).resolve().parents[1]

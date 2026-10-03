@@ -6,7 +6,6 @@ Maps calibrated probabilities to Low/Medium/High risk tiers using central config
 
 import json
 import logging
-from pathlib import Path
 from typing import Tuple, Dict, Any, List
 import joblib
 import numpy as np
@@ -20,7 +19,6 @@ from ml.config import (
     BASE_MODEL_PATH,
     MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
-    EXCLUDED_FEATURES,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
     RANDOM_SEED,

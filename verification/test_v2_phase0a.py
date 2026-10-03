@@ -5,7 +5,6 @@ Verification tests for V2 (Phase 0A — docs, loaders, hygiene).
 import json
 import re
 import subprocess
-from pathlib import Path
 import pytest
 import yaml
 

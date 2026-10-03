@@ -9,9 +9,7 @@ Tests:
 """
 
 import pytest
-import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from ml.intervention.engine import (
     INTERVENTION_CATALOG,
@@ -36,7 +34,7 @@ class TestInterventionCatalog:
 
     def test_catalog_item_schema(self):
         """Verify each intervention item has required metadata fields."""
-        for int_id, intv in INTERVENTION_CATALOG.items():
+        for intv in INTERVENTION_CATALOG.values():
             assert "intervention_id" in intv
             assert "title" in intv
             assert "description" in intv

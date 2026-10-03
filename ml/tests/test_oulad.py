@@ -9,13 +9,11 @@ Tests:
 6. PyTorch GRU estimator: fits on weekly sequence + static features and outputs well-calibrated probabilities
 """
 
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
 
 from ml.sources.oulad import (
-    EXPECTED_RESULTS,
     EXPECTED_ROWS,
     REQUIRED_TABLES,
     build_snapshot_dataset,
@@ -197,7 +195,7 @@ def test_shared_builder_audit_frame_carries_audit_groups(mock_oulad_tables):
     assert list(audit_df["highest_education"]) == list(
         mock_oulad_tables["studentInfo"].set_index("id_student").loc[audit_df["id_student"], "highest_education"]
     )
-    assert list(audit_df["imd_x_gender"]) == [f"{imd}_{g}" for imd, g in zip(audit_df["imd_band"], audit_df["gender"])]
+    assert list(audit_df["imd_x_gender"]) == [f"{imd}_{g}" for imd, g in zip(audit_df["imd_band"], audit_df["gender"], strict=True)]
     assert not audit_df["imd_band"].isna().any()
 
 

@@ -17,7 +17,7 @@ Lexicographic Guarantee:
     - Verified on 2,000-student cohort: produces 100.0% exact order match with pandas multi-column sort.
 """
 
-from typing import Any, Optional
+from typing import Optional
 
 
 def compute_priority_score(

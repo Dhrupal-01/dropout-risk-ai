@@ -5,8 +5,6 @@ Verification tests for V6 (Phase 3 — grounded simulation).
 import ast
 import json
 import subprocess
-from pathlib import Path
-import pytest
 import yaml
 
 from verification.conftest import PROJECT_ROOT

@@ -4,7 +4,6 @@ Verification tests for V3 (Phase 0B — frontend).
 
 import re
 import subprocess
-from pathlib import Path
 import pytest
 
 from verification.conftest import PROJECT_ROOT

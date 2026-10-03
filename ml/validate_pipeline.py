@@ -11,12 +11,9 @@ Executes / validates the entire ML core:
 Writes model_metrics.json / fairness_metrics.json; it does not render README.md.
 """
 
-import sys
 import json
 import argparse
 import logging
-from pathlib import Path
-from typing import Dict, Any, List, Tuple
 import joblib
 import numpy as np
 import pandas as pd
@@ -34,22 +31,18 @@ from sklearn.metrics import (
 from ml.config import (
     PROCESSED_DATA_PATH,
     MODEL_ARTIFACT_PATH,
-    BASE_MODEL_PATH,
     FEATURE_NAMES_PATH,
     METRICS_REPORT_PATH,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
-    RANDOM_SEED,
-    get_risk_tier
+    RANDOM_SEED
 )
 from ml.models.calibrate import predict_student_risk
 from ml.models.explain_shap import SHAPExplainerService
 from ml.models.fairness_audit import run_comprehensive_fairness_audit
 from ml.intervention.engine import (
     map_shap_drivers_to_interventions,
-    CounterfactualRecourseEngine,
-    build_prioritized_mentor_queue,
-    INTERVENTION_CATALOG
+    CounterfactualRecourseEngine
 )
 from ml.data_pipeline.feature_engineering import build_engineered_features
 
@@ -126,10 +119,10 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
     print(f" • Overall Accuracy:           {acc*100:6.2f}%")
     print(f" • Brier Calibration Score:    {brier:7.4f}  (0.0 = perfect probabilistic calibration)")
     print("\n Confusion Matrix:")
-    print(f"   ┌────────────────────────┬──────────────────────┐")
+    print("   ┌────────────────────────┬──────────────────────┐")
     print(f"   │ True Negatives (TN): {tn:3d} │ False Positives (FP):{fp:3d} │")
     print(f"   │ False Negatives(FN): {fn:3d} │ True Positives (TP): {tp:3d} │")
-    print(f"   └────────────────────────┴──────────────────────┘")
+    print("   └────────────────────────┴──────────────────────┘")
 
     # Update model_metrics.json with calibrated held-out test metrics and brier_score
     if METRICS_REPORT_PATH.exists():
@@ -521,7 +514,7 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
             print(f"  • [{intv['urgency']}] {intv['title']} (Pillar: {intv['pillar'].upper()})")
             print(f"    Action: {intv['description']}")
         print("-" * 80)
-        print(f"COUNTERFACTUAL RECOURSE (\"Path to Improvement\"):")
+        print("COUNTERFACTUAL RECOURSE (\"Path to Improvement\"):")
         print(f"  Plan Name: {recourse['intervention_plan_name']}")
         print(f"  Current:   {recourse['current_risk_prob']*100:.1f}% ({recourse['current_risk_tier']}) -> Projected: {recourse['projected_risk_prob']*100:.1f}% ({recourse['projected_risk_tier']})")
         print(f"  Expected Risk Drop: -{recourse['risk_reduction_pct']}%")

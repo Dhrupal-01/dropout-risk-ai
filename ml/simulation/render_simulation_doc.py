@@ -5,7 +5,7 @@ consistency verification between the YAML specification and the rendered documen
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Tuple
 import yaml
 
 BASE_DIR = Path(__file__).resolve().parents[2]

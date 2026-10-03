@@ -23,7 +23,6 @@ from ml.fairness.attributes import PROTECTED
 from ml.fairness.audit import (
     audit_model_fairness,
     compute_within_group_ece,
-    compute_group_metrics,
 )
 from ml.fairness.mitigation import compare_fairness_mitigations
 from ml.models.train import prepare_training_data

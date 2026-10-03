@@ -3,9 +3,7 @@ Verification tests for V9 (End to end & security hygiene).
 """
 
 import json
-import re
 import subprocess
-from pathlib import Path
 import pytest
 
 from verification.conftest import PROJECT_ROOT

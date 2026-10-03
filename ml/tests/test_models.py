@@ -8,10 +8,7 @@ Tests:
 """
 
 import pytest
-import numpy as np
-import pandas as pd
 import joblib
-from pathlib import Path
 
 from ml.config import (
     MODEL_ARTIFACT_PATH,
@@ -21,8 +18,8 @@ from ml.config import (
     RISK_THRESHOLD_HIGH,
     get_risk_tier
 )
-from ml.models.train import train_pipeline, prepare_training_data
-from ml.models.calibrate import run_calibration_pipeline, predict_student_risk
+from ml.models.train import prepare_training_data
+from ml.models.calibrate import predict_student_risk
 from ml.models.explain_shap import SHAPExplainerService, build_plain_language_sentence
 from ml.models.fairness_audit import run_comprehensive_fairness_audit
 
@@ -59,7 +56,7 @@ class TestModelTrainingAndCalibration:
         assert len(tiers) == 50
         assert (probs >= 0.0).all() and (probs <= 1.0).all()
 
-        for p, t in zip(probs, tiers):
+        for p, t in zip(probs, tiers, strict=True):
             if p < RISK_THRESHOLD_LOW:
                 assert t == "Low"
             elif p <= RISK_THRESHOLD_HIGH:

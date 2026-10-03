@@ -11,7 +11,6 @@ Tests:
 
 import numpy as np
 import pandas as pd
-import pytest
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
@@ -22,18 +21,13 @@ from sklearn.model_selection import LeaveOneGroupOut
 
 from ml.evaluation.harness import (
     compute_per_fold_metrics,
-    build_models,
     compute_bootstrap_cis,
-    compute_metrics,
     evaluate_split_strategy,
 )
 from ml.sources.uci import (
     END_OF_SEM1,
     ENROLMENT_TIME,
-    FEATURE_SETS,
     FULL,
-    get_uci_benchmark_dataset,
-    load_uci_clean_df,
 )
 
 
@@ -258,3 +252,24 @@ class TestLeaveOneGroupOutPerFold:
         assert format_fold_summary({"mean": 0.71234, "sd": 0.0456, "n_folds_defined": 17, "n_folds_total": 17}) == "0.7123 ± 0.0456 (k=17/17)"
         assert format_fold_summary({"mean": 1.0, "sd": None, "n_folds_defined": 1, "n_folds_total": 2}) == "1.0000 ± n/a (k=1/2)"
         assert format_fold_summary({"mean": None, "sd": None, "n_folds_defined": 0, "n_folds_total": 2}) == "N/A"
+
+
+class TestRequestedModelsAreNeverDropped:
+    """Audit M5: a benchmark never silently drops a model it was asked to run."""
+
+    def test_gru_without_pytorch_raises(self, monkeypatch):
+        import pytest
+        import ml.models.gru as gru
+        from ml.evaluation.harness import build_models
+
+        monkeypatch.setattr(gru, "HAS_TORCH", False)
+        with pytest.raises(ImportError, match="PyTorch is not installed"):
+            build_models(seed=0, include_gru=True)
+
+    def test_gru_is_built_when_requested(self):
+        import ml.models.gru as gru
+        from ml.evaluation.harness import build_models
+
+        assert gru.HAS_TORCH, "PyTorch is pinned in requirements.lock and must be installed"
+        assert "pytorch_gru" in build_models(seed=0, include_gru=True)
+        assert "pytorch_gru" not in build_models(seed=0, include_gru=False)

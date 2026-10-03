@@ -3,7 +3,6 @@ Verification tests for V5 (Phase 2 — OULAD early warning).
 """
 
 import json
-from pathlib import Path
 import numpy as np
 import pytest
 import pandas as pd
@@ -111,7 +110,7 @@ class TestV5Phase2OULAD:
 
         pd.testing.assert_frame_equal(X0, X1, check_exact=True)
         assert np.array_equal(y0, y1)
-        assert all(np.array_equal(a, b) for a, b in zip(splits0[0], splits1[0]))
+        assert all(np.array_equal(a, b) for a, b in zip(splits0[0], splits1[0], strict=True))
 
     @pytest.mark.data
     def test_v5_4_no_early_withdrawers_in_population(self):

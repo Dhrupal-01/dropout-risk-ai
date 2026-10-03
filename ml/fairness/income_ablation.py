@@ -10,8 +10,7 @@ Measures overall metrics (ROC-AUC, PR-AUC, F1, Recall, Precision, Brier) and dis
 
 import json
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -28,7 +27,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-from ml.config import FEATURE_NAMES_PATH, PROCESSED_DATA_PATH, RANDOM_SEED
+from ml.config import FEATURE_NAMES_PATH, PROCESSED_DATA_PATH
 from ml.fairness.audit import compute_group_metrics
 
 logger = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ def run_income_ablation_experiment(
     oof_probs_without = np.zeros(len(df))
 
     # Cross-validation loop
-    for fold, (train_idx, val_idx) in enumerate(skf.split(df, y), 1):
+    for _fold, (train_idx, val_idx) in enumerate(skf.split(df, y), 1):
         # Model With Income Features
         X_with = df[all_features]
         scaler_with = StandardScaler()

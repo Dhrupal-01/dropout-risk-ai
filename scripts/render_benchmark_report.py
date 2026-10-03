@@ -119,7 +119,7 @@ def _logo_tables(rows: List[Tuple[str, str, Dict[str, Any], str]], unit: str) ->
         f"Out-of-fold predictions from all held-out {unit.lower()}s pooled before scoring, which compares "
         f"scores across {unit.lower()}s. Shown for reference only; not the primary LOGO estimate.",
         "",
-        f"| Setting | Model | " + " | ".join(f"{name} (95% CI)" for _, name in FOLD_METRICS) + " |",
+        "| Setting | Model | " + " | ".join(f"{name} (95% CI)" for _, name in FOLD_METRICS) + " |",
         f"| :--- | :--- | {sep} |",
     ])
     for row_label, m_label, m_data, _ in rows:
@@ -293,7 +293,6 @@ def generate_earliness_figure(artifacts: List[Dict[str, Any]], target_path: Path
         return 0
 
     sorted_arts = sorted(oulad_arts, key=get_t)
-    t_values = [get_t(a) for a in sorted_arts if get_t(a) > 0]
 
     legend_x = img_width - margin_right + 25
     legend_y = margin_top + 10

@@ -24,12 +24,9 @@ from ml.config import (
     ATTENDANCE_THRESHOLD,
     MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
-    RISK_THRESHOLD_LOW,
-    RISK_THRESHOLD_HIGH,
     get_risk_tier
 )
-from ml.models.calibrate import predict_student_risk
-from ml.models.explain_shap import SHAPExplainerService, FEATURE_DISPLAY_NAMES
+from ml.models.explain_shap import SHAPExplainerService
 from ml.data_pipeline.feature_engineering import build_engineered_features
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -428,15 +425,8 @@ class CounterfactualRecourseEngine:
 
         # Determine target tier if not explicitly specified
         if target_tier is None:
-            if current_tier == "High":
-                target_tier = "Medium"
-                target_threshold = RISK_THRESHOLD_HIGH  # e.g. <= 0.66
-            elif current_tier == "Medium":
-                target_tier = "Low"
-                target_threshold = RISK_THRESHOLD_LOW   # e.g. < 0.33
-            else:
-                target_tier = "Low"
-                target_threshold = RISK_THRESHOLD_LOW
+            # Scenarios are judged by get_risk_tier(prob) == target_tier (tier thresholds from ml.config)
+            target_tier = "Medium" if current_tier == "High" else "Low"
 
         # Rule-based alerts come from the student's values and are reported for every tier
         alerts = rule_based_alerts(base_df.iloc[0])

@@ -4,12 +4,10 @@ Uses PostgreSQL COPY via psycopg for maximum throughput (100k rows in ~3 seconds
 """
 
 import argparse
-import io
 import json
 import logging
 import os
 import random
-import sys
 import time
 import uuid
 from datetime import datetime, timezone

@@ -1,16 +1,60 @@
-# React + Vite
+# DropoutGuard frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The mentor-facing web app for DropoutGuard: a triage worklist, a student page (risk estimate,
+plain-language risk drivers, rule-based alerts, recommended support, intervention log) and a CSV
+batch import. It is decision support for mentors; nothing it shows is an automatic or punitive
+decision.
 
-Currently, two official plugins are available:
+Stack: React 19, Vite, Tailwind CSS 3.4, TanStack Query, React Router, axios. Lint: oxlint.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Prerequisites
 
-## React Compiler
+- Node.js and npm. `package-lock.json` is committed, so install with `npm ci`.
+- The backend API running (see the repository `README.md`):
+  `uvicorn backend.app.main:app --reload --port 8000`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Install and run
 
-## Expanding the Oxlint configuration
+```bash
+cd frontend
+npm ci            # exact versions from package-lock.json
+npm run dev       # dev server on http://localhost:5173
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Build and lint
+
+```bash
+npm run build     # production build into frontend/dist/ (gitignored, never committed)
+npm run lint      # oxlint
+npm run preview   # serve the production build locally
+```
+
+Both `npm run build` and `npm run lint` must pass before a change is finished.
+
+## Configuration
+
+Vite reads variables prefixed `VITE_` from the environment or from `frontend/.env.local`
+(gitignored). They are fixed at build time.
+
+| Variable | Default | Read in | Effect |
+|---|---|---|---|
+| `VITE_API_BASE_URL` | `http://localhost:8000` | `src/api/client.js` | Base URL of the backend API. Every request goes to this absolute URL. |
+| `VITE_DEMO_MODE` | unset | `src/App.jsx` | When exactly `true`, shows a banner on every page: "Demo environment — all student records are simulated." It changes nothing else. |
+
+Example `frontend/.env.local`:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000
+VITE_DEMO_MODE=true
+```
+
+The backend must allow the frontend's origin in `CORS_ORIGINS` (repository `.env`).
+
+`vite.config.js` also proxies `/api` and `/health` to `http://127.0.0.1:8000` on the dev server.
+The app does not use that proxy as written: `src/api/client.js` always calls the absolute
+`VITE_API_BASE_URL` (an empty value falls back to the default).
+
+## Error messages
+
+API errors arrive as `{ "error": <code>, "message": ... }`. `src/api/client.js` maps the codes in
+`errorMap`; keep it in step with `backend/app/core/errors.py`.

@@ -15,7 +15,7 @@ Supports:
 import json
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -129,7 +129,7 @@ def compute_per_fold_metrics(
     """
     y = np.asarray(y, dtype=int)
     folds: List[Dict[str, Any]] = []
-    for (test_idx, probs), label in zip(fold_probs, fold_labels):
+    for (test_idx, probs), label in zip(fold_probs, fold_labels, strict=True):
         y_fold = y[test_idx]
         n_pos = int(y_fold.sum())
         metrics: Dict[str, Optional[float]] = dict(compute_metrics(y_fold, probs))
@@ -280,12 +280,15 @@ def build_models(seed: int = 42, include_gru: bool = False) -> Dict[str, Any]:
         ])
     }
     if include_gru:
-        try:
-            from ml.models.gru import HAS_TORCH, PyTorchGRUEstimator
-            if HAS_TORCH:
-                models["pytorch_gru"] = PyTorchGRUEstimator(random_state=seed)
-        except Exception as exc:
-            logger.warning("Could not instantiate PyTorchGRUEstimator: %s", exc)
+        # A requested model is never dropped silently: without PyTorch the benchmark fails loudly.
+        from ml.models import gru
+
+        if not gru.HAS_TORCH:
+            raise ImportError(
+                "The GRU baseline was requested but PyTorch is not installed. "
+                "Install it with: pip install -e '.[research]'"
+            )
+        models["pytorch_gru"] = gru.PyTorchGRUEstimator(random_state=seed)
 
     return models
 

@@ -10,11 +10,9 @@ Tests:
 import pytest
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 from ml.data_pipeline.feature_engineering import (
-    build_engineered_features,
     generate_processed_feature_dataset,
     PILLAR_COLUMNS
 )

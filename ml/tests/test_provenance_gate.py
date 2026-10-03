@@ -6,7 +6,6 @@ report hashes the installed package list (not the commit-dependent full pip free
 
 import importlib
 import json
-import shutil
 from pathlib import Path
 from types import SimpleNamespace
 

@@ -11,7 +11,7 @@ versus fairness (Max FNR disparity gap across demographic groups).
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 
 from fairlearn.reductions import ExponentiatedGradient, TruePositiveRateParity
 import numpy as np
@@ -41,7 +41,7 @@ def compute_sample_weights(
     k_cells = len(counts)
 
     weights = np.zeros(n_samples, dtype=float)
-    for idx, (group_val, label_val) in enumerate(zip(s, y)):
+    for idx, (group_val, label_val) in enumerate(zip(s, y, strict=True)):
         cell_count = counts.get((group_val, label_val), 1)
         weights[idx] = float(n_samples / (k_cells * cell_count))
 
@@ -206,7 +206,7 @@ def compare_fairness_mitigations(
 
     # Apply group-specific threshold tau_g on test set
     pred_group_thresh = np.zeros(len(y_test), dtype=int)
-    for idx, (p_val, g_val) in enumerate(zip(p_none, s_te)):
+    for idx, (p_val, g_val) in enumerate(zip(p_none, s_te, strict=True)):
         tau_g = group_thresholds.get(str(g_val), 0.50)
         pred_group_thresh[idx] = int(p_val >= tau_g)
 

@@ -14,7 +14,7 @@ Outputs real, computed results directly to docs/ethics_and_fairness.md.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional
 import joblib
 import numpy as np
 import pandas as pd
@@ -229,9 +229,6 @@ def run_comprehensive_fairness_audit(
 
     # 2. 5-Fold Cross-Validation Audit (N = 2,000 full cohort)
     cv_audit = compute_cross_validated_fairness_audit(n_splits=5)
-    g_cv = cv_audit["gender"]
-    inc_cv = cv_audit["economic_proxy"]
-    fg_cv = cv_audit["first_generation"]
 
     test_split_summary = {
         "evaluation_scope": "Held-Out Test Set (N = 300 students, unseen 15% split)",

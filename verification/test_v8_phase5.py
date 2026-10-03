@@ -82,7 +82,7 @@ class TestV8Phase5Backend:
         seen_students = []
         cursor = None
         for _ in range(20):  # walk up to 20 pages
-            url = f"/api/v1/mentors/queue?limit=10"
+            url = "/api/v1/mentors/queue?limit=10"
             if cursor:
                 url += f"&cursor={cursor}"
             res = client.get(url)

@@ -58,7 +58,7 @@ def _contexts(node: ast.AST, parents: Dict[ast.AST, ast.AST]) -> List[str]:
             found.append(parent.arg)
         if isinstance(parent, ast.arguments):  # a parameter default: name it by its parameter
             params = parent.args[len(parent.args) - len(parent.defaults):]
-            found += [param.arg for param, default in zip(params, parent.defaults) if default is cur]
+            found += [param.arg for param, default in zip(params, parent.defaults, strict=True) if default is cur]
         if isinstance(parent, (ast.Assign, ast.AnnAssign)):
             targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
             found += [t.id for t in targets if isinstance(t, ast.Name)]

@@ -78,7 +78,7 @@ class TestSimulationAssumptions:
     def test_simulation_doc_is_strictly_synced_with_yaml(self):
         """Pre-commit / CI consistency check between assumptions.yaml and docs/simulation.md."""
         is_synced, errors = verify_assumptions_doc_sync()
-        assert is_synced, f"docs/simulation.md is out of sync with assumptions.yaml:\n" + "\n".join(errors)
+        assert is_synced, "docs/simulation.md is out of sync with assumptions.yaml:\n" + "\n".join(errors)
 
     def test_estimated_entries_hold_references_not_literals(self):
         """Estimated coefficients live only in estimated_parameters.json: the raw YAML has no literal for them."""

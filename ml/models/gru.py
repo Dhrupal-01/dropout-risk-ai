@@ -173,7 +173,7 @@ class PyTorchGRUEstimator(BaseEstimator, ClassifierMixin):
         best_weights = copy.deepcopy(self.model_.state_dict())
         epochs_no_improve = 0
 
-        for epoch in range(self.max_epochs):
+        for _epoch in range(self.max_epochs):
             self.model_.train()
             for b_seq, b_static, b_y in train_loader:
                 optimizer.zero_grad()

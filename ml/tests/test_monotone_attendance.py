@@ -50,7 +50,7 @@ def sweep_frame(raw: pd.DataFrame, targets: np.ndarray) -> pd.DataFrame:
         for col in COURSE_COLS + MONTH_COLS:
             floor = lab_lo if col == "att_lab" else lo
             df[col] = np.clip(df[col].astype(float) + delta, floor, hi)
-        df["attendance_percentage"] = np.round(sum(w * df[m] for w, m in zip(weights, MONTH_COLS)), 1)
+        df["attendance_percentage"] = np.round(sum(w * df[m] for w, m in zip(weights, MONTH_COLS, strict=True)), 1)
         df = df.drop(columns=[c for c in REBUILT if c in df.columns])
         df["sweep_target"] = int(target)
         rows.append(df)
@@ -145,7 +145,7 @@ def test_stu03_sweep_table(production):
     probs = _predict(model, feature_names, frame)
     print("\nSTU_03_BORDERLINE_COMMUTE attendance sweep (additive shift, clipped, trend held, engineered rebuilt)")
     print(f"{'target':>6} {'overall':>8} {'trend':>7} {'flag':>4} {'subj_std':>8} {'p':>8}")
-    for (_, r), p in zip(frame.iterrows(), probs):
+    for (_, r), p in zip(frame.iterrows(), probs, strict=True):
         if r["sweep_target"] % 5 == 0:
             print(f"{r['sweep_target']:>6} {r['attendance_percentage']:>8.1f} {r['attendance_3m_trend']:>7.2f} "
                   f"{int(r['attendance_risk_flag']):>4} {r['subject_attendance_std']:>8.2f} {p:>8.4f}")
