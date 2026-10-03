@@ -52,3 +52,7 @@ backend/.env
 
 # Duplicate of docs/DROPOUTGUARD_COMPLETE_SYSTEM_DOCUMENTATION.txt (untracked in Phase 6)
 /DROPOUTGUARD_PROJECT_DOCUMENTATION.txt
+
+# Claude Code local-only settings
+.claude/settings.local.json
+CLAUDE.local.md
