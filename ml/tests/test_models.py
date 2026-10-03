@@ -159,7 +159,9 @@ class TestFairnessAudit:
         assert report_path.exists()
         content = report_path.read_text()
         assert len(content) > 500
-        assert "Gender Disparity Gap" in content or "gender" in content
-        assert "Economic Proxy Gap" in content or "economic_proxy" in content
+        # The renderer writes each of these unconditionally (scripts/render_fairness_report.py).
+        assert "Gender Disparity Gap" in content
+        assert "Economic Proxy Gap" in content
         assert "False Negative" in content
-        assert "Generator Sanity Check" in content or "5-Fold Cross-Validation" in content
+        assert "Generator Sanity Check" in content
+        assert "5-Fold Cross-Validation" in content

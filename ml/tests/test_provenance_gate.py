@@ -14,10 +14,12 @@ import pandas as pd
 import pytest
 
 import ml.provenance as provenance
+from ml.tests.artifact_checks import require_artifact
 from ml.provenance import DirtyTreeError, build_provenance, dirty_artifact_warning, require_clean_tree
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 BENCHMARK_DIR = BASE_DIR / "ml" / "artifacts" / "benchmarks"
+BENCHMARK_COMMAND = "python -m ml.evaluation.run --source uci` and `--source oulad"
 
 
 def _fake_git(dirty: bool):
@@ -166,8 +168,8 @@ def test_dirty_artifact_warning_lists_only_dirty_artifacts():
 
 
 @pytest.mark.artifacts
-@pytest.mark.skipif(not any(BENCHMARK_DIR.glob("uci_*_primary.json")), reason="benchmark JSON not generated")
 def test_readme_benchmarks_block_shows_warning_only_for_dirty_artifacts(tmp_path, monkeypatch):
+    require_artifact(any(BENCHMARK_DIR.glob("uci_*_primary.json")), "ml/artifacts/benchmarks/uci_*_primary.json", BENCHMARK_COMMAND)
     import scripts.render_readme_benchmarks as rb
 
     names = [p.name for p in BENCHMARK_DIR.glob("uci_*_primary.json")] + [p.name for p in BENCHMARK_DIR.glob("oulad_snapshot_t*_withdrawn.json")]
@@ -226,8 +228,8 @@ def test_build_metadata_hashes_exclude_editable_freeze(tmp_path, monkeypatch, lo
 
 
 @pytest.mark.artifacts
-@pytest.mark.skipif(not any(BENCHMARK_DIR.glob("uci_*_primary.json")), reason="benchmark JSON not generated")
 def test_readme_benchmarks_block_fails_on_mixed_commits(tmp_path, monkeypatch):
+    require_artifact(any(BENCHMARK_DIR.glob("uci_*_primary.json")), "ml/artifacts/benchmarks/uci_*_primary.json", BENCHMARK_COMMAND)
     import scripts.render_readme_benchmarks as rb
 
     names = [p.name for p in BENCHMARK_DIR.glob("uci_*_primary.json")] + [p.name for p in BENCHMARK_DIR.glob("oulad_snapshot_t*_withdrawn.json")]

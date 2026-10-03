@@ -12,6 +12,7 @@ Tests:
 """
 
 import json
+import functools
 from pathlib import Path
 import pytest
 import numpy as np
@@ -28,6 +29,7 @@ from ml.simulation.render_simulation_doc import (
     extract_all_keys,
 )
 from backend.app.services.ml_service import RAW_FEATURE_COLUMNS
+from ml.tests.artifact_checks import require_artifact
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
@@ -38,10 +40,13 @@ SIM_TO_REAL_JSON_PATH = BASE_DIR / "ml" / "artifacts" / "benchmarks" / "sim_to_r
 
 
 def requires_artifact(path: Path, command: str):
-    """Marks a test that reads a committed generated artifact; skips with the command to create it if absent."""
+    """Marks a test that reads a committed generated artifact; fails with the command to create it if absent."""
     def mark(fn):
-        fn = pytest.mark.skipif(not path.exists(), reason=f"{path.relative_to(BASE_DIR)} not generated; run `{command}`")(fn)
-        return pytest.mark.artifacts(fn)
+        @functools.wraps(fn)
+        def checked(*args, **kwargs):
+            require_artifact(path.exists(), str(path.relative_to(BASE_DIR)), command)
+            return fn(*args, **kwargs)
+        return pytest.mark.artifacts(checked)
     return mark
 
 

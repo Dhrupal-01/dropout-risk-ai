@@ -5,6 +5,7 @@ Tests:
 - No unexpected nulls in required columns
 - Statistical validity and ground-truth correlation directions and magnitudes
 - Feature engineering transformations and interaction terms
+- Real UCI 697 / OULAD loaders (ml/sources)
 """
 
 import pytest
@@ -16,6 +17,7 @@ from ml.data_pipeline.feature_engineering import (
     generate_processed_feature_dataset,
     PILLAR_COLUMNS
 )
+from ml.sources.oulad import SNAPSHOT_DAYS
 
 
 class TestSyntheticIndianCohort:
@@ -225,3 +227,59 @@ class TestFeatureEngineering:
             expected,
             check_names=False
         )
+
+
+@pytest.fixture(scope="module")
+def oulad_tables():
+    from ml.sources.oulad import load_raw_tables
+
+    return load_raw_tables()
+
+
+@pytest.mark.data
+class TestRealDataLoaders:
+    """
+    The real UCI 697 and OULAD files load through ml/sources with a binary label and the feature
+    columns the code defines. Replaces the loader tests deleted with the legacy
+    ml/data_pipeline/load_uci.py and load_oulad.py (fea1a6e); refusal paths are in test_sources_integrity.
+    """
+
+    def test_uci_loader_schema_and_target(self):
+        from ml.sources.uci import EXPECTED_TARGETS, FEATURE_SETS, get_uci_benchmark_dataset, load_uci_clean_df
+
+        df = load_uci_clean_df()
+        assert len(df) > 0
+        assert "is_synthetic" not in df.columns
+        assert set(df["target"].unique()) == EXPECTED_TARGETS
+
+        n_dropout = int((df["target"] == "Dropout").sum())
+        n_primary = int(df["target"].isin(["Dropout", "Graduate"]).sum())
+        for feature_set, columns in FEATURE_SETS.items():
+            X, y, groups, names = get_uci_benchmark_dataset(feature_set=feature_set, label_variant="primary")
+            assert names == columns and list(X.columns) == columns, feature_set
+            assert len(X) == len(y) == len(groups) == n_primary, feature_set
+            assert set(np.unique(y)) == {0, 1}, feature_set
+            assert int(y.sum()) == n_dropout, feature_set
+
+        _, y_sensitivity, _, _ = get_uci_benchmark_dataset(label_variant="sensitivity")
+        assert len(y_sensitivity) == len(df)
+        assert set(np.unique(y_sensitivity)) == {0, 1}
+        assert int(y_sensitivity.sum()) == n_dropout
+
+    @pytest.mark.parametrize("t", SNAPSHOT_DAYS)
+    def test_oulad_snapshot_schema_and_target(self, oulad_tables, t):
+        from ml.sources.oulad import build_snapshot_dataset
+
+        assert "is_synthetic" not in oulad_tables["studentInfo"].columns
+        X, y, splits, groups, audit_df, names = build_snapshot_dataset(t=t, tables=oulad_tables)
+        assert len(X) == len(y) == len(groups) == len(audit_df) > 0
+        assert list(X.columns) == names
+        assert set(np.unique(y)) == {0, 1}
+        assert not X.isna().any().any()
+        # Behavioural signals (the old loader's sum_click / submission lag) as the snapshot builder names them.
+        weekly = [f"clicks_week_{w}" for w in range(1, max(1, t // 7) + 1)]
+        for column in ["total_clicks", "days_since_last_activity", "mean_submission_lag", *weekly]:
+            assert column in X.columns, column
+        assert (X[["total_clicks", *weekly]] >= 0).all().all()
+        train_idx, test_idx = splits[0]
+        assert len(train_idx) > 0 and len(test_idx) > 0

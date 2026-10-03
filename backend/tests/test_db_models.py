@@ -25,7 +25,7 @@ from backend.tests.conftest import requires_db
 
 
 class TestSchemaShape:
-    def test_all_three_tables_registered(self):
+    def test_all_four_tables_registered(self):
         assert set(Base.metadata.tables) == {
             "students",
             "predictions",
