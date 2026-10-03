@@ -1,5 +1,5 @@
 """
-`python -m ml.pipeline run-all`: one tree check, one run id, steps in CLAUDE.md order, stop at the
+`python -m ml.pipeline run-all`: one tree check, one run id, steps in the documented pipeline order, stop at the
 first failure, renders only after every compute step and the run-id gate succeeded.
 Steps are mocked (no data, no subprocesses).
 """

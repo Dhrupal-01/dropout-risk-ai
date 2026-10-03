@@ -179,11 +179,12 @@ def _tracked(*paths):
 
 
 def _hand_written_docs():
-    """README.md (outside its generated blocks) and docs/, minus generated docs and dated records in docs/tasks/."""
+    """README.md (outside its generated blocks) and docs/, minus generated docs. Only files from
+    `git ls-files` are scanned, so local-only (ignored) files on a developer's disk are never checked."""
     from ml.provenance import strip_generated_readme_blocks
 
     for rel in _tracked("README.md", "docs"):
-        if rel in GENERATED_DOCS or rel.startswith("docs/tasks/") or not rel.endswith((".md", ".txt", ".html", ".svg")):
+        if rel in GENERATED_DOCS or not rel.endswith((".md", ".txt", ".html", ".svg")):
             continue
         text = (PROJECT_ROOT / rel).read_text(encoding="utf-8", errors="ignore")
         yield rel, strip_generated_readme_blocks(text) if rel == "README.md" else text
@@ -209,10 +210,13 @@ class TestV2HandWrittenDocs:
         assert not hits, "Typed metric values in hand-written docs (link to the generated block instead):\n" + "\n".join(hits)
 
     def test_v2_9_relative_links_resolve(self):
-        """Every relative link in README.md and docs/*.md points at a file in the repo; no file:// links."""
+        """Every relative link in tracked README.md and docs/*.md points at a tracked file or directory (a link
+        to a local-only file resolves on one disk but is broken on GitHub); no file:// links."""
         from urllib.parse import unquote
 
         link = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+        tracked = {(PROJECT_ROOT / f).resolve() for f in _tracked()}
+        tracked_dirs = {d for f in tracked for d in f.parents}
         broken, checked = [], 0
         for rel in _tracked("README.md", "docs"):
             if not rel.endswith(".md"):
@@ -227,7 +231,7 @@ class TestV2HandWrittenDocs:
                         continue
                     checked += 1
                     resolved = (path.parent / unquote(target.split("#", 1)[0].split("?", 1)[0])).resolve()
-                    if not resolved.exists():
+                    if resolved not in tracked and resolved not in tracked_dirs:
                         broken.append(f"{rel}:{i}: {target}")
         assert checked > 0
         assert not broken, "Broken relative links:\n" + "\n".join(broken)

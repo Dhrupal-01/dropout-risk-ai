@@ -52,7 +52,3 @@ backend/.env
 
 # Legacy local-only documentation copy (its tracked counterpart was removed); never commit
 /DROPOUTGUARD_PROJECT_DOCUMENTATION.txt
-
-# Claude Code local-only settings
-.claude/settings.local.json
-CLAUDE.local.md

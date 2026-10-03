@@ -51,7 +51,7 @@ class Step:
         return " ".join(["python", "-m", self.module, *self.args])
 
 
-# Order follows the real-data pipeline in CLAUDE.md. Renders come last and run only if every
+# Order follows the documented pipeline order. Renders come last and run only if every
 # compute step succeeded.
 STEPS: List[Step] = [
     Step("1", "compute", "ml.evaluation.run", ("--source", "uci"), "ml/artifacts/benchmarks/uci_*.json"),
