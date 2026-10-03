@@ -5,8 +5,6 @@ import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import StudentDetail from './pages/StudentDetail';
 import ImportQueue from './pages/ImportQueue';
-import GeoAnalytics from './pages/GeoAnalytics';
-import UniversalPredictor from './pages/UniversalPredictor';
 
 // Initialize the query client with robust default retry and caching configurations
 const queryClient = new QueryClient({
@@ -42,8 +40,6 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/students/:studentId" element={<StudentDetail />} />
               <Route path="/import" element={<ImportQueue />} />
-              <Route path="/geo-analytics" element={<GeoAnalytics />} />
-              <Route path="/universal-predictor" element={<UniversalPredictor />} />
               {/* Fallback path redirects to dashboard */}
               <Route path="*" element={<Dashboard />} />
             </Routes>

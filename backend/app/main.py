@@ -39,13 +39,6 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("Starting WITHOUT collegiate ML artifacts: %s", ml_service.load_error)
 
-    try:
-        from ml.models.universal_engine import universal_engine
-        universal_engine.load_all_artifacts()
-        logger.info("Universal Multi-Tier ML Engine loaded successfully (5 Stages: Pre-10th to PhD).")
-    except Exception as e:
-        logger.error("Error loading Universal Multi-Tier ML Engine: %s", e)
-
     yield
 
     ml_service.unload()

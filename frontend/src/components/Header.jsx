@@ -98,18 +98,6 @@ const Header = () => {
             Dashboard
           </Link>
           <Link
-            to="/geo-analytics"
-            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
-          >
-            Geo Analytics
-          </Link>
-          <Link
-            to="/universal-predictor"
-            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
-          >
-            Multi-Tier Predictor
-          </Link>
-          <Link
             to="/import"
             className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
           >
