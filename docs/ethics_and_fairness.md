@@ -50,7 +50,7 @@ Evaluates four mitigation approaches on an identical 70/30 stratified train/test
 | **None (Unmitigated)** | gender | 0.942 | 0.938 | 84.7% | 90.5% | 0.0805 | **7.21%** |
 | **Sample Reweighing** | gender | 0.942 | 0.938 | 86.2% | 86.0% | 0.0859 | **8.90%** |
 | **Group-Specific Thresholds (FNR Parity)** | gender | 0.942 | 0.938 | 81.7% | 87.9% | 0.0805 | **1.48%** |
-| **Fairlearn ExponentiatedGradient** | gender | 0.893 | 0.835 | 75.6% | 87.7% | 0.0970 | **1.34%** |
+| **Fairlearn ExponentiatedGradient** | gender | 0.893 | 0.835 | 78.6% | 85.7% | 0.0970 | **4.24%** |
 
 ---
 

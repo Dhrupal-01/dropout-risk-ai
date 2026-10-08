@@ -61,7 +61,7 @@ The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target
 ## Real-data benchmarks
 
 <!-- BENCHMARKS:START -->
-Generated from `ml/artifacts/benchmarks/*.json` (commit `bef625a`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
+Generated from `ml/artifacts/benchmarks/*.json` (commit `81f1229`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
 
 #### UCI 697: Portuguese higher education
 
