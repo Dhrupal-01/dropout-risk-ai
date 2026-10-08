@@ -5,24 +5,24 @@
 
 | Field | Value |
 | :--- | :--- |
-| git HEAD | `59c706f7855adad78626cb12f7e7af1a3e32fd1d` |
-| tracked files modified | `true` |
-| pip freeze --exclude-editable sha256 | `5fd942faf1b9aae58e3dcdd8dc74e4ebc2045ca2a678e58113c22cb3e813a44d` |
+| git HEAD | `6a9ba18223e63b199b8a9d4c283776fd8335ad70` |
+| tracked files modified | `false` |
+| pip freeze --exclude-editable sha256 | `481db9712e417e04c45f3cf91495e487bfe978fc05928b60f7dacd2af25151ed` |
 | matches requirements.lock | `true` |
 | python | `3.14.5` |
-| junit timestamp | `2026-10-02T23:45:40.650952+05:30` |
-| junit time (s) | `461.33` |
-| pytest exit code | `1` |
+| junit timestamp | `2026-10-09T00:15:21.739660+05:30` |
+| junit time (s) | `655.16` |
+| pytest exit code | `0` |
 
 ## Summary
 
 | Outcome | Count |
 | :--- | ---: |
-| passed | 63 |
-| failed | 2 |
+| passed | 72 |
+| failed | 0 |
 | error | 0 |
 | skipped | 0 |
-| total | 65 |
+| total | 72 |
 
 ## Tests
 
@@ -32,8 +32,8 @@
 | `verification/test_v0_v1_integrity.py::TestV0Environment::test_v0_2_backend_dependencies_isolation` | passed |  |
 | `verification/test_v0_v1_integrity.py::TestV0Environment::test_v0_3_environment_resources_presence` | passed |  |
 | `verification/test_v0_v1_integrity.py::TestV1TestIntegrity::test_v1_1_test_counts_vs_baseline` | passed |  |
-| `verification/test_v0_v1_integrity.py::TestV1TestIntegrity::test_v1_2_git_diff_baseline_tests` | failed | Failed: 36 unreviewed assert/threshold removals or skip additions since 9d6afba (add each to verification/reviewed_test_changes.json with a reason after review):<br>backend/tests/test_api_interventions.py<br>  - assert set(Base.metadata.tables) == {"students", "predictions", "intervention_logs"}<br>      (+ in same hunk) assert set(Base.metadata.tables) == {<br>backend/tests/test_api_predict.py<br>  - assert payload["risk_tier"] == "Medium", payload<br>      (+ in same hunk) assert payload["risk_tier"] in {"Low", "Medium", "High"}, payload<br>      (+ in same hunk) assert 0.0 <= payload["calibrated_risk_probability"] <= 1.0<br>  - assert RISK_THRESHOLD_LOW <= payload["calibrated_risk_probability"] <= RISK_THRESHOLD_HIGH<br>      (+ in same hunk) assert payload["risk_tier"] in {"Low", "Medium", "High"}, payload<br>      (+ in same hunk) assert 0.0 <= payload["calibrated_risk_probability"] <= 1.0<br>backend/tests/test_db_models.py<br>  - assert set(Base.metadata.tables) == {"students", "predictions", "intervention_logs"}<br>      (+ in same hunk) assert set(Base.metadata.tables) == {<br>ml/tests/conftest.py<br>  + skip = pytest.mark.skip(<br>  + item.add_marker(skip)<br>ml/tests/test_data_pipeline.py<br>  - assert isinstance(df, pd.DataFrame)<br>  - assert len(df) > 0<br>  - assert "is_dropout" in df.columns<br>  - assert set(df["is_dropout"].unique()).issubset({0, 1})<br>  - assert "admission_grade" in df.columns or "previous_qualification_grade" in df.columns<br>  - assert "tuition_fees_up_to_date" in df.columns or "is_debtor" in df.columns<br>  - assert isinstance(df, pd.DataFrame)<br>  - assert len(df) > 0<br>  - assert "is_dropout" in df.columns<br>  - assert set(df["is_dropout"].unique()).issubset({0, 1})<br>  - assert "sum_click" in df.columns<br>  - assert "avg_submission_lag_days" in df.columns or "late_submission_rate" in df.columns<br>  - # 1. Attendance must negatively correlate with dropout (r < -0.30)<br>  - assert corr["attendance_percentage"] < -0.30, f"Expected strong negative correlation for attendance, got {corr['attendance_percentage']}"<br>  - # 2. CGPA must negatively correlate with dropout (r < -0.35)<br>  - assert corr["current_cgpa"] < -0.35, f"Expected strong negative correlation for CGPA, got {corr['current_cgpa']}"<br>  - assert corr["backlog_count"] > 0.35, f"Expected strong positive correlation for backlogs, got {corr['backlog_count']}"<br>      (+ in same hunk) assert set(columns) == set(coefficients), (<br>  - assert corr["fee_payment_delay_days"] > 0.18, f"Expected positive correlation for fee delay, got {corr['fee_payment_delay_days']}"<br>      (+ in same hunk) assert set(columns) == set(coefficients), (<br>  - assert corr["days_since_last_lms_activity"] > 0.20, f"Expected positive correlation for LMS inactivity, got {corr['days_since_last_lms_activity']}"<br>      (+ in same hunk) if np.abs(step).max() < 1e-10:<br>      (+ in same hunk) assert recovery["result"].success, recovery["result"].message<br>      (+ in same hunk) assert len(recovery["nonzero"]) > 0<br>      (+ in same hunk) assert not wrong_sign and not not_covered, (<br>ml/tests/test_models.py<br>  - assert FAIRNESS_REPORT_PATH.exists()<br>      (+ in same hunk) assert report_path.exists()<br>  - assert "Gender Parity Audit" in content<br>      (+ in same hunk) assert "Gender Disparity Gap" in content or "gender" in content<br>      (+ in same hunk) assert "Economic Proxy Gap" in content or "economic_proxy" in content<br>  - assert "Socio-Economic Proxy Audit" in content<br>      (+ in same hunk) assert "Gender Disparity Gap" in content or "gender" in content<br>      (+ in same hunk) assert "Economic Proxy Gap" in content or "economic_proxy" in content<br>  - assert "5-Fold Stratified Cross-Validation" in content<br>      (+ in same hunk) assert "Generator Sanity Check" in content or "5-Fold Cross-Validation" in content<br>ml/tests/test_oulad.py<br>  + @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch is required for GRU test")<br>ml/tests/test_provenance_gate.py<br>  + @pytest.mark.skipif(not any(BENCHMARK_DIR.glob("uci_*_primary.json")), reason="benchmark JSON not generated")<br>  + @pytest.mark.skipif(not any(BENCHMARK_DIR.glob("uci_*_primary.json")), reason="benchmark JSON not generated")<br>ml/tests/test_readme_blocks.py<br>  + @pytest.mark.skipif(<br>  + @pytest.mark.skipif(<br>ml/tests/test_simulation.py<br>  + fn = pytest.mark.skipif(not path.exists(), reason=f"{path.relative_to(BASE_DIR)} not generated; run `{command}`")(fn)<br>ml/tests/test_universal_pipeline.py<br>  + pytest.mark.skipif( |
-| `verification/test_v0_v1_integrity.py::TestV1TestIntegrity::test_v1_3_zero_skipped_tests_when_resources_present` | failed | subprocess.CalledProcessError: Command '['.venv/bin/pytest', 'ml/tests', 'backend/tests', '-q', '-rs']' returned non-zero exit status 1. |
+| `verification/test_v0_v1_integrity.py::TestV1TestIntegrity::test_v1_2_git_diff_baseline_tests` | passed |  |
+| `verification/test_v0_v1_integrity.py::TestV1TestIntegrity::test_v1_3_zero_skipped_tests_when_resources_present` | passed |  |
 | `verification/test_v0_v1_integrity.py::TestV1TestIntegrity::test_v1_4_no_trivially_passing_tests` | passed |  |
 | `verification/test_v2_phase0a.py::TestV2Phase0A::test_v2_1_readme_metrics_consistency` | passed |  |
 | `verification/test_v2_phase0a.py::TestV2Phase0A::test_v2_2_regeneration_test` | passed |  |
@@ -42,6 +42,13 @@
 | `verification/test_v2_phase0a.py::TestV2Phase0A::test_v2_5_loader_runtime_error_and_standin_guard` | passed |  |
 | `verification/test_v2_phase0a.py::TestV2Phase0A::test_v2_6_clean_git_tracked_files` | passed |  |
 | `verification/test_v2_phase0a.py::TestV2Phase0A::test_v2_7_generator_docstrings_consistency_with_assumptions` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_8_metric_pattern_catches_typed_values` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_8_no_typed_metrics_in_hand_written_docs` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_8_unit_number_pattern` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_8_no_unit_numbers_in_hand_written_docs` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_9_relative_links_resolve` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_10_api_handover_documents_every_route` | passed |  |
+| `verification/test_v2_phase0a.py::TestV2HandWrittenDocs::test_v2_11_data_dictionary_matches_feature_contract` | passed |  |
 | `verification/test_v3_phase0b.py::TestV3Phase0B::test_v3_1_dark_mode_selector_in_tailwind` | passed |  |
 | `verification/test_v3_phase0b.py::TestV3Phase0B::test_v3_2_search_filter_backend_and_frontend` | passed |  |
 | `verification/test_v3_phase0b.py::TestV3Phase0B::test_v3_3_dynamic_filters_endpoint_and_no_hardcoded_arrays` | passed |  |
