@@ -19,7 +19,7 @@
 
 | Parameter Key | Value | Source | Notes / Description |
 | :--- | :--- | :--- | :--- |
-| `cohort_metadata.target_base_rate` | `0.355` | `TODO(citation)` | Placeholder baseline cohort dropout rate for Indian collegiate technical education. |
+| `cohort_metadata.target_base_rate` | `0.355` | `assumption` | No published national higher-education dropout rate for India; simulation value; see sensitivity analysis. |
 
 ## Risk Coefficients
 
@@ -34,7 +34,7 @@
 | `risk_coefficients.lms_logins_per_week` | `-0.06853` (from `estimated_parameters.json#indian_unit_coefficient.lms_logins_per_week`) | `estimated_from_oulad` | Indian-unit coefficient estimated from OULAD ID 349 mean weekly clicks at snapshot t=56; fitted on all registrations active at t=56 (no holdout; OULAD is not used by the sim-to-real check). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters). |
 | `risk_coefficients.days_since_last_lms_activity` | `0.02903` (from `estimated_parameters.json#indian_unit_coefficient.days_since_last_lms_activity`) | `estimated_from_oulad` | Indian-unit coefficient estimated from OULAD ID 349 inactivity recency at snapshot t=56; fitted on all registrations active at t=56 (no holdout; OULAD is not used by the sim-to-real check). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters). |
 | `risk_coefficients.assignment_submission_lag_days` | `0.13214` (from `estimated_parameters.json#indian_unit_coefficient.assignment_submission_lag_days`) | `estimated_from_oulad` | Indian-unit coefficient estimated from OULAD ID 349 assignment submission lag at snapshot t=56; fitted on all registrations active at t=56 (no holdout; OULAD is not used by the sim-to-real check). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters). |
-| `risk_coefficients.attendance_percentage` | `-0.04` | `indian_regulation` | Penalty for attendance deficit below statutory 75% rule (log-odds increase of 0.040 per percentage deficit). |
+| `risk_coefficients.attendance_deficit_slope` | `0.04` | `assumption` | Log-odds added per percentage point of attendance below regulations_and_thresholds.mandatory_attendance_threshold: slope x max(0, threshold - attendance_percentage); no effect at or above the threshold. |
 | `risk_coefficients.attendance_3m_trend` | `-0.08` | `assumption` | Deteriorating attendance trajectory slope over 3-month observation window. |
 | `risk_coefficients.consecutive_absences` | `0.075` | `assumption` | Log-odds penalty per consecutive absent day indicating prolonged absence spell. |
 | `risk_coefficients.cgpa_delta` | `-0.4` | `assumption` | Acute academic decline log-odds penalty per unit semester-over-semester CGPA drop. |
@@ -83,7 +83,7 @@
 | Parameter Key | Value | Source | Notes / Description |
 | :--- | :--- | :--- | :--- |
 | `socioeconomic_distribution.income_slab_labels` | `[<2 LPA, 2-5 LPA, 5-8 LPA, '>8 LPA']` | `assumption` | Standard family income categorization brackets in Indian collegiate admissions. |
-| `socioeconomic_distribution.income_slab_proportions` | `[0.22, 0.38, 0.25, 0.15]` | `TODO(citation)` | Income bracket distribution in state-affiliated technical colleges. |
+| `socioeconomic_distribution.income_slab_proportions` | `[0.22, 0.38, 0.25, 0.15]` | `assumption` | Simulation value for the income-slab mix of the cohort; not a cited distribution. |
 | `socioeconomic_distribution.first_gen_probs_by_slab` | `[0.65, 0.45, 0.2, 0.08]` | `assumption` | Probability of first-generation learner status conditioned on income bracket index. |
 | `socioeconomic_distribution.scholarship_quota_prob` | `0.65` | `indian_regulation` | Post-matric and merit-cum-means scholarship coverage for SC/ST/EWS or <2 LPA income. |
 | `socioeconomic_distribution.scholarship_mid_prob` | `0.25` | `assumption` | Scholarship coverage probability for 2-5 LPA income slab. |
@@ -120,6 +120,8 @@
 | `attendance_distribution.latent_attendance_min_clip` | `0.15` | `assumption` | Lower clipping bound for commute-adjusted latent attendance factor. |
 | `attendance_distribution.latent_attendance_max_clip` | `0.98` | `assumption` | Upper clipping bound for commute-adjusted latent attendance factor. |
 | `attendance_distribution.attendance_slope_noise_std` | `4.5` | `assumption` | Standard deviation of latent monthly attendance trend slope. |
+| `attendance_distribution.monthly_noise_std` | `4` | `assumption` | Standard deviation of month-to-month attendance noise around the latent attendance level. |
+| `attendance_distribution.lab_attendance_min` | `15` | `assumption` | Floor percentage for practical lab attendance (other subjects use attendance_min). |
 | `attendance_distribution.consecutive_absence_thresholds` | `[50.0, 65.0, 75.0]` | `assumption` | Attendance tier cutoffs determining consecutive absence days window. |
 | `attendance_distribution.consecutive_absence_ranges` | `[[8, 25], [4, 12], [2, 7], [0, 3]]` | `assumption` | Min and max integer bounds for consecutive absence day draws by attendance tier. |
 
@@ -133,8 +135,10 @@
 | `academic_distribution.attendance_cgpa_slope` | `0.025` | `assumption` | CGPA impact per percentage point deviation from 75% attendance benchmark. |
 | `academic_distribution.backlog_base_lambda` | `4.5` | `assumption` | Base multiplier for Poisson backlog rate function. |
 | `academic_distribution.backlog_cgpa_decay` | `0.8` | `assumption` | Exponential decay coefficient of backlog rate with respect to current CGPA. |
-| `academic_distribution.backlog_attendance_boost` | `1.8` | `assumption` | Additive backlog Poisson rate increase when attendance drops below 65%. |
+| `academic_distribution.backlog_attendance_boost` | `1.8` | `assumption` | Additive backlog Poisson rate increase when attendance is below academic_distribution.backlog_attendance_threshold. |
 | `academic_distribution.backlog_max` | `7` | `indian_regulation` | Statutory academic limit of active uncleared backlogs before student is detained. |
+| `academic_distribution.backlog_lambda_floor` | `0.05` | `assumption` | Minimum Poisson backlog rate, so every student has a nonzero backlog probability. |
+| `academic_distribution.backlog_attendance_threshold` | `65` | `assumption` | Attendance percentage below which backlog_attendance_boost is added to the backlog rate. |
 | `academic_distribution.internal_exam_cgpa_multiplier` | `9.5` | `assumption` | Linear multiplier converting 10-point CGPA to 100-point internal examination score. |
 | `academic_distribution.internal_exam_noise_std` | `5` | `assumption` | Standard deviation of internal examination evaluation noise. |
 | `academic_distribution.stem_exam_att_weight` | `0.45` | `assumption` | Weight of attendance in STEM core exam score simulation. |
@@ -169,3 +173,16 @@
 | `learning_behavior_distribution.inactivity_max_days` | `60` | `assumption` | Maximum inactivity recency in days. |
 | `learning_behavior_distribution.forum_base_lambda` | `4` | `assumption` | Multiplier for Poisson discussion forum participation frequency. |
 | `learning_behavior_distribution.forum_participation_max` | `25` | `assumption` | Maximum discussion forum participation count. |
+| `learning_behavior_distribution.forum_lambda_floor` | `0.2` | `assumption` | Minimum Poisson rate for discussion forum participation. |
+| `learning_behavior_distribution.engagement_cgpa_weight` | `0.5` | `assumption` | Weight of normalised CGPA in the latent engagement score that drives LMS behaviour. |
+| `learning_behavior_distribution.engagement_attendance_weight` | `0.5` | `assumption` | Weight of normalised attendance in the latent engagement score that drives LMS behaviour. |
+
+## Sensitivity to `cohort_metadata.target_base_rate`
+
+There is no published national higher-education dropout rate for India, so the simulated base rate is an assumption. The cohort is regenerated and the model retrained at each rate; metrics are on the held-out test split with 95% bootstrap CIs. Simulated data only, not real-world accuracy.
+
+| target_base_rate | Observed dropout rate | n (test) | ROC-AUC | PR-AUC | Brier |
+|---|---|---|---|---|---|
+| 0.15 | 0.1495 | 300 | 0.9527 [0.9154, 0.9816] | 0.8446 [0.7534, 0.9190] | 0.0603 [0.0379, 0.0838] |
+| 0.25 | 0.2555 | 300 | 0.9612 [0.9336, 0.9829] | 0.9292 [0.8848, 0.9638] | 0.0627 [0.0435, 0.0843] |
+| 0.355 | 0.3500 | 300 | 0.9325 [0.9004, 0.9589] | 0.9075 [0.8616, 0.9431] | 0.0902 [0.0690, 0.1133] |

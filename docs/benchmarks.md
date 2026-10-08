@@ -223,8 +223,8 @@ Out-of-fold predictions from all held-out modules pooled before scoring, which c
 | Evaluation Mode | Training Domain | Test Domain | N (Train / Test) | ROC-AUC (95% CI) | PR-AUC (95% CI) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | Baseline: Trained on UCI proxies, tested on UCI holdout (Real-on-Real) | UCI (ID 697) | UCI (ID 697) | 2904 / 726 | 0.9399 [0.9203, 0.9587] | 0.9329 [0.9119, 0.9525] |
-| Baseline: Trained on Simulated proxies, tested on Simulated holdout (Sim-on-Sim) | Simulated Indian Cohort | Simulated Indian Cohort | 1600 / 400 | 0.9307 [0.9035, 0.9541] | 0.9056 [0.8689, 0.9384] |
-| Transfer: Trained on Simulated proxies, tested on UCI holdout (Sim-to-Real) | Simulated Indian Cohort | UCI (ID 697) | 1600 / 726 | 0.9378 [0.9187, 0.9565] | 0.9298 [0.9077, 0.9491] |
-| Transfer: Trained on UCI proxies, tested on Simulated holdout (Real-to-Sim) | UCI (ID 697) | Simulated Indian Cohort | 2904 / 400 | 0.9330 [0.9062, 0.9553] | 0.9077 [0.8708, 0.9396] |
+| Baseline: Trained on Simulated proxies, tested on Simulated holdout (Sim-on-Sim) | Simulated Indian Cohort | Simulated Indian Cohort | 1600 / 400 | 0.8905 [0.8530, 0.9233] | 0.8542 [0.8035, 0.8991] |
+| Transfer: Trained on Simulated proxies, tested on UCI holdout (Sim-to-Real) | Simulated Indian Cohort | UCI (ID 697) | 1600 / 726 | 0.9378 [0.9186, 0.9569] | 0.9298 [0.9078, 0.9495] |
+| Transfer: Trained on UCI proxies, tested on Simulated holdout (Real-to-Sim) | UCI (ID 697) | Simulated Indian Cohort | 2904 / 400 | 0.8909 [0.8553, 0.9241] | 0.8519 [0.7987, 0.8988] |
 
 ---

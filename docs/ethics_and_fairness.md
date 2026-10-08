@@ -1,5 +1,5 @@
 # Ethics, Responsible AI & Algorithmic Fairness Audit Report
-### DropoutGuard — AI-Powered Academic Dropout Prediction & Intervention System
+### DropoutGuard — AI-Powered Early-Warning and Student Support System
 **Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
 
@@ -50,7 +50,7 @@ Evaluates four mitigation approaches on an identical 70/30 stratified train/test
 | **None (Unmitigated)** | gender | 0.942 | 0.938 | 84.7% | 90.5% | 0.0805 | **7.21%** |
 | **Sample Reweighing** | gender | 0.942 | 0.938 | 86.2% | 86.0% | 0.0859 | **8.90%** |
 | **Group-Specific Thresholds (FNR Parity)** | gender | 0.942 | 0.938 | 81.7% | 87.9% | 0.0805 | **1.48%** |
-| **Fairlearn ExponentiatedGradient** | gender | 0.893 | 0.835 | 77.7% | 86.2% | 0.0970 | **4.36%** |
+| **Fairlearn ExponentiatedGradient** | gender | 0.893 | 0.835 | 75.6% | 87.7% | 0.0970 | **1.34%** |
 
 ---
 
@@ -172,17 +172,17 @@ Evaluates model performance and disaggregated False Negative Rates across househ
 
 | Feature Configuration | Predictor Features | ROC-AUC | PR-AUC | Recall | Precision | Brier Score | FNR (<2 LPA) | FNR (>8 LPA) | FNR Disparity Gap |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **With Income Features (37 features)** | 37 | 0.935 | 0.916 | 78.9% | 88.8% | 0.0867 | 46.3% | 45.1% | **1.25%** |
-| **Without Income Features (35 features)** | 35 | 0.936 | 0.917 | 78.9% | 89.2% | 0.0861 | 46.9% | 44.0% | **2.95%** |
+| **With Income Features (36 features)** | 36 | 0.931 | 0.912 | 78.0% | 88.5% | 0.0876 | 44.0% | 43.8% | **0.21%** |
+| **Without Income Features (34 features)** | 34 | 0.932 | 0.912 | 78.1% | 88.5% | 0.0873 | 44.0% | 44.9% | **-0.91%** |
 
 #### Disaggregated Performance Across Income Slabs (Simulated Cohort)
 
 | Income Bracket | $N$ Students | Actual Dropouts | Base Rate | FNR (With Income Features) | FNR (Without Income Features) | FNR Difference (Without - With) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **<2 LPA** | 432 | 162 | 37.5% | 46.30% | 46.91% | 0.61% |
-| **2-5 LPA** | 774 | 282 | 36.4% | 43.26% | 43.26% | 0.00% |
-| **5-8 LPA** | 509 | 176 | 34.6% | 46.02% | 46.02% | 0.00% |
-| **>8 LPA** | 285 | 91 | 31.9% | 45.05% | 43.96% | -1.09% |
+| **<2 LPA** | 432 | 159 | 36.8% | 44.03% | 44.03% | 0.00% |
+| **2-5 LPA** | 774 | 274 | 35.4% | 42.34% | 41.97% | -0.37% |
+| **5-8 LPA** | 509 | 178 | 35.0% | 48.31% | 47.75% | -0.56% |
+| **>8 LPA** | 285 | 89 | 31.2% | 43.82% | 44.94% | 1.12% |
 
 ---
 
@@ -195,9 +195,10 @@ Verification of synthetic data generator properties across $N = 2,000$ simulated
 
 | Demographic Slice | Single Held-Out Test Split ($N=300$) | 5-Fold Cross-Validation ($N=2,000$ Out-of-Fold) | Empirical Difference |
 | :--- | :--- | :--- | :--- |
-| **Gender Disparity Gap** (Female vs Male FNR) | **5.41%** | **0.05%** | **5.36%** |
-| **Economic Proxy Gap** (<5 LPA vs $\ge$5 LPA) | **3.05%** | **4.07%** | **1.02%** |
-| **First-Generation Gap** (First-Gen vs Non-First-Gen) | **0.35%** | **1.96%** | **1.61%** |
+| **Gender Disparity Gap** (Female vs Male FNR) | **1.42%** | **1.52%** | **0.10%** |
+| **Economic Proxy Gap** (<5 LPA vs $\ge$5 LPA) | **8.08%** | **5.61%** | **2.47%** |
+| **First-Generation Gap** (First-Gen vs Non-First-Gen) | **7.15%** | **4.30%** | **2.85%** |
+| **Age Band Gap** (age $\le$ vs > cohort median (20.10 years); protected, not a model feature) | **0.65%** | **1.58%** | **0.93%** |
 
 ---
 

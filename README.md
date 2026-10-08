@@ -46,14 +46,14 @@ DropoutGuard continuously ingests multi-source student data across **4 Core Pill
 The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target labels are derived from a known mathematical formula parameterized in that script. Consequently, these metrics demonstrate that the data ingestion, feature engineering, training, calibration, and fairness auditing pipelines function cohesively end-to-end, and they should not be construed as empirical evidence of real-world predictive accuracy.
 
 <!-- METRICS:START -->
-- **At-Risk Recall (Sensitivity)**: `81.31%` (Minimizes missed vulnerable students)
-- **At-Risk Precision**: `91.58%` (Prevents mentor alert fatigue)
-- **Minority Class F1 Score**: `0.8614`
-- **Macro-Averaged F1 Score**: `0.8955`
-- **ROC-AUC**: `0.9462`
-- **Overall Accuracy**: `90.67%`
-- **Brier Calibration Score**: `0.0781`
-- **Demographic Disparity**: Gender FNR gap $5.41\text{ pp}$, Economic proxy gap $3.05\text{ pp}$, First-Gen gap $0.35\text{ pp}$
+- **At-Risk Recall (Sensitivity)**: `78.10%` (Minimizes missed vulnerable students)
+- **At-Risk Precision**: `90.11%` (Prevents mentor alert fatigue)
+- **Minority Class F1 Score**: `0.8367`
+- **Macro-Averaged F1 Score**: `0.8788`
+- **ROC-AUC**: `0.9325`
+- **Overall Accuracy**: `89.33%`
+- **Brier Calibration Score**: `0.0902`
+- **Demographic Disparity**: Gender FNR gap $1.42\text{ pp}$, Economic proxy gap $8.08\text{ pp}$, First-Gen gap $7.15\text{ pp}$
 <!-- METRICS:END -->
 
 ---
@@ -61,7 +61,7 @@ The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target
 ## Real-data benchmarks
 
 <!-- BENCHMARKS:START -->
-Generated from `ml/artifacts/benchmarks/*.json` (commit `59c706f`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
+Generated from `ml/artifacts/benchmarks/*.json` (commit `bef625a`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
 
 #### UCI 697: Portuguese higher education
 
