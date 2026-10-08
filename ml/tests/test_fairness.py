@@ -240,6 +240,41 @@ def test_mitigations_comparison_structure():
         assert "max_fnr_gap" in row
 
 
+def test_mitigation_gaps_identical_across_runs():
+    """
+    Two runs of the mitigation comparison on the same data and seed give identical results,
+    including the Fairlearn ExponentiatedGradient row (a randomized classifier at predict time).
+    """
+    rng = np.random.default_rng(42)
+    n_tr, n_te = 600, 300
+    n_feats = 4
+
+    # Labels depend on group membership so ExponentiatedGradient returns a mixture of predictors
+    X_tr = pd.DataFrame(rng.normal(size=(n_tr, n_feats)), columns=[f"f_{i}" for i in range(n_feats)])
+    s_tr = rng.choice(["GroupA", "GroupB"], size=n_tr)
+    y_tr = (X_tr["f_0"].to_numpy() + 0.8 * (s_tr == "GroupB") + rng.normal(size=n_tr) > 0.5).astype(int)
+
+    X_te = pd.DataFrame(rng.normal(size=(n_te, n_feats)), columns=[f"f_{i}" for i in range(n_feats)])
+    s_te = rng.choice(["GroupA", "GroupB"], size=n_te)
+    y_te = (X_te["f_0"].to_numpy() + 0.8 * (s_te == "GroupB") + rng.normal(size=n_te) > 0.5).astype(int)
+
+    def run():
+        return compare_fairness_mitigations(
+            X_train=X_tr,
+            y_train=y_tr,
+            sensitive_train=s_tr,
+            X_test=X_te,
+            y_test=y_te,
+            sensitive_test=s_te,
+            seed=42,
+        )
+
+    first, second = run(), run()
+    assert "error" not in first["results"]["fairlearn_exponentiated_gradient"]
+    assert first["results"] == second["results"]
+    assert first["comparison_table"] == second["comparison_table"]
+
+
 def test_within_group_ece_calculation():
     """
     Tests Expected Calibration Error calculation.

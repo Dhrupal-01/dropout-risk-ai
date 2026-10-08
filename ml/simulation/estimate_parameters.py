@@ -44,7 +44,7 @@ def compute_logistic_standardized_effects(
     n_samples, n_features = X_std.shape
 
     # Large C approximates unpenalized maximum likelihood estimation without deprecation warnings
-    clf = LogisticRegression(C=1e9, solver="lbfgs", max_iter=1000)
+    clf = LogisticRegression(C=1e9, solver="lbfgs", max_iter=1000, random_state=RANDOM_SEED)
     clf.fit(X_std, y)
 
     # Predicted probabilities

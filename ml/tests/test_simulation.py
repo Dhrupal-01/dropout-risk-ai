@@ -249,3 +249,16 @@ class TestSimToRealBenchmarkArtifact:
             assert roc["ci_lower"] <= roc["point"] <= roc["ci_upper"]
             assert 0.0 <= pr["point"] <= 1.0
             assert pr["ci_lower"] <= pr["point"] <= pr["ci_upper"]
+
+    @pytest.mark.data
+    def test_sim_to_real_bootstrap_cis_identical_across_runs(self, tmp_path, monkeypatch):
+        """Two runs of the sim-to-real benchmark give identical point estimates and bootstrap CIs."""
+        import ml.simulation.sim_to_real as sim_to_real
+
+        monkeypatch.setattr(sim_to_real, "BENCHMARK_DIR", tmp_path)
+        runs = []
+        for i in range(2):
+            monkeypatch.setattr(sim_to_real, "OUTPUT_JSON_PATH", tmp_path / f"sim_to_real_{i}.json")
+            runs.append(sim_to_real.run_sim_to_real_benchmark(n_bootstraps=200, allow_dirty=True))
+
+        assert runs[0]["transfer_evaluations"] == runs[1]["transfer_evaluations"]

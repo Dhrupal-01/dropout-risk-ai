@@ -33,6 +33,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from ml.config import RANDOM_SEED
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 from ml.evaluation.harness import compute_bootstrap_cis
 from ml.provenance import add_allow_dirty_argument, build_provenance, require_clean_tree, uci_inputs
@@ -130,10 +131,10 @@ def run_sim_to_real_benchmark(n_bootstraps: int = 1000, allow_dirty: bool = Fals
     p_real_to_sim = m_uci.predict_proba(X_sim_te_std)[:, 1]
 
     logger.info("Computing 95%% bootstrap confidence intervals (B=%d)...", n_bootstraps)
-    ci_real_real = compute_bootstrap_cis(y_uci_te, p_real_real, n_bootstraps=n_bootstraps, seed=42)
-    ci_sim_sim = compute_bootstrap_cis(y_sim_te, p_sim_sim, n_bootstraps=n_bootstraps, seed=42)
-    ci_sim_to_real = compute_bootstrap_cis(y_uci_te, p_sim_to_real, n_bootstraps=n_bootstraps, seed=42)
-    ci_real_to_sim = compute_bootstrap_cis(y_sim_te, p_real_to_sim, n_bootstraps=n_bootstraps, seed=42)
+    ci_real_real = compute_bootstrap_cis(y_uci_te, p_real_real, n_bootstraps=n_bootstraps, seed=RANDOM_SEED)
+    ci_sim_sim = compute_bootstrap_cis(y_sim_te, p_sim_sim, n_bootstraps=n_bootstraps, seed=RANDOM_SEED)
+    ci_sim_to_real = compute_bootstrap_cis(y_uci_te, p_sim_to_real, n_bootstraps=n_bootstraps, seed=RANDOM_SEED)
+    ci_real_to_sim = compute_bootstrap_cis(y_sim_te, p_real_to_sim, n_bootstraps=n_bootstraps, seed=RANDOM_SEED)
 
     results: Dict[str, Any] = {
         "benchmark": "sim_to_real_transfer",

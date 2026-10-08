@@ -225,7 +225,7 @@ def compare_fairness_mitigations(
             eps=0.01,
         )
         mit_exp.fit(X_tr_std, y_train, sensitive_features=s_tr)
-        pred_exp = mit_exp.predict(X_te_std)
+        pred_exp = mit_exp.predict(X_te_std, random_state=seed)
         # Approximate probabilities via underlying predictors if available, otherwise surrogate step
         if hasattr(mit_exp, "_pmf_predict"):
             pmf = mit_exp._pmf_predict(X_te_std)

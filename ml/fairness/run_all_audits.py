@@ -24,6 +24,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from ml.config import RANDOM_SEED
 from ml.fairness.attributes import AUDIT_GROUPS, PROTECTED
 from ml.fairness.audit import audit_model_fairness
 from ml.fairness.income_ablation import run_income_ablation_experiment
@@ -319,7 +320,7 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
 
 def run_all_fairness_audits(
     n_bootstraps: int = 1000,
-    seed: int = 42,
+    seed: int = RANDOM_SEED,
     force_rerun: bool = False,
     allow_dirty: bool = False,
 ) -> Dict[str, Any]:
