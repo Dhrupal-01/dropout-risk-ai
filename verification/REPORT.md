@@ -5,13 +5,13 @@
 
 | Field | Value |
 | :--- | :--- |
-| git HEAD | `6a9ba18223e63b199b8a9d4c283776fd8335ad70` |
+| git HEAD | `bb813f8e08d4e75100e7b43340bec5660ee627cf` |
 | tracked files modified | `false` |
 | pip freeze --exclude-editable sha256 | `481db9712e417e04c45f3cf91495e487bfe978fc05928b60f7dacd2af25151ed` |
 | matches requirements.lock | `true` |
 | python | `3.14.5` |
-| junit timestamp | `2026-10-09T00:15:21.739660+05:30` |
-| junit time (s) | `655.16` |
+| junit timestamp | `2026-10-09T01:17:22.267117+05:30` |
+| junit time (s) | `470.75` |
 | pytest exit code | `0` |
 
 ## Summary
