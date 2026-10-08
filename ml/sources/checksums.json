@@ -1,0 +1,38 @@
+{
+  "uci_697": {
+    "source_url": "https://archive.ics.uci.edu/static/public/697/predict+students+dropout+and+academic+success.zip",
+    "note": "SHA-256 of the 'data.csv' member of the official zip, cached unchanged as data/raw/uci_dropout.csv.",
+    "files": {
+      "uci_dropout.csv": {
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      }
+    }
+  },
+  "oulad": {
+    "source_url": "https://analyse.kmi.open.ac.uk/open_dataset",
+    "note": "Original Open University release (missing values are empty fields). The UCI repository mirror (id 349) writes missing values as \"?\" and does not match these checksums.",
+    "files": {
+      "assessments.csv": {
+        "sha256": "8cc738fb88ad760571d6f2a23059bfee0ffcae3bcd830514c9cbd5c6d5a046f1"
+      },
+      "courses.csv": {
+        "sha256": "4f16eee7454b15e109b0a21a0e43be820e6846ed6f9301bb7feb5ab5ad737a75"
+      },
+      "studentAssessment.csv": {
+        "sha256": "fd5320786328d05af841ee7dd4b5871b9dada3b9fe9d6a3642b2f42635510a6e"
+      },
+      "studentInfo.csv": {
+        "sha256": "7e6f3e474a5eee00639d2a414a6c7e928745823c2d2c2563ca1780145f99b0d6"
+      },
+      "studentRegistration.csv": {
+        "sha256": "0d32676285372aaf2e7a80304e5b274b4fba24313e2ca4c04317225e1ec90170"
+      },
+      "studentVle.csv": {
+        "sha256": "52668253d876c5becbcb72185977152700cecab2942aca807fecc3dd54b937f0"
+      },
+      "vle.csv": {
+        "sha256": "d1b28303dea802ad87b4484e1196e878e06824850b9a4fe8aa34693439fe87e9"
+      }
+    }
+  }
+}

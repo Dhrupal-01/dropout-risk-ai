@@ -3,7 +3,8 @@
 **Backend**: FastAPI + PostgreSQL (Neon) · **Model**: calibrated XGBoost + TreeSHAP
 **Status**: Phase 4 complete — every endpoint below is implemented, tested and verified live.
 
-> All examples in this document are **real captured responses**, not illustrations.
+> Example responses were captured from a local run on the **simulated cohort** and are abridged.
+> Cohort counts and queue totals are omitted: they depend on the data you load.
 
 ---
 
@@ -17,7 +18,28 @@
 - All feature endpoints are under `/api/v1`. `/health` is at the root.
 - Everything is JSON except the CSV upload, which is `multipart/form-data`.
 - Interactive docs: **`/docs`** (Swagger UI) and **`/redoc`**. The OpenAPI schema is at `/openapi.json` — usable to generate a typed client.
-- No authentication yet. Do not ship this publicly without adding it.
+- `GET /` returns the service name, version and the paths of `/docs` and `/health`.
+
+### Authentication (first stage)
+
+Every `/api/v1` write (`POST /api/v1/predict`, `POST /api/v1/predict/batch`,
+`POST /api/v1/predict/batch/csv`, `POST /api/v1/interventions/log`) needs the shared admin token:
+
+```
+Authorization: Bearer <API_ADMIN_TOKEN>
+```
+
+- Without the right token the API returns **401** `unauthorized` with a `WWW-Authenticate: Bearer` header.
+- If the server has no `API_ADMIN_TOKEN` configured, every write is refused with 401.
+- Reads (`GET`) are public while the server runs with `PUBLIC_READ_ONLY=true` (the default). With
+  `PUBLIC_READ_ONLY=false`, reads need the same token.
+- `GET /health` and `GET /` are outside `/api/v1` and never need the token.
+- The token is compared in constant time (`backend/app/core/security.py`). The frontend keeps it in
+  memory only (`frontend/src/api/adminToken.js`: never `localStorage`, `sessionStorage` or cookies),
+  so a page reload clears it.
+
+This is one shared token, not per-mentor login. **Do not load real student data until per-mentor
+authentication exists.**
 
 ### CORS
 
@@ -46,8 +68,6 @@ Assigned by `ml.config.get_risk_tier` from the calibrated probability. **The API
 | `High` | `p > 0.66` | Priority mentor outreach |
 
 Thresholds are configurable via `RISK_THRESHOLD_LOW` / `RISK_THRESHOLD_HIGH`, so treat them as data, not constants.
-
-> **Cohort note:** the `Medium` band is genuinely narrow — in the 2,000-student reference cohort it holds only 92 students (1,250 `Low`, 658 `High`). A tier filter returning few Medium results is expected, not a bug.
 
 ### Intervention lifecycle statuses
 
@@ -85,14 +105,16 @@ These outputs are **risk estimates and recommended support**, not verdicts:
 
 ## 3. The feature contract
 
-`POST /predict` requires **28 raw features** plus residency. The 9 engineered features
+`POST /predict` takes **27 raw features** plus residency: the 24 below are required, and the 3
+in the optional table are derived if omitted. The 9 engineered features
 (`subject_attendance_std`, `academic_crisis_flag`, `behavioral_disengagement_index`,
 `is_hosteler`, `financial_stress_index`, and four `interaction_*` terms) are **computed by
-the backend** — sending them is rejected with 422.
+the backend** — sending them is rejected with 422 (`is_hosteler` is the one exception: it may be
+sent instead of `hostel_status`).
 
-**Required (28):**
+**Required (24):**
 
-`age`, `commute_distance_km`, `income_slab_idx`, `is_first_generation`, `has_scholarship`,
+`commute_distance_km`, `income_slab_idx`, `is_first_generation`, `has_scholarship`,
 `fee_payment_delay_days`, `att_core1`, `att_core2`, `att_lab`, `att_elective`,
 `attendance_month_1`, `attendance_month_2`, `attendance_month_3`, `attendance_percentage`,
 `consecutive_absences`, `prev_sem_cgpa`, `current_cgpa`, `backlog_count`,
@@ -108,22 +130,26 @@ the backend** — sending them is rejected with 422.
 |---|---|
 | `cgpa_delta` | `current_cgpa − prev_sem_cgpa` |
 | `attendance_3m_trend` | `(attendance_month_3 − attendance_month_1) / 2` |
-| `attendance_risk_flag` | `1` if `attendance_percentage < 75` |
+| `attendance_risk_flag` | `1` if `attendance_percentage` is below the statutory attendance threshold |
 
 **Never send** `is_dropout` or `ground_truth_risk_prob` — these are training labels and are rejected with 422.
+
+**Never send protected attributes** (`age`, `gender`, `category`): they are not model inputs and are
+rejected with 422 `validation_error`. Every column with its definition is in
+[data_dictionary.md](data_dictionary.md).
 
 ### Ranges
 
 | Field | Range | Field | Range |
 |---|---|---|---|
-| `age` | 15–60 | `prev_sem_cgpa`, `current_cgpa` | 0–10 |
-| `commute_distance_km` | 0–100 | `cgpa_delta` | −10–10 |
-| `income_slab_idx` | 0–3 (0=`<2 LPA` … 3=`>8 LPA`) | `backlog_count` | 0–20 |
-| `is_first_generation`, `has_scholarship`, `stem_core_fail_flag`, `attendance_risk_flag`, `is_hosteler` | 0 or 1 | `internal_exam_score_pct` | 0–100 |
-| `fee_payment_delay_days` | 0–365 | `lms_logins_per_week` | 0–50 |
-| all `att_*` and `attendance_*` percentages | 0–100 | `assignment_submission_lag_days` | −30–90 (negative = early) |
-| `attendance_3m_trend` | −50–50 | `resource_access_count` | 0–1000 |
-| `consecutive_absences` | 0–180 | `days_since_last_lms_activity` | 0–365 |
+| `commute_distance_km` | 0–100 | `prev_sem_cgpa`, `current_cgpa` | 0–10 |
+| `income_slab_idx` | 0–3 (0=`<2 LPA` … 3=`>8 LPA`) | `cgpa_delta` | −10–10 |
+| `is_first_generation`, `has_scholarship`, `stem_core_fail_flag`, `attendance_risk_flag`, `is_hosteler` | 0 or 1 | `backlog_count` | 0–20 |
+| `fee_payment_delay_days` | 0–365 | `internal_exam_score_pct` | 0–100 |
+| all `att_*` and `attendance_*` percentages | 0–100 | `lms_logins_per_week` | 0–50 |
+| `attendance_3m_trend` | −50–50 | `assignment_submission_lag_days` | −30–90 (negative = early) |
+| `consecutive_absences` | 0–180 | `resource_access_count` | 0–1000 |
+| | | `days_since_last_lms_activity` | 0–365 |
 | | | `forum_participation_count` | 0–200 |
 
 ---
@@ -138,11 +164,13 @@ Every error shares one envelope. **Tracebacks are never returned.**
 
 | Status | `error` | When |
 |---|---|---|
+| 401 | `unauthorized` | Missing or wrong admin token on a write (or on a read when `PUBLIC_READ_ONLY=false`), or no token configured on the server; sends `WWW-Authenticate: Bearer`. See §1 Authentication |
 | 404 | `student_not_found` | Unknown `student_id` |
 | 404 | `no_prediction_history` | Student exists but was never scored — call `/predict` first |
 | 409 | `invalid_lifecycle_transition` | Backward status move; includes `current_status` and `requested_status` |
 | 422 | `validation_error` | Schema/range failure; includes a `details[]` array of `{field, type, message}` |
 | 422 | `invalid_feature_payload` | Contract violation (label sent, unknown intervention id, bad CSV) |
+| 422 | `invalid_cursor` | `GET /api/v1/mentors/queue` received a `cursor` it cannot decode; request the first page without a cursor |
 | 503 | `model_unavailable` | ML artifacts not loaded — check `/health`; sends `Retry-After: 30` |
 | 500 | `internal_error` | Unexpected fault; includes an `incident_id` to quote to the backend team |
 
@@ -165,7 +193,7 @@ Every error shares one envelope. **Tracebacks are never returned.**
   "model_loaded": true,
   "environment": "development",
   "model_version": "calibrated-14c199cc584b",
-  "feature_count": 37,
+  "feature_count": 36,
   "detail": null
 }
 ```
@@ -192,7 +220,7 @@ Top SHAP drivers are always stored with the prediction; `include_explanation: tr
   "assigned_mentor_id": "FAC_007",
   "include_explanation": false,
   "features": {
-    "age": 20.5, "commute_distance_km": 28.0, "income_slab_idx": 0,
+    "commute_distance_km": 28.0, "income_slab_idx": 0,
     "is_first_generation": 1, "has_scholarship": 0, "fee_payment_delay_days": 75,
     "hostel_status": "Day Scholar",
     "att_core1": 40.0, "att_core2": 42.0, "att_lab": 52.0, "att_elective": 41.0,
@@ -222,7 +250,7 @@ Top SHAP drivers are always stored with the prediction; `include_explanation: tr
 }
 ```
 
-**Errors:** 422 · 503 · 500.
+**Errors:** 401 · 422 · 503 · 500.
 
 > **No `confidence_interval`.** The ML package implements no interval estimator, so the field is deliberately absent rather than fabricated. Do not build UI expecting it.
 
@@ -230,7 +258,7 @@ Top SHAP drivers are always stored with the prediction; `include_explanation: tr
 
 ### 5.3 `POST /api/v1/predict/batch`
 
-**Purpose:** score many students in **one** inference call (~0.5 ms/student vs ~110 ms looping).
+**Purpose:** score many students in **one** inference call, much cheaper per student than looping `/predict`.
 
 **Body:** `students` (1–1000 items, each shaped like a `/predict` body), `sort_by_risk_desc` (default `false`), `include_explanations` (default `false` — SHAP is per-row and slow in bulk).
 
@@ -251,13 +279,15 @@ Duplicate `student_id`s in one batch are rejected (422). One invalid row fails t
 
 **Also:** `POST /api/v1/predict/batch/csv` — `multipart/form-data` with `file`, plus query params `sort_by_risk_desc`, `include_explanations`. Accepts the project's own `features.csv` column names; extra columns (labels, engineered, protected attributes) are ignored, never scored. Requires a `student_id` column. Same response shape.
 
+**Errors (both batch routes):** 401 · 422 · 503 · 500; the CSV route can also return 413 `upload_too_large`.
+
 ---
 
 ### 5.4 `GET /api/v1/students/{student_id}/explanation`
 
 **Purpose:** the top SHAP drivers behind the student's **latest** prediction.
 
-**Query:** `top_k` (default `5`, 1–37).
+**Query:** `top_k` (default `5`, 1 to the model feature count, currently 36).
 
 Explanations come from the immutable snapshot that produced the stored score, so `risk_probability` here always matches the prediction shown elsewhere — even if the student's features changed since.
 
@@ -397,7 +427,7 @@ Only `student_id` and `intervention_id` are required. Sending `post_intervention
 }
 ```
 
-**Errors:** 404 (unknown student) · 422 (unknown `intervention_id`, invalid `status` value) · **409** (backward transition) · 500.
+**Errors:** 401 · 404 (unknown student) · 422 (unknown `intervention_id`, invalid `status` value) · **409** (backward transition) · 500.
 
 **409 example**
 
@@ -425,10 +455,14 @@ Disable already-passed statuses in the UI rather than relying on the 409.
 | `department` | string | — | Case-insensitive exact match |
 | `risk_tier` | `Low`\|`Medium`\|`High` | — | 422 on any other value |
 | `assigned_mentor_id` | string | — | e.g. `FAC_007` |
+| `search` | string, ≤ 64 chars | — | Case-insensitive substring match on `student_id` or `name` |
+| `cursor` | string | — | Keyset pagination: pass the previous response's `next_cursor`. When set, `offset` is ignored |
 | `limit` | int 1–200 | `25` | |
-| `offset` | int ≥ 0 | `0` | |
+| `offset` | int ≥ 0 | `0` | Classic pagination, used when no `cursor` is sent |
 
-Each student appears **once**, ranked on their most recent prediction — historical predictions never create duplicate rows. `priority_rank` is cohort-wide across the filtered set, so page 2 continues `4, 5, 6…` rather than restarting.
+Each student appears **once**, ranked on their most recent prediction — historical predictions never create duplicate rows. Order: calibrated risk (4 dp) descending, then more backlogs, then lower attendance, then `student_id` (`backend/app/services/priority_scoring.py`, `mentor_queue_service.py`). `priority_rank` is cohort-wide across the filtered set, so page 2 continues `4, 5, 6…` rather than restarting, with either pagination style.
+
+**Cursor pagination.** Send the first page without `cursor`. If the page came back full (`limit` items), the response carries `next_cursor`; pass it as `cursor` to get the next page. `next_cursor` is `null` on a page with fewer than `limit` items. Keep the same filters while paging. A cursor the server cannot decode returns **422** `invalid_cursor`; restart from the first page without a cursor.
 
 **Response `200`**
 
@@ -454,19 +488,73 @@ Each student appears **once**, ranked on their most recent prediction — histor
       "intervention_outcome_status": "IMPROVED"
     }
   ],
-  "total": 660,
+  "total": "<int>",
   "limit": 25,
   "offset": 0,
+  "cursor": null,
+  "next_cursor": "<opaque string, or null>",
   "department": null,
   "risk_tier": "High",
   "assigned_mentor_id": null,
+  "search": null,
   "disclaimer": "Support triage order based on model risk estimates..."
 }
 ```
 
-`total` is the count **before** pagination — use it for the pager. `attendance`, `cgpa`, `backlogs` and `fee_delay_days` come from the same prediction snapshot as the score, so the numbers always agree with the risk shown. Any of them may be `null`; `primary_intervention` / `intervention_status` are `null` until something is logged.
+`total` is the count **before** pagination (an integer; omitted from the example) — use it for the pager. `attendance`, `cgpa`, `backlogs` and `fee_delay_days` come from the same prediction snapshot as the score, so the numbers always agree with the risk shown. Any of them may be `null`; `primary_intervention` / `intervention_status` are `null` until something is logged.
 
 Students who have never been scored do not appear.
+
+**Errors:** 422 (`validation_error` for a bad `risk_tier`, `limit`, `offset` or a `search` over 64 characters; `invalid_cursor`) · 500.
+
+---
+
+### 5.8 `GET /api/v1/mentors/filters`
+
+**Purpose:** the values to offer in the queue's department and mentor filter dropdowns.
+
+**Request:** none.
+
+**Response `200`**
+
+```json
+{
+  "departments": ["Computer Science & Engineering", "..."],
+  "mentor_ids": ["FAC_007", "..."]
+}
+```
+
+Both lists hold distinct, non-null values, sorted ascending (`mentor_queue_service.get_filters`).
+Either list may be empty.
+
+**Errors:** 500.
+
+---
+
+### 5.9 `GET /api/v1/stats/summary`
+
+**Purpose:** cohort totals for the dashboard KPI tiles, without paging through the queue.
+
+**Request:** none.
+
+**Response `200`** (shape; the counts depend on the loaded data)
+
+```json
+{
+  "total": "<int>",
+  "by_tier": { "High": "<int>", "Medium": "<int>", "Low": "<int>" },
+  "by_department": { "<department>": "<int>" }
+}
+```
+
+- Counts students that have a latest prediction (`latest_predictions`), so never-scored students
+  are not counted, the same as in the queue.
+- `by_tier` always has all three keys; a tier with no students is `0`.
+- `total` is the sum of `by_tier`.
+- `by_department` leaves out students with no department, so its values can sum to less than `total`.
+  Keys are sorted by department name.
+
+**Errors:** 500.
 
 ---
 
@@ -482,7 +570,7 @@ Students who have never been scored do not appear.
 
 ### Practical notes
 
-- `/predict` takes roughly **150 ms** (model + SHAP + database). Show a spinner; don't debounce-spam it.
+- `/predict` runs the model, SHAP and a database write per call. Show a spinner; don't debounce-spam it.
 - Batch is far cheaper per student — prefer it for more than ~3 students.
 - `evaluation_timestamp` / `evaluated_at` are UTC ISO-8601; convert for display.
 - `prediction_id` and log `id` are UUIDs — treat as opaque strings.

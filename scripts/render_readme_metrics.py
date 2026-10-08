@@ -5,9 +5,9 @@ and rewrites only the text between <!-- METRICS:START --> and <!-- METRICS:END -
 """
 
 import json
-import re
-import sys
 from pathlib import Path
+
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 README_PATH = BASE_DIR / "README.md"
@@ -30,6 +30,12 @@ def render_metrics_block() -> str:
     with open(FAIRNESS_METRICS_PATH, "r", encoding="utf-8") as f:
         fairness_metrics = json.load(f)
 
+    # Fails (ProvenanceError) on missing provenance, mixed git commits or mixed input checksums.
+    assert_consistent_provenance({
+        MODEL_METRICS_PATH.name: model_metrics,
+        FAIRNESS_METRICS_PATH.name: fairness_metrics,
+    })
+
     recall = model_metrics["recall_at_risk_minority"] * 100.0
     precision = model_metrics["precision_at_risk_minority"] * 100.0
     f1_min = model_metrics["f1_at_risk_minority"]
@@ -40,13 +46,19 @@ def render_metrics_block() -> str:
     brier = model_metrics.get("brier_score")
     brier_str = f"`{brier:.4f}`" if brier is not None else "TODO(citation)"
 
-    # Demographic disparity from test split
-    test_split_fairness = fairness_metrics.get("test_split", {})
-    gender_gap = test_split_fairness.get("gender", {}).get("fnr_disparity", 0.0) * 100.0
-    econ_gap = test_split_fairness.get("economic_proxy", {}).get("fnr_disparity", 0.0) * 100.0
-    fg_gap = test_split_fairness.get("first_generation", {}).get("fnr_disparity", 0.0) * 100.0
+    # Demographic FNR gaps on the simulated held-out test split (generator sanity check).
+    # Direct key access: a missing value must fail, never render as 0.0.
+    gaps = fairness_metrics["generator_sanity_check"]["test_split_fnr_gaps"]
+    gender_gap = gaps["gender"] * 100.0
+    econ_gap = gaps["economic_proxy"] * 100.0
+    fg_gap = gaps["first_generation"] * 100.0
 
+    dirty_warning = dirty_artifact_warning({
+        MODEL_METRICS_PATH.name: model_metrics,
+        FAIRNESS_METRICS_PATH.name: fairness_metrics,
+    })
     lines = [
+        *([dirty_warning, ""] if dirty_warning else []),
         f"- **At-Risk Recall (Sensitivity)**: `{recall:.2f}%` (Minimizes missed vulnerable students)",
         f"- **At-Risk Precision**: `{precision:.2f}%` (Prevents mentor alert fatigue)",
         f"- **Minority Class F1 Score**: `{f1_min:.4f}`",

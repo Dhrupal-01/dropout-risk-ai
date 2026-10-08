@@ -7,6 +7,7 @@ migration (see conftest).
 
 import io
 
+import numpy as np
 import pandas as pd
 import pytest
 from sqlalchemy import func, select
@@ -53,12 +54,11 @@ def low_risk_features(sample_raw_features):
 @pytest.fixture
 def medium_risk_features():
     """
-    A genuine Medium-tier profile taken from the calibrated cohort (calibrated p = 0.4536):
-    high attendance (93.5%) balanced by low academic performance (CGPA 4.99, 1 backlog).
-    Medium is a narrow band, so this is drawn from real data rather than hand-tuned.
+    A mixed profile taken from a simulated cohort: high attendance (93.5%) balanced by low
+    academic performance (CGPA 4.99, 1 backlog). Its tier depends on the current model, so tests
+    must not assume one; tier mapping is tested with a stub model instead.
     """
     return {
-        "age": 22.4,
         "commute_distance_km": 11.1,
         "income_slab_idx": 3,
         "is_first_generation": 0,
@@ -90,6 +90,16 @@ def medium_risk_features():
     }
 
 
+class _FixedProbabilityModel:
+    """Stub calibrated model: predict_proba returns the same P(y=1) for every row."""
+
+    def __init__(self, probability):
+        self.probability = probability
+
+    def predict_proba(self, X):
+        return np.tile([1.0 - self.probability, self.probability], (len(X), 1))
+
+
 def body(student_id, features, **extra):
     return {"student_id": student_id, "features": features, **extra}
 
@@ -114,7 +124,6 @@ class TestInputValidation:
             ("income_slab_idx", 9),          # ordinal 0-3
             ("has_scholarship", 2),          # binary
             ("backlog_count", -1),
-            ("age", 5.0),
         ],
     )
     def test_out_of_range_values_are_422(self, client, high_risk_features, field, bad_value):
@@ -123,6 +132,15 @@ class TestInputValidation:
         )
         assert response.status_code == 422
         assert any(field in d["field"] for d in response.json()["details"])
+
+    @pytest.mark.parametrize("protected,value", [("age", 20.0), ("gender", "Female"), ("category", "General")])
+    def test_protected_attributes_are_rejected(self, client, high_risk_features, protected, value):
+        """Protected attributes (ml/fairness/attributes.py) are never model inputs, so /predict refuses them."""
+        response = client.post(
+            PREDICT_URL, json=body("V_008", dict(high_risk_features, **{protected: value}))
+        )
+        assert response.status_code == 422
+        assert any(protected in d["field"] for d in response.json()["details"])
 
     @pytest.mark.parametrize("label", ["is_dropout", "ground_truth_risk_prob"])
     def test_label_leakage_is_rejected(self, client, high_risk_features, label):
@@ -176,13 +194,23 @@ class TestSinglePrediction:
         payload = client.post(PREDICT_URL, json=body("API_LOW", low_risk_features)).json()
         assert payload["risk_tier"] == "Low"
 
-    def test_medium_risk_student(self, client, db_engine, medium_risk_features):
-        """A real borderline student must land in the Medium band, not be forced to an extreme."""
-        from ml.config import RISK_THRESHOLD_HIGH, RISK_THRESHOLD_LOW
+    @pytest.mark.parametrize("probability, expected_tier", [(0.10, "Low"), (0.50, "Medium"), (0.80, "High")])
+    def test_tier_mapping_with_stub_model(
+        self, client, db_engine, medium_risk_features, monkeypatch, probability, expected_tier
+    ):
+        """The API maps a fixed calibrated probability to its tier, independent of the trained model."""
+        from backend.app.services.ml_service import ml_service
 
+        monkeypatch.setattr(ml_service, "_model", _FixedProbabilityModel(probability))
+        payload = client.post(PREDICT_URL, json=body(f"API_STUB_{expected_tier}", medium_risk_features)).json()
+        assert payload["risk_tier"] == expected_tier, payload
+        assert payload["calibrated_risk_probability"] == probability
+
+    def test_medium_risk_student_real_model_returns_valid_tier(self, client, db_engine, medium_risk_features):
+        """Integration: the real model returns a valid tier and a probability in [0, 1] for a mixed profile."""
         payload = client.post(PREDICT_URL, json=body("API_MED", medium_risk_features)).json()
-        assert payload["risk_tier"] == "Medium", payload
-        assert RISK_THRESHOLD_LOW <= payload["calibrated_risk_probability"] <= RISK_THRESHOLD_HIGH
+        assert payload["risk_tier"] in {"Low", "Medium", "High"}, payload
+        assert 0.0 <= payload["calibrated_risk_probability"] <= 1.0
 
     def test_tiers_are_ordered_low_medium_high(
         self, client, db_engine, low_risk_features, medium_risk_features, high_risk_features
@@ -297,7 +325,7 @@ class TestPersistence:
         # which is exactly why explain_from_snapshot reindexes by feature_names instead
         # of trusting dict order.
         assert set(prediction.input_features) == set(ml_service.feature_names)
-        assert len(prediction.input_features) == 37
+        assert len(prediction.input_features) == 36
 
         # Reconstructing the canonical order from the snapshot must still work.
         frame = ml_service.build_feature_frame_batch([high_risk_features])
@@ -564,3 +592,47 @@ class TestCsvBatch:
         )
         assert response.status_code == 201, response.text
         assert response.json()["total_students_evaluated"] == 5
+
+
+# --------------------------------------------------------------- CSV upload size limit (B2)
+
+def _csv_of_exact_size(features, size: int) -> bytes:
+    """A valid one-row CSV padded to exactly `size` bytes through an ignored extra column."""
+    import pandas as pd
+
+    def render(pad: str) -> bytes:
+        buffer = io.StringIO()
+        pd.DataFrame([dict(features, student_id="CSV_SIZE", padding=pad)]).to_csv(buffer, index=False)
+        return buffer.getvalue().encode()
+
+    base = len(render(""))
+    data = render("x" * (size - base))
+    assert len(data) == size
+    return data
+
+
+@requires_db
+class TestCsvUploadLimit:
+    def test_exactly_at_the_limit_is_accepted(self, client, db_engine, high_risk_features, settings):
+        data = _csv_of_exact_size(high_risk_features, settings.MAX_UPLOAD_BYTES)
+        response = client.post(CSV_URL, files={"file": ("cohort.csv", data, "text/csv")})
+        assert response.status_code == 201, response.text[:500]
+        assert response.json()["total_students_evaluated"] == 1
+
+    def test_one_byte_over_is_413(self, client, db_engine, high_risk_features, settings):
+        data = _csv_of_exact_size(high_risk_features, settings.MAX_UPLOAD_BYTES + 1)
+        response = client.post(CSV_URL, files={"file": ("cohort.csv", data, "text/csv")})
+        assert response.status_code == 413
+        assert response.json()["error"] == "upload_too_large"
+
+    def test_declared_length_over_limit_is_rejected_before_parsing(self, client, high_risk_features, settings, monkeypatch):
+        import pandas as pd
+
+        def must_not_parse(*args, **kwargs):
+            raise AssertionError("CSV was parsed despite an oversized Content-Length")
+
+        monkeypatch.setattr(pd, "read_csv", must_not_parse)
+        size = settings.MAX_UPLOAD_BYTES + settings.MAX_UPLOAD_ENVELOPE_BYTES + 1
+        response = client.post(CSV_URL, files={"file": ("cohort.csv", b"x" * size, "text/csv")})
+        assert response.status_code == 413
+        assert response.json()["error"] == "upload_too_large"

@@ -8,12 +8,12 @@ handlers reuse that single in-memory instance and never touch joblib.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.v1.router import api_router
 from backend.app.core.config import get_settings
-from backend.app.core.errors import register_exception_handlers
+from backend.app.core.errors import register_exception_handlers, upload_too_large_response
 from backend.app.db.session import check_database_connection
 from backend.app.schemas.health import HealthResponse
 from backend.app.services.ml_service import ml_service
@@ -39,13 +39,6 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("Starting WITHOUT collegiate ML artifacts: %s", ml_service.load_error)
 
-    try:
-        from ml.models.universal_engine import universal_engine
-        universal_engine.load_all_artifacts()
-        logger.info("Universal Multi-Tier ML Engine loaded successfully (5 Stages: Pre-10th to PhD).")
-    except Exception as e:
-        logger.error("Error loading Universal Multi-Tier ML Engine: %s", e)
-
     yield
 
     ml_service.unload()
@@ -54,15 +47,40 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="AI-powered academic dropout prediction and intervention system (SIH 2026, PSID 7-L).",
+    description="AI-powered early-warning and student support system (SIH 2026, PSID 7-L).",
     version="0.1.0",
     lifespan=lifespan,
 )
+
+CSV_UPLOAD_PATH = f"{settings.API_V1_PREFIX}/predict/batch/csv"
+
+
+@app.middleware("http")
+async def reject_oversized_csv_uploads(request: Request, call_next):
+    """
+    413 before any body is read or parsed when the declared Content-Length is over the file limit
+    plus the multipart envelope allowance. Registered before CORS so CORS still wraps the 413.
+    The endpoint's bounded read enforces the exact file-byte limit (and covers chunked uploads).
+    """
+    if request.method == "POST" and request.url.path == CSV_UPLOAD_PATH:
+        current = get_settings()
+        declared = request.headers.get("content-length")
+        if declared is not None and declared.isdigit() and (
+            int(declared) > current.MAX_UPLOAD_BYTES + current.MAX_UPLOAD_ENVELOPE_BYTES
+        ):
+            return upload_too_large_response(current.MAX_UPLOAD_BYTES)
+    return await call_next(request)
+
 
 # Explicit origins from the environment — never a wildcard alongside credentials.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=(
+        r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$"
+        if settings.ENVIRONMENT == "development"
+        else None
+    ),
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

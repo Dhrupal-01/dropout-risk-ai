@@ -12,7 +12,7 @@ Tests:
 """
 
 import json
-import logging
+import functools
 from pathlib import Path
 import pytest
 import numpy as np
@@ -29,6 +29,7 @@ from ml.simulation.render_simulation_doc import (
     extract_all_keys,
 )
 from backend.app.services.ml_service import RAW_FEATURE_COLUMNS
+from ml.tests.artifact_checks import require_artifact
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 ASSUMPTIONS_PATH = BASE_DIR / "ml" / "simulation" / "assumptions.yaml"
@@ -36,6 +37,17 @@ DOCS_SIMULATION_PATH = BASE_DIR / "docs" / "simulation.md"
 DOCS_MAPPING_PATH = BASE_DIR / "docs" / "simulation_mapping.md"
 ESTIMATED_PARAMS_PATH = BASE_DIR / "ml" / "simulation" / "estimated_parameters.json"
 SIM_TO_REAL_JSON_PATH = BASE_DIR / "ml" / "artifacts" / "benchmarks" / "sim_to_real.json"
+
+
+def requires_artifact(path: Path, command: str):
+    """Marks a test that reads a committed generated artifact; fails with the command to create it if absent."""
+    def mark(fn):
+        @functools.wraps(fn)
+        def checked(*args, **kwargs):
+            require_artifact(path.exists(), str(path.relative_to(BASE_DIR)), command)
+            return fn(*args, **kwargs)
+        return pytest.mark.artifacts(checked)
+    return mark
 
 
 class TestSimulationAssumptions:
@@ -67,10 +79,58 @@ class TestSimulationAssumptions:
             assert src in ALLOWED_SOURCES, f"Entry '{key}' has invalid source '{src}'"
             assert len(str(entry["notes"]).strip()) > 0, f"Entry '{key}' has empty notes"
 
+    @requires_artifact(DOCS_SIMULATION_PATH, "python -m ml.simulation.render_simulation_doc")
     def test_simulation_doc_is_strictly_synced_with_yaml(self):
         """Pre-commit / CI consistency check between assumptions.yaml and docs/simulation.md."""
         is_synced, errors = verify_assumptions_doc_sync()
-        assert is_synced, f"docs/simulation.md is out of sync with assumptions.yaml:\n" + "\n".join(errors)
+        assert is_synced, "docs/simulation.md is out of sync with assumptions.yaml:\n" + "\n".join(errors)
+
+    def test_estimated_entries_hold_references_not_literals(self):
+        """Estimated coefficients live only in estimated_parameters.json: the raw YAML has no literal for them."""
+        with open(ASSUMPTIONS_PATH, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f)
+        estimated = {
+            f"{section}.{key}": entry
+            for section, items in raw.items() if isinstance(items, dict)
+            for key, entry in items.items()
+            if isinstance(entry, dict) and entry.get("source") in ("estimated_from_uci", "estimated_from_oulad")
+        }
+        assert estimated, "No estimated_from_* entries found"
+        for name, entry in estimated.items():
+            assert "value" not in entry, f"{name} holds a literal value {entry.get('value')!r}; use value_from"
+            ref = entry.get("value_from", "")
+            assert ref.startswith("estimated_parameters.json#"), f"{name} value_from must reference estimated_parameters.json, got {ref!r}"
+
+    @requires_artifact(ESTIMATED_PARAMS_PATH, "python -m ml.simulation.estimate_parameters")
+    def test_every_value_from_reference_resolves(self):
+        """Every value_from resolves, through the loader, to exactly the referenced JSON value."""
+        with open(ESTIMATED_PARAMS_PATH, "r", encoding="utf-8") as f:
+            params = json.load(f)
+        resolved = load_simulation_assumptions(ASSUMPTIONS_PATH)
+        checked = 0
+        for section, items in resolved.items():
+            if not isinstance(items, dict):
+                continue
+            for key, entry in items.items():
+                if isinstance(entry, dict) and "value_from" in entry:
+                    field, ref_key = entry["value_from"].split("#", 1)[1].split(".", 1)
+                    assert entry["value"] == params[ref_key][field], f"{section}.{key} resolved to {entry['value']}"
+                    checked += 1
+        assert checked > 0
+
+    def test_loader_raises_on_missing_reference(self, tmp_path):
+        (tmp_path / "estimated_parameters.json").write_text(json.dumps({"other_key": {"indian_unit_coefficient": 1.0}}))
+        yaml_path = tmp_path / "assumptions.yaml"
+        yaml_path.write_text(yaml.safe_dump({"risk_coefficients": {"backlog_count": {
+            "value_from": "estimated_parameters.json#indian_unit_coefficient.backlog_count",
+            "source": "estimated_from_uci", "notes": "test"}}}))
+        with pytest.raises(ValueError, match="does not resolve"):
+            load_simulation_assumptions(yaml_path)
+
+        yaml_path.write_text(yaml.safe_dump({"risk_coefficients": {"backlog_count": {
+            "value": 1.5, "source": "estimated_from_uci", "notes": "test"}}}))
+        with pytest.raises(ValueError, match="must use 'value_from'"):
+            load_simulation_assumptions(yaml_path)
 
     def test_protected_attributes_have_zero_coefficients(self):
         """Demographic protected attributes must have 0.0 coefficients to prevent algorithmic bias."""
@@ -81,6 +141,7 @@ class TestSimulationAssumptions:
             val = risk_coefs[protected_key]["value"]
             assert val == 0.0, f"Protected attribute '{protected_key}' coefficient must be 0.0, got {val}"
 
+    @requires_artifact(ESTIMATED_PARAMS_PATH, "python -m ml.simulation.estimate_parameters")
     def test_estimated_parameters_json_and_mapping_doc_exist(self):
         assert ESTIMATED_PARAMS_PATH.exists(), f"Missing {ESTIMATED_PARAMS_PATH}"
         with open(ESTIMATED_PARAMS_PATH, "r", encoding="utf-8") as f:
@@ -113,10 +174,19 @@ class TestSyntheticIndianCohortGeneration:
         calibrated_p = 1.0 / (1.0 + np.exp(-(beta_0 + z)))
         assert abs(float(np.mean(calibrated_p)) - target_rate) < 1e-4
 
-    def test_target_base_rate_warning_logged(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            generate_indian_student_cohort(n_students=100, seed=42, output_path=None)
-        assert any("TODO(citation)" in record.message or "placeholder" in record.message for record in caplog.records)
+    def test_missing_target_base_rate_raises(self, tmp_path):
+        """No silent fallback: without cohort_metadata.target_base_rate the generator raises."""
+        raw = yaml.safe_load(ASSUMPTIONS_PATH.read_text(encoding="utf-8"))
+        del raw["cohort_metadata"]["target_base_rate"]
+        (tmp_path / "assumptions.yaml").write_text(yaml.safe_dump(raw), encoding="utf-8")
+        # value_from references resolve next to the yaml file
+        (tmp_path / "estimated_parameters.json").write_bytes(
+            (ASSUMPTIONS_PATH.parent / "estimated_parameters.json").read_bytes()
+        )
+        with pytest.raises(KeyError, match="target_base_rate"):
+            generate_indian_student_cohort(
+                n_students=100, seed=42, output_path=None, assumptions_path=tmp_path / "assumptions.yaml"
+            )
 
     def test_mean_dropout_rate_across_20_seeds_within_bounds(self):
         """Mean dropout rate across 20 random seeds must be within +-2 pp of target base rate (33.5% to 37.5%)."""
@@ -160,6 +230,7 @@ class TestSyntheticIndianCohortGeneration:
 class TestSimToRealBenchmarkArtifact:
     """Tests for Sim-to-Real benchmark results and confidence intervals."""
 
+    @requires_artifact(SIM_TO_REAL_JSON_PATH, "python -m ml.simulation.sim_to_real")
     def test_sim_to_real_json_artifact_schema_and_metrics(self):
         assert SIM_TO_REAL_JSON_PATH.exists(), f"Missing {SIM_TO_REAL_JSON_PATH}"
         with open(SIM_TO_REAL_JSON_PATH, "r", encoding="utf-8") as f:
@@ -178,3 +249,16 @@ class TestSimToRealBenchmarkArtifact:
             assert roc["ci_lower"] <= roc["point"] <= roc["ci_upper"]
             assert 0.0 <= pr["point"] <= 1.0
             assert pr["ci_lower"] <= pr["point"] <= pr["ci_upper"]
+
+    @pytest.mark.data
+    def test_sim_to_real_bootstrap_cis_identical_across_runs(self, tmp_path, monkeypatch):
+        """Two runs of the sim-to-real benchmark give identical point estimates and bootstrap CIs."""
+        import ml.simulation.sim_to_real as sim_to_real
+
+        monkeypatch.setattr(sim_to_real, "BENCHMARK_DIR", tmp_path)
+        runs = []
+        for i in range(2):
+            monkeypatch.setattr(sim_to_real, "OUTPUT_JSON_PATH", tmp_path / f"sim_to_real_{i}.json")
+            runs.append(sim_to_real.run_sim_to_real_benchmark(n_bootstraps=200, allow_dirty=True))
+
+        assert runs[0]["transfer_evaluations"] == runs[1]["transfer_evaluations"]

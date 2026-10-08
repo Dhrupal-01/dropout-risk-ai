@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from ml.sources.integrity import refuse_synthetic, verify_checksum
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -69,7 +71,10 @@ UCI_COLUMN_MAPPING: Dict[str, str] = {
     "Target": "target",
 }
 
-# 1. ENROLMENT_TIME: Only features available at admission
+# 1. ENROLMENT_TIME: Only features available at admission.
+# PROTECTED attributes (gender, age_at_enrollment) are never model features; see
+# ml/fairness/attributes.py. AUDIT_GROUPS (scholarship_holder, debtor, displaced) stay as
+# documented features and are also audited.
 ENROLMENT_TIME: List[str] = [
     "marital_status",
     "application_mode",
@@ -88,9 +93,7 @@ ENROLMENT_TIME: List[str] = [
     "educational_special_needs",
     "debtor",
     "tuition_fees_up_to_date",
-    "gender",
     "scholarship_holder",
-    "age_at_enrollment",
     "international",
     "unemployment_rate",
     "inflation_rate",
@@ -124,9 +127,19 @@ FEATURE_SETS: Dict[str, List[str]] = {
 }
 
 
+def _download_instructions(target_path: Path) -> str:
+    return (
+        f"Manual download instructions:\n"
+        f"1. Download the zip archive from {UCI_ZIP_URL}\n"
+        f"2. Extract 'data.csv' unchanged (do not re-save it) to {target_path}\n"
+        f"No synthetic fallback is permitted in this phase."
+    )
+
+
 def download_uci_dataset(target_path: Path = UCI_CSV_PATH) -> pd.DataFrame:
     """
-    Downloads official UCI Dataset 697 from archive zip URL and caches to target_path.
+    Downloads official UCI Dataset 697 from archive zip URL and caches the zip's CSV member
+    byte-for-byte at target_path (so the cached file matches the recorded checksum).
     Raises RuntimeError on failure with manual instructions.
     No synthetic fallback.
     """
@@ -139,23 +152,15 @@ def download_uci_dataset(target_path: Path = UCI_CSV_PATH) -> pd.DataFrame:
             with zipfile.ZipFile(io.BytesIO(resp.content)) as z:
                 csv_names = [name for name in z.namelist() if name.endswith(".csv")]
                 if csv_names:
-                    with z.open(csv_names[0]) as f:
-                        df = pd.read_csv(f, sep=";")
-                        if len(df.columns) <= 1:
-                            f.seek(0)
-                            df = pd.read_csv(f, sep=",")
-                        df.to_csv(target_path, index=False)
-                        logger.info("Successfully downloaded and cached UCI dataset at %s", target_path)
-                        return df
+                    target_path.write_bytes(z.read(csv_names[0]))
+                    logger.info("Successfully downloaded and cached UCI dataset at %s", target_path)
+                    return pd.read_csv(target_path, sep=";")
     except Exception as exc:
         logger.error("Download failed from %s: %s", UCI_ZIP_URL, exc)
 
     raise RuntimeError(
         f"Failed to download UCI dataset (id=697) from {UCI_ZIP_URL}. "
-        f"Manual download instructions:\n"
-        f"1. Download the zip archive from {UCI_ZIP_URL}\n"
-        f"2. Extract 'data.csv' to {target_path}\n"
-        f"No synthetic fallback is permitted in this phase."
+        + _download_instructions(target_path)
     )
 
 
@@ -163,6 +168,7 @@ def load_uci_clean_df(csv_path: Optional[Path] = None) -> pd.DataFrame:
     """
     Loads UCI dataset from cache (or downloads if missing), cleans column names to snake_case,
     and asserts expected row count and target values.
+    Refuses files with an `is_synthetic` column and files that do not match the official checksum.
     """
     path = csv_path or UCI_CSV_PATH
 
@@ -176,6 +182,8 @@ def load_uci_clean_df(csv_path: Optional[Path] = None) -> pd.DataFrame:
             df = pd.read_csv(path, sep=",")
     except Exception:
         df = pd.read_csv(path, sep=None, engine="python")
+
+    refuse_synthetic(df.columns, path)
 
     # Rename columns to standardized snake_case
     raw_to_clean = {}
@@ -199,6 +207,8 @@ def load_uci_clean_df(csv_path: Optional[Path] = None) -> pd.DataFrame:
     assert unique_targets == EXPECTED_TARGETS, (
         f"Integrity error: Expected target classes {EXPECTED_TARGETS}, got {unique_targets}."
     )
+
+    verify_checksum("uci_697", UCI_CSV_PATH.name, path, _download_instructions(path))
 
     return df
 

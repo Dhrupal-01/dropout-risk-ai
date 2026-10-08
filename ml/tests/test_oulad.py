@@ -9,13 +9,11 @@ Tests:
 6. PyTorch GRU estimator: fits on weekly sequence + static features and outputs well-calibrated probabilities
 """
 
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
 
 from ml.sources.oulad import (
-    EXPECTED_RESULTS,
     EXPECTED_ROWS,
     REQUIRED_TABLES,
     build_snapshot_dataset,
@@ -182,6 +180,23 @@ def test_audit_attributes_strictly_separated(mock_oulad_tables):
     for attr in forbidden_attributes:
         assert attr not in X.columns, f"Forbidden audit attribute '{attr}' leaked into feature matrix X!"
         assert attr in audit_df.columns, f"Audit attribute '{attr}' missing from audit_df!"
+
+
+def test_shared_builder_audit_frame_carries_audit_groups(mock_oulad_tables):
+    """
+    The single OULAD builder puts highest_education (raw labels), normalised imd_band and
+    imd_x_gender in the audit frame, so fairness code needs no post-processing of X.
+    highest_education stays in X as an encoded AUDIT_GROUP feature.
+    """
+    X, _, _, _, audit_df, feature_names = build_snapshot_dataset(t=14, tables=mock_oulad_tables)
+
+    assert "highest_education" in X.columns
+    assert list(X.columns) == feature_names
+    assert list(audit_df["highest_education"]) == list(
+        mock_oulad_tables["studentInfo"].set_index("id_student").loc[audit_df["id_student"], "highest_education"]
+    )
+    assert list(audit_df["imd_x_gender"]) == [f"{imd}_{g}" for imd, g in zip(audit_df["imd_band"], audit_df["gender"], strict=True)]
+    assert not audit_df["imd_band"].isna().any()
 
 
 def test_schema_and_target_assertions(tmp_path):

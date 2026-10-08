@@ -2,6 +2,9 @@
 Benchmark Runner CLI Entrypoint
 Usage:
     python -m ml.evaluation.run --source uci
+
+Writes benchmark JSON only. Docs are rendered by the renderer commands, which
+`python -m ml.pipeline run-all` runs after every step has succeeded.
 """
 
 import argparse
@@ -9,27 +12,43 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import Dict, Optional
+
+import pandas as pd
 
 from ml.evaluation.harness import run_benchmark_for_dataset
+from ml.provenance import add_allow_dirty_argument, build_provenance, oulad_inputs, require_clean_tree, uci_inputs
 from ml.sources.uci import FEATURE_SETS, get_uci_benchmark_dataset
-from scripts.render_benchmark_report import render_benchmark_report
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
+def count_non_withdrawn_registrations(tables: Dict[str, pd.DataFrame]) -> int:
+    """
+    Number of registrations (studentRegistration joined to studentInfo) whose final_result is not
+    'Withdrawn'. Lower bound for every snapshot population: students who did not withdraw are
+    still registered at any t.
+    """
+    keys = ["code_module", "code_presentation", "id_student"]
+    merged = pd.merge(tables["studentRegistration"][keys], tables["studentInfo"][keys + ["final_result"]], on=keys, how="inner")
+    return int((merged["final_result"].astype(str).str.strip() != "Withdrawn").sum())
+
+
+def run_uci_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, allow_dirty: bool = False):
     """
     Executes full evaluation across all feature sets and label variants for UCI ID 697.
     - Feature sets: enrolment_time, end_of_sem1, full
     - Label variants: primary (N=3630), sensitivity (N=4424)
     """
+    require_clean_tree(allow_dirty)
     print("=" * 80)
     print(" DROPOUTGUARD — BENCHMARK EVALUATION HARNESS ")
     print(" Source: UCI ID 697 (Portuguese Higher-Ed Dropout Benchmark)")
     print("=" * 80)
 
     start_time = time.time()
+    provenance = build_provenance(uci_inputs(), allow_dirty=allow_dirty)
     feature_sets = list(FEATURE_SETS.keys())
     label_variants = ["primary", "sensitivity"]
 
@@ -54,6 +73,7 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
                 label_variant=lv,
                 seed=seed,
                 output_dir=output_dir,
+                provenance=provenance,
             )
 
             dt = time.time() - t0
@@ -65,19 +85,15 @@ def run_uci_benchmark_suite(seed: int = 42, output_dir: Path = None):
     print(f" ALL {total_runs} BENCHMARK RUNS COMPLETED IN {total_time:.1f}s ")
     print("=" * 80)
 
-    # Automatically generate markdown report and reliability diagram
-    print("\n[i] Generating docs/benchmarks.md and reliability curves...")
-    render_benchmark_report()
-    print(" [✓] Benchmarks report and figures successfully generated.")
 
-
-def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, data_dir: Optional[Path] = None):
+def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None, data_dir: Optional[Path] = None, allow_dirty: bool = False):
     """
     Executes OULAD time-based early-warning benchmark across snapshot horizons t in {14, 28, 56, 84}.
     - Predefined temporal split: train on 2013B + 2013J, test on 2014B + 2014J
     - Secondary: Leave-one-module-out across 7 modules
     - Evaluates Majority Class, Logistic Regression, XGBoost, and PyTorch GRU
     """
+    require_clean_tree(allow_dirty)
     from ml.sources.oulad import SNAPSHOT_DAYS, build_snapshot_dataset, load_raw_tables
 
     print("=" * 80)
@@ -88,6 +104,9 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     start_time = time.time()
     logger.info("Loading OULAD tables...")
     tables = load_raw_tables(data_dir=data_dir)
+    provenance = build_provenance(oulad_inputs(data_dir), allow_dirty=allow_dirty)
+    min_population = count_non_withdrawn_registrations(tables)
+    n_registrations_total = int(len(tables["studentInfo"]))
 
     total_runs = len(SNAPSHOT_DAYS)
     for idx, t in enumerate(SNAPSHOT_DAYS, 1):
@@ -100,6 +119,10 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
         logger.info(
             "Snapshot t=%d: %d samples, %d features, %d positives (%.2f%%)",
             t, len(y), X.shape[1], int(y.sum()), float(y.mean() * 100)
+        )
+        assert len(y) >= min_population, (
+            f"Snapshot t={t} population is {len(y)}, below the {min_population} registrations whose "
+            f"final_result is not Withdrawn (computed from the data). The input tables are incomplete or wrong."
         )
 
         artifact = run_benchmark_for_dataset(
@@ -114,6 +137,8 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
             include_gru=True,
             seed=seed,
             output_dir=output_dir,
+            provenance=provenance,
+            extra_metadata={"snapshot_t": t, "n_registrations_total": n_registrations_total},
         )
 
         dt = time.time() - t0
@@ -125,12 +150,8 @@ def run_oulad_benchmark_suite(seed: int = 42, output_dir: Optional[Path] = None,
     print(f" ALL {total_runs} OULAD SNAPSHOT BENCHMARKS COMPLETED IN {total_time:.1f}s ")
     print("=" * 80)
 
-    print("\n[i] Updating docs/benchmarks.md and figures...")
-    render_benchmark_report()
-    print(" [✓] Benchmark report and figures successfully updated.")
 
-
-def main():
+def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="DropoutGuard Benchmark Evaluation Runner")
     parser.add_argument(
         "--source",
@@ -157,15 +178,19 @@ def main():
         default=None,
         help="Output directory for benchmark JSON artifacts",
     )
-    args = parser.parse_args()
+    return add_allow_dirty_argument(parser)
+
+
+def main():
+    args = build_arg_parser().parse_args()
 
     out_dir = Path(args.output_dir) if args.output_dir else None
     data_dir = Path(args.data_dir) if args.data_dir else None
 
     if args.source == "uci":
-        run_uci_benchmark_suite(seed=args.seed, output_dir=out_dir)
+        run_uci_benchmark_suite(seed=args.seed, output_dir=out_dir, allow_dirty=args.allow_dirty)
     elif args.source == "oulad":
-        run_oulad_benchmark_suite(seed=args.seed, output_dir=out_dir, data_dir=data_dir)
+        run_oulad_benchmark_suite(seed=args.seed, output_dir=out_dir, data_dir=data_dir, allow_dirty=args.allow_dirty)
     else:
         logger.error("Unsupported benchmark source '%s'", args.source)
         sys.exit(1)

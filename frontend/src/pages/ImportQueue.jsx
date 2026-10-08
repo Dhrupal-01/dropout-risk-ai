@@ -6,6 +6,7 @@ import {
   ArrowLeft, RefreshCw, BarChart2, ShieldAlert
 } from 'lucide-react';
 import { uploadBatchCsv } from '../api/endpoints';
+import AdminTokenNotice from '../components/AdminTokenNotice';
 
 const ImportQueue = () => {
   const navigate = useNavigate();
@@ -142,6 +143,8 @@ const ImportQueue = () => {
             <div className="text-[10px] text-muted leading-relaxed select-none">
               * The CSV file must contain a <code className="font-mono bg-subtle px-1 py-0.5 border border-border rounded text-primary">student_id</code> column and raw features matching the ML pipeline contract (e.g. attendance metrics, CGPA details, delay days). Engineered terms and labels are ignored.
             </div>
+
+            <AdminTokenNotice />
 
             <button
               type="submit"

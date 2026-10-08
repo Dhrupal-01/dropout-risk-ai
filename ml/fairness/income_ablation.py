@@ -2,16 +2,15 @@
 Simulated Cohort Income Feature Ablation
 Context: Evaluates the empirical effect of removing explicit income features on overall predictive performance
 and disaggregated False Negative Rates (FNR) across family income brackets:
-- Model A (With Income Features): Includes income_slab_idx and financial_stress_index (37 features)
-- Model B (Without Income Features): Strictly ablates income_slab_idx and financial_stress_index (35 features)
+- Model A (With Income Features): every feature in feature_names.json, including income_slab_idx and financial_stress_index
+- Model B (Without Income Features): the same list without income_slab_idx and financial_stress_index
 
 Measures overall metrics (ROC-AUC, PR-AUC, F1, Recall, Precision, Brier) and disaggregated FNR by income slab.
 """
 
 import json
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -28,7 +27,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-from ml.config import FEATURE_NAMES_PATH, PROCESSED_DATA_PATH, RANDOM_SEED
+from ml.config import FEATURE_NAMES_PATH, PROCESSED_DATA_PATH
 from ml.fairness.audit import compute_group_metrics
 
 logger = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ def run_income_ablation_experiment(
     oof_probs_without = np.zeros(len(df))
 
     # Cross-validation loop
-    for fold, (train_idx, val_idx) in enumerate(skf.split(df, y), 1):
+    for _fold, (train_idx, val_idx) in enumerate(skf.split(df, y), 1):
         # Model With Income Features
         X_with = df[all_features]
         scaler_with = StandardScaler()
@@ -143,7 +142,7 @@ def run_income_ablation_experiment(
     # Summary table rows
     comparison_table = [
         {
-            "configuration": "With Income Features (37 features)",
+            "configuration": f"With Income Features ({len(all_features)} features)",
             "n_features": len(all_features),
             "roc_auc": overall_with["roc_auc"],
             "pr_auc": overall_with["pr_auc"],
@@ -156,7 +155,7 @@ def run_income_ablation_experiment(
             "fnr_gap_low_vs_high": round(slabs_summary["<2 LPA"]["with_income_features"]["fnr"] - slabs_summary[">8 LPA"]["with_income_features"]["fnr"], 4),
         },
         {
-            "configuration": "Without Income Features (35 features)",
+            "configuration": f"Without Income Features ({len(ablated_features)} features)",
             "n_features": len(ablated_features),
             "roc_auc": overall_without["roc_auc"],
             "pr_auc": overall_without["pr_auc"],

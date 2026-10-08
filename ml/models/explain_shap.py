@@ -17,10 +17,8 @@ import shap
 from ml.config import (
     PROCESSED_DATA_PATH,
     BASE_MODEL_PATH,
-    MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
-    SHAP_EXPLAINER_PATH,
-    RANDOM_SEED
+    SHAP_EXPLAINER_PATH
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -65,7 +63,6 @@ FEATURE_DISPLAY_NAMES = {
     "interaction_cgpa_x_backlog": "Compounded Academic Deficit x Backlogs",
     "interaction_firstgen_x_inactivity": "First-Gen Status x LMS Inactivity",
     "interaction_att_x_cgpa_drop": "Attendance Collapse x CGPA Drop",
-    "age": "Student Age"
 }
 
 

@@ -26,7 +26,7 @@ SINGLE_PREDICTION_TOP_K = 5
 
 def canonical_stored_features(raw: Dict[str, Any]) -> Dict[str, Any]:
     """
-    The representation persisted on `students.features`: the 28 raw model inputs plus the
+    The representation persisted on `students.features`: the 27 raw model inputs plus the
     residency source column.
 
     `is_hosteler` is an ENGINEERED feature, so it is not stored when `hostel_status` is
@@ -65,7 +65,7 @@ def score_and_persist(
     scored = ml_service.predict_batch(raw_rows)
 
     responses: List[PredictionResponse] = []
-    for request, raw, result in zip(requests, raw_rows, scored):
+    for request, raw, result in zip(requests, raw_rows, scored, strict=True):
         drivers: Optional[List[Dict[str, Any]]] = None
         if include_explanations or persist_top_drivers:
             drivers = ml_service.explain_from_snapshot(result["input_features"], top_k=top_k)

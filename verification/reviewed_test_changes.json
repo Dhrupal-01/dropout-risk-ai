@@ -1,0 +1,268 @@
+[
+  {
+    "file": "backend/tests/test_api_interventions.py",
+    "sign": "-",
+    "line": "assert set(Base.metadata.tables) == {\"students\", \"predictions\", \"intervention_logs\"}",
+    "decision": "KEEP",
+    "reason": "Migration b4c8e1f0a2d3 added latest_predictions (0bd1604); the assert is still an exact set equality against the migrated schema."
+  },
+  {
+    "file": "backend/tests/test_api_predict.py",
+    "sign": "-",
+    "line": "assert payload[\"risk_tier\"] == \"Medium\", payload",
+    "decision": "KEEP",
+    "reason": "8ea14f0: the archetype's tier depended on the trained model; a stub model now checks the exact probability-to-tier mapping and the real model is checked for a valid tier."
+  },
+  {
+    "file": "backend/tests/test_api_predict.py",
+    "sign": "-",
+    "line": "assert RISK_THRESHOLD_LOW <= payload[\"calibrated_risk_probability\"] <= RISK_THRESHOLD_HIGH",
+    "decision": "KEEP",
+    "reason": "8ea14f0: replaced by an exact probability check through the stub model (== probability) plus a [0, 1] check on the real model."
+  },
+  {
+    "file": "backend/tests/test_db_models.py",
+    "sign": "-",
+    "line": "assert set(Base.metadata.tables) == {\"students\", \"predictions\", \"intervention_logs\"}",
+    "decision": "KEEP",
+    "reason": "Migration b4c8e1f0a2d3 added latest_predictions (0bd1604); the assert is still an exact set equality against the migrated schema."
+  },
+  {
+    "file": "ml/tests/conftest.py",
+    "sign": "+",
+    "line": "skip = pytest.mark.skip(",
+    "decision": "KEEP",
+    "reason": "45e6a5b: data tests skip only when gitignored UCI/OULAD raw files are absent, naming the missing files under -rs; V1.3 fails on any skip when they are present."
+  },
+  {
+    "file": "ml/tests/conftest.py",
+    "sign": "+",
+    "line": "item.add_marker(skip)",
+    "decision": "KEEP",
+    "reason": "45e6a5b: data tests skip only when gitignored UCI/OULAD raw files are absent, naming the missing files under -rs; V1.3 fails on any skip when they are present."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert isinstance(df, pd.DataFrame)",
+    "decision": "REPLACE",
+    "reason": "Legacy load_uci.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_uci_loader_schema_and_target on ml/sources (binary y, FEATURE_SETS columns, no is_synthetic)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert len(df) > 0",
+    "decision": "REPLACE",
+    "reason": "Legacy load_uci.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_uci_loader_schema_and_target on ml/sources (binary y, FEATURE_SETS columns, no is_synthetic)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert \"is_dropout\" in df.columns",
+    "decision": "REPLACE",
+    "reason": "Legacy load_uci.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_uci_loader_schema_and_target on ml/sources (binary y, FEATURE_SETS columns, no is_synthetic)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert set(df[\"is_dropout\"].unique()).issubset({0, 1})",
+    "decision": "REPLACE",
+    "reason": "Legacy load_uci.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_uci_loader_schema_and_target on ml/sources (binary y, FEATURE_SETS columns, no is_synthetic)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert \"admission_grade\" in df.columns or \"previous_qualification_grade\" in df.columns",
+    "decision": "REPLACE",
+    "reason": "Legacy load_uci.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_uci_loader_schema_and_target on ml/sources (binary y, FEATURE_SETS columns, no is_synthetic)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert \"tuition_fees_up_to_date\" in df.columns or \"is_debtor\" in df.columns",
+    "decision": "REPLACE",
+    "reason": "Legacy load_uci.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_uci_loader_schema_and_target on ml/sources (binary y, FEATURE_SETS columns, no is_synthetic)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert isinstance(df, pd.DataFrame)",
+    "decision": "REPLACE",
+    "reason": "Legacy load_oulad.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_oulad_snapshot_schema_and_target on ml/sources for every SNAPSHOT_DAYS (binary y, click/lag columns, no NaN)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert len(df) > 0",
+    "decision": "REPLACE",
+    "reason": "Legacy load_oulad.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_oulad_snapshot_schema_and_target on ml/sources for every SNAPSHOT_DAYS (binary y, click/lag columns, no NaN)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert \"is_dropout\" in df.columns",
+    "decision": "REPLACE",
+    "reason": "Legacy load_oulad.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_oulad_snapshot_schema_and_target on ml/sources for every SNAPSHOT_DAYS (binary y, click/lag columns, no NaN)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert set(df[\"is_dropout\"].unique()).issubset({0, 1})",
+    "decision": "REPLACE",
+    "reason": "Legacy load_oulad.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_oulad_snapshot_schema_and_target on ml/sources for every SNAPSHOT_DAYS (binary y, click/lag columns, no NaN)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert \"sum_click\" in df.columns",
+    "decision": "REPLACE",
+    "reason": "Legacy load_oulad.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_oulad_snapshot_schema_and_target on ml/sources for every SNAPSHOT_DAYS (binary y, click/lag columns, no NaN)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert \"avg_submission_lag_days\" in df.columns or \"late_submission_rate\" in df.columns",
+    "decision": "REPLACE",
+    "reason": "Legacy load_oulad.py deleted in fea1a6e (could write synthetic stand-ins); replaced by TestRealDataLoaders::test_oulad_snapshot_schema_and_target on ml/sources for every SNAPSHOT_DAYS (binary y, click/lag columns, no NaN)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "# 1. Attendance must negatively correlate with dropout (r < -0.30)",
+    "decision": "KEEP",
+    "reason": "A comment the V1.2 pattern matches; it asserted nothing."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert corr[\"attendance_percentage\"] < -0.30, f\"Expected strong negative correlation for attendance, got {corr['attendance_percentage']}\"",
+    "decision": "KEEP",
+    "reason": "8ea14f0: a 500-student marginal correlation is replaced by coefficient recovery on 200,000 students: every nonzero coefficient in its Bonferroni 95% CI, sign checked where the CI excludes 0."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "# 2. CGPA must negatively correlate with dropout (r < -0.35)",
+    "decision": "KEEP",
+    "reason": "A comment the V1.2 pattern matches; it asserted nothing."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert corr[\"current_cgpa\"] < -0.35, f\"Expected strong negative correlation for CGPA, got {corr['current_cgpa']}\"",
+    "decision": "KEEP",
+    "reason": "8ea14f0: a 500-student marginal correlation is replaced by coefficient recovery on 200,000 students: every nonzero coefficient in its Bonferroni 95% CI, sign checked where the CI excludes 0."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert corr[\"backlog_count\"] > 0.35, f\"Expected strong positive correlation for backlogs, got {corr['backlog_count']}\"",
+    "decision": "KEEP",
+    "reason": "8ea14f0: a 500-student marginal correlation is replaced by coefficient recovery on 200,000 students: every nonzero coefficient in its Bonferroni 95% CI, sign checked where the CI excludes 0."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert corr[\"fee_payment_delay_days\"] > 0.18, f\"Expected positive correlation for fee delay, got {corr['fee_payment_delay_days']}\"",
+    "decision": "KEEP",
+    "reason": "Loosened 0.18 -> 0.10 in 16a215b without review, then superseded in 8ea14f0 by coefficient recovery (every nonzero coefficient in its Bonferroni 95% CI, sign checked where the CI excludes 0)."
+  },
+  {
+    "file": "ml/tests/test_data_pipeline.py",
+    "sign": "-",
+    "line": "assert corr[\"days_since_last_lms_activity\"] > 0.20, f\"Expected positive correlation for LMS inactivity, got {corr['days_since_last_lms_activity']}\"",
+    "decision": "KEEP",
+    "reason": "8ea14f0: a 500-student marginal correlation is replaced by coefficient recovery on 200,000 students: every nonzero coefficient in its Bonferroni 95% CI, sign checked where the CI excludes 0."
+  },
+  {
+    "file": "ml/tests/test_models.py",
+    "sign": "-",
+    "line": "assert FAIRNESS_REPORT_PATH.exists()",
+    "decision": "KEEP",
+    "reason": "e8a8fb4: same existence check on the report rendered into tmp_path, so pytest no longer rewrites the tracked docs/ethics_and_fairness.md."
+  },
+  {
+    "file": "ml/tests/test_models.py",
+    "sign": "-",
+    "line": "assert \"Gender Parity Audit\" in content",
+    "decision": "REPLACE",
+    "reason": "Renderer heading changed in 16a215b; the weak `or \"gender\" in content` is replaced by the strict assert \"Gender Disparity Gap\" in content (always rendered)."
+  },
+  {
+    "file": "ml/tests/test_models.py",
+    "sign": "-",
+    "line": "assert \"Socio-Economic Proxy Audit\" in content",
+    "decision": "REPLACE",
+    "reason": "Renderer heading changed in 16a215b; the weak `or \"economic_proxy\" in content` is replaced by the strict assert \"Economic Proxy Gap\" in content (always rendered)."
+  },
+  {
+    "file": "ml/tests/test_models.py",
+    "sign": "-",
+    "line": "assert \"5-Fold Stratified Cross-Validation\" in content",
+    "decision": "REPLACE",
+    "reason": "Renderer heading changed in 16a215b; the `or` of two phrases is replaced by two strict asserts: \"Generator Sanity Check\" and \"5-Fold Cross-Validation\" (both always rendered)."
+  },
+  {
+    "file": "ml/tests/test_oulad.py",
+    "sign": "+",
+    "line": "@pytest.mark.skipif(not HAS_TORCH, reason=\"PyTorch is required for GRU test\")",
+    "decision": "KEEP",
+    "reason": "PyTorch is the optional research extra; the skip reason shows under -rs, and since M5 requesting the GRU without PyTorch raises instead of dropping it."
+  },
+  {
+    "file": "backend/tests/test_api_predict.py",
+    "sign": "-",
+    "line": "assert len(prediction.input_features) == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "backend/tests/test_health.py",
+    "sign": "-",
+    "line": "assert body[\"feature_count\"] == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert len(ml.feature_names) == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert len(RAW_FEATURE_COLUMNS) == 28",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 27."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert \"age\" in ml.feature_names",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Inverted on purpose: test_age_is_not_a_model_feature asserts age is in neither feature_names nor RAW_FEATURE_COLUMNS."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert frame.shape == (1, 37)",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-shape assert, now (1, 36)."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert len(result[\"input_features\"]) == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "ml/tests/test_monotone_attendance.py",
+    "sign": "-",
+    "line": "for i in np.nonzero(np.diff(p) > 0)[0]:",
+    "decision": "REPLACE",
+    "reason": "exact float equality is the wrong test for float32 output; tolerance is set at float32 precision and still catches any real violation."
+  }
+]

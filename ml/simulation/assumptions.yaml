@@ -1,50 +1,50 @@
 cohort_metadata:
   target_base_rate:
     value: 0.355
-    source: "TODO(citation)"
-    notes: "Placeholder baseline cohort dropout rate for Indian collegiate technical education."
+    source: "assumption"
+    notes: "No published national higher-education dropout rate for India; simulation value; see sensitivity analysis."
 
 risk_coefficients:
   current_cgpa:
-    value: -0.61497
+    value_from: "estimated_parameters.json#indian_unit_coefficient.current_cgpa"
     source: "estimated_from_uci"
-    notes: "Estimated from UCI ID 697 cu_1st_sem_grade rescaled to 0-10 CGPA (beta_std=-0.8917, cohort SD=1.45)."
+    notes: "Indian-unit coefficient estimated from UCI ID 697 cu_1st_sem_grade rescaled to a 0-10 CGPA; fitted on the UCI train split (shared estimation/holdout split, holdout excluded). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   backlog_count:
-    value: 1.79296
+    value_from: "estimated_parameters.json#indian_unit_coefficient.backlog_count"
     source: "estimated_from_uci"
-    notes: "Estimated from UCI ID 697 unapproved units (beta_std=2.2412, cohort SD=1.25)."
+    notes: "Indian-unit coefficient estimated from UCI ID 697 unapproved curricular units (enrolled - approved); fitted on the UCI train split (shared estimation/holdout split, holdout excluded). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   has_scholarship:
-    value: -1.03867
+    value_from: "estimated_parameters.json#indian_unit_coefficient.has_scholarship"
     source: "estimated_from_uci"
-    notes: "Estimated from UCI ID 697 scholarship_holder (beta_std=-0.4674, cohort SD=0.45)."
+    notes: "Indian-unit coefficient estimated from UCI ID 697 scholarship_holder; fitted on the UCI train split (shared estimation/holdout split, holdout excluded). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   fee_payment_delay_days:
-    value: 0.03410
+    value_from: "estimated_parameters.json#indian_unit_coefficient.fee_payment_delay_days"
     source: "estimated_from_uci"
-    notes: "Estimated from UCI ID 697 tuition fee default / debtor status (beta_std=0.8355, cohort SD=24.5)."
+    notes: "Indian-unit coefficient estimated from UCI ID 697 binary fee default / debtor indicator; fitted on the UCI train split (shared estimation/holdout split, holdout excluded). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   is_first_generation:
-    value: -0.01500
+    value_from: "estimated_parameters.json#indian_unit_coefficient.is_first_generation"
     source: "estimated_from_uci"
-    notes: "Estimated from UCI ID 697 parents qualification (beta_std=-0.0072, cohort SD=0.48)."
+    notes: "Indian-unit coefficient estimated from UCI ID 697 parents' qualification (no higher-education degree); fitted on the UCI train split (shared estimation/holdout split, holdout excluded). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   is_hosteler:
-    value: 0.13340
+    value_from: "estimated_parameters.json#indian_unit_coefficient.is_hosteler"
     source: "estimated_from_uci"
-    notes: "Estimated from UCI ID 697 displaced status (beta_std=0.0667, cohort SD=0.50)."
+    notes: "Indian-unit coefficient estimated from UCI ID 697 displaced status; fitted on the UCI train split (shared estimation/holdout split, holdout excluded). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   lms_logins_per_week:
-    value: -0.07018
+    value_from: "estimated_parameters.json#indian_unit_coefficient.lms_logins_per_week"
     source: "estimated_from_oulad"
-    notes: "Estimated from OULAD ID 349 weekly clicks at snapshot t=56 (beta_std=-0.1544, cohort SD=2.20)."
+    notes: "Indian-unit coefficient estimated from OULAD ID 349 mean weekly clicks at snapshot t=56; fitted on all registrations active at t=56 (no holdout; OULAD is not used by the sim-to-real check). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   days_since_last_lms_activity:
-    value: 0.01017
+    value_from: "estimated_parameters.json#indian_unit_coefficient.days_since_last_lms_activity"
     source: "estimated_from_oulad"
-    notes: "Estimated from OULAD ID 349 inactivity recency at snapshot t=56 (beta_std=0.1220, cohort SD=12.0)."
+    notes: "Indian-unit coefficient estimated from OULAD ID 349 inactivity recency at snapshot t=56; fitted on all registrations active at t=56 (no holdout; OULAD is not used by the sim-to-real check). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
   assignment_submission_lag_days:
-    value: 0.12440
+    value_from: "estimated_parameters.json#indian_unit_coefficient.assignment_submission_lag_days"
     source: "estimated_from_oulad"
-    notes: "Estimated from OULAD ID 349 assignment submission delay at snapshot t=56 (beta_std=0.3110, cohort SD=2.50)."
-  attendance_percentage:
-    value: -0.04000
-    source: "indian_regulation"
-    notes: "Penalty for attendance deficit below statutory 75% rule (log-odds increase of 0.040 per percentage deficit)."
+    notes: "Indian-unit coefficient estimated from OULAD ID 349 assignment submission lag at snapshot t=56; fitted on all registrations active at t=56 (no holdout; OULAD is not used by the sim-to-real check). The value lives only in estimated_parameters.json (python -m ml.simulation.estimate_parameters)."
+  attendance_deficit_slope:
+    value: 0.04000
+    source: "assumption"
+    notes: "Log-odds added per percentage point of attendance below regulations_and_thresholds.mandatory_attendance_threshold: slope x max(0, threshold - attendance_percentage); no effect at or above the threshold."
   attendance_3m_trend:
     value: -0.08000
     source: "assumption"
@@ -202,8 +202,8 @@ socioeconomic_distribution:
       - 0.38
       - 0.25
       - 0.15
-    source: "TODO(citation)"
-    notes: "Income bracket distribution in state-affiliated technical colleges."
+    source: "assumption"
+    notes: "Simulation value for the income-slab mix of the cohort; not a cited distribution."
   first_gen_probs_by_slab:
     value:
       - 0.65
@@ -337,6 +337,14 @@ attendance_distribution:
     value: 4.5
     source: "assumption"
     notes: "Standard deviation of latent monthly attendance trend slope."
+  monthly_noise_std:
+    value: 4.0
+    source: "assumption"
+    notes: "Standard deviation of month-to-month attendance noise around the latent attendance level."
+  lab_attendance_min:
+    value: 15.0
+    source: "assumption"
+    notes: "Floor percentage for practical lab attendance (other subjects use attendance_min)."
   consecutive_absence_thresholds:
     value: [50.0, 65.0, 75.0]
     source: "assumption"
@@ -378,11 +386,19 @@ academic_distribution:
   backlog_attendance_boost:
     value: 1.8
     source: "assumption"
-    notes: "Additive backlog Poisson rate increase when attendance drops below 65%."
+    notes: "Additive backlog Poisson rate increase when attendance is below academic_distribution.backlog_attendance_threshold."
   backlog_max:
     value: 7
     source: "indian_regulation"
     notes: "Statutory academic limit of active uncleared backlogs before student is detained."
+  backlog_lambda_floor:
+    value: 0.05
+    source: "assumption"
+    notes: "Minimum Poisson backlog rate, so every student has a nonzero backlog probability."
+  backlog_attendance_threshold:
+    value: 65.0
+    source: "assumption"
+    notes: "Attendance percentage below which backlog_attendance_boost is added to the backlog rate."
   internal_exam_cgpa_multiplier:
     value: 9.5
     source: "assumption"
@@ -501,3 +517,15 @@ learning_behavior_distribution:
     value: 25
     source: "assumption"
     notes: "Maximum discussion forum participation count."
+  forum_lambda_floor:
+    value: 0.2
+    source: "assumption"
+    notes: "Minimum Poisson rate for discussion forum participation."
+  engagement_cgpa_weight:
+    value: 0.5
+    source: "assumption"
+    notes: "Weight of normalised CGPA in the latent engagement score that drives LMS behaviour."
+  engagement_attendance_weight:
+    value: 0.5
+    source: "assumption"
+    notes: "Weight of normalised attendance in the latent engagement score that drives LMS behaviour."

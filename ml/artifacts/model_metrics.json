@@ -1,13 +1,13 @@
 {
-  "accuracy": 0.8666666666666667,
+  "accuracy": 0.8933333333333333,
   "recall_at_risk_minority": 0.780952380952381,
-  "precision_at_risk_minority": 0.8282828282828283,
-  "f1_at_risk_minority": 0.803921568627451,
-  "f1_macro": 0.851455733808675,
-  "roc_auc": 0.9283028083028084,
+  "precision_at_risk_minority": 0.9010989010989011,
+  "f1_at_risk_minority": 0.8367346938775511,
+  "f1_macro": 0.878763386542736,
+  "roc_auc": 0.9325274725274725,
   "confusion_matrix": {
-    "true_negatives": 178,
-    "false_positives": 17,
+    "true_negatives": 186,
+    "false_positives": 9,
     "false_negatives": 23,
     "true_positives": 82
   },
@@ -15,17 +15,61 @@
     "chosen_method": "Class-Weighting (scale_pos_weight)",
     "reason": "Class-Weighting achieved higher validation minority-class F1 & Recall without synthesizing artificial boundary points.",
     "metrics_weighted": {
-      "recall_minority": 0.7735849056603774,
-      "precision_minority": 0.8541666666666666,
-      "f1_minority": 0.8118811881188119,
-      "roc_auc": 0.9326006613499319
+      "recall_minority": 0.7904761904761904,
+      "precision_minority": 0.7904761904761904,
+      "f1_minority": 0.7904761904761904,
+      "roc_auc": 0.9125763125763126
     },
     "metrics_smote": {
-      "recall_minority": 0.7735849056603774,
-      "precision_minority": 0.8723404255319149,
-      "f1_minority": 0.82,
-      "roc_auc": 0.9363936977241781
+      "recall_minority": 0.7523809523809524,
+      "precision_minority": 0.7745098039215687,
+      "f1_minority": 0.7632850241545893,
+      "roc_auc": 0.9041269841269841
     }
   },
-  "brier_score": 0.0997
+  "provenance": {
+    "input_files": {
+      "calibrated_model.joblib": {
+        "path": "ml/artifacts/calibrated_model.joblib",
+        "sha256": "6e74d0642e90b62c87ace40610b6c4172337fe2eb57d9180fa9ad1e0931e942f"
+      },
+      "feature_names.json": {
+        "path": "ml/artifacts/feature_names.json",
+        "sha256": "d27fdc6d203908d791ccce51277988dae02e292cea1c7fcf4be6130e461aaa11"
+      },
+      "features.csv": {
+        "path": "data/processed/features.csv",
+        "sha256": "07752170661e5cc9ac3ef04b037c79450931ee853861b0ed5a4fb03dd0b9ea87"
+      }
+    },
+    "git_commit": "81f1229c01096ce795a4871d9ef6852babc2366a",
+    "run_id": "20261008T191504Z-81f1229-d22162",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json",
+      "ml/artifacts/model_metrics.json",
+      "ml/simulation/estimated_parameters.json"
+    ],
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
+  },
+  "brier_score": 0.09023935518364189
 }

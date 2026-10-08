@@ -3,7 +3,7 @@ Prediction request/response schemas.
 
 ON `confidence_interval` / `confidence`
 --------------------------------------
-Section 7.3 of docs/ml_architecture_and_pipeline.md shows a `confidence` field in its
+An early endpoint proposal (pre-Phase 4) showed a `confidence` field in the /predict
 example response. A search of the entire ml/ package found NO implementation of a
 confidence interval, standard error, bootstrap, or predictive-variance estimator:
 

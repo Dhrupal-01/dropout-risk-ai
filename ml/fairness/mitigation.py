@@ -11,7 +11,7 @@ versus fairness (Max FNR disparity gap across demographic groups).
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 
 from fairlearn.reductions import ExponentiatedGradient, TruePositiveRateParity
 import numpy as np
@@ -41,7 +41,7 @@ def compute_sample_weights(
     k_cells = len(counts)
 
     weights = np.zeros(n_samples, dtype=float)
-    for idx, (group_val, label_val) in enumerate(zip(s, y)):
+    for idx, (group_val, label_val) in enumerate(zip(s, y, strict=True)):
         cell_count = counts.get((group_val, label_val), 1)
         weights[idx] = float(n_samples / (k_cells * cell_count))
 
@@ -175,6 +175,8 @@ def compare_fairness_mitigations(
     clf = base_estimator or LogisticRegression(C=1.0, max_iter=1000, random_state=seed)
 
     results: Dict[str, Any] = {}
+    # Split identity, recorded on every condition so a reader can check they share one split.
+    split = {"n_train": int(len(y_train)), "n_test": int(len(y_test)), "seed": int(seed)}
 
     # -------------------------------------------------------------
     # 1. NONE (Unmitigated)
@@ -204,7 +206,7 @@ def compare_fairness_mitigations(
 
     # Apply group-specific threshold tau_g on test set
     pred_group_thresh = np.zeros(len(y_test), dtype=int)
-    for idx, (p_val, g_val) in enumerate(zip(p_none, s_te)):
+    for idx, (p_val, g_val) in enumerate(zip(p_none, s_te, strict=True)):
         tau_g = group_thresholds.get(str(g_val), 0.50)
         pred_group_thresh[idx] = int(p_val >= tau_g)
 
@@ -223,7 +225,7 @@ def compare_fairness_mitigations(
             eps=0.01,
         )
         mit_exp.fit(X_tr_std, y_train, sensitive_features=s_tr)
-        pred_exp = mit_exp.predict(X_te_std)
+        pred_exp = mit_exp.predict(X_te_std, random_state=seed)
         # Approximate probabilities via underlying predictors if available, otherwise surrogate step
         if hasattr(mit_exp, "_pmf_predict"):
             pmf = mit_exp._pmf_predict(X_te_std)
@@ -245,6 +247,9 @@ def compare_fairness_mitigations(
             "brier_score": results["none"]["brier_score"],
             "max_fnr_gap": results["none"]["max_fnr_gap"],
         }
+
+    for condition in results.values():
+        condition["split"] = dict(split)
 
     # Summary Comparison Rows
     comparison_table = [

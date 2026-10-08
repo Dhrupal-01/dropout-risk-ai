@@ -8,7 +8,7 @@ Markdown example payloads.
 
 The four categories a caller must distinguish:
 
-  A. RAW INPUTS ACCEPTED HERE (28)
+  A. RAW INPUTS ACCEPTED HERE (27)
      The model features the caller actually supplies, plus `hostel_status`.
 
   B. ENGINEERED — COMPUTED BY THE ML PIPELINE, NEVER ACCEPTED (9)
@@ -19,22 +19,18 @@ The four categories a caller must distinguish:
      formula.
 
   C. METADATA — NOT MODEL INPUT
-     name, department, assigned_mentor_id (display only); gender, category,
-     family_income_slab (excluded by ml.config.EXCLUDED_FEATURES).
+     name, department, assigned_mentor_id (display only); gender, category, age,
+     family_income_slab (excluded by ml.config.EXCLUDED_FEATURES). The protected attributes
+     (gender, category, age) are not fields here, so `extra="forbid"` rejects them with 422.
 
   D. LABELS — FORBIDDEN DURING INFERENCE
      is_dropout, ground_truth_risk_prob. Rejected explicitly with a clear message.
 
 RANGE VALIDATION
-Bounds follow docs/data_dictionary.md as guidance, widened where the real cohort or the
-generating code intentionally exceeds it. Documented ranges too narrow for data the ML
-code actually produces:
-  * fee_payment_delay_days         — doc 0-120,     actual max 124
-  * assignment_submission_lag_days — doc -5..+15,   actual min -7.8
-  * age                            — absent from the data dictionary entirely, yet it is
-                                     model feature index 0 (actual 17.5-24.6)
-Enforcing the documented values would reject rows from the project's own features.csv,
-so the bounds below are the union of documented intent and real data.
+The bounds below are the accepted API ranges. They were set wide enough that every row of
+the project's own features.csv validates (e.g. fee_payment_delay_days and
+assignment_submission_lag_days exceed the generator's nominal ranges).
+docs/data_dictionary.md reproduces these bounds; this file is the source of truth.
 """
 
 import uuid
@@ -42,6 +38,10 @@ from datetime import datetime
 from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# Module import (not `from ml.config import ATTENDANCE_THRESHOLD`) so the threshold is read at
+# validation time from the same source as the generator and feature_engineering.
+from ml import config as ml_config
 
 HostelStatus = Literal["Hosteler", "Day Scholar"]
 
@@ -62,20 +62,17 @@ REJECTED_ENGINEERED_FIELDS = (
 
 
 class StudentFeatureInput(BaseModel):
-    """The 28 raw model inputs plus residency status."""
+    """The 27 raw model inputs plus residency status."""
 
     model_config = ConfigDict(extra="forbid")
 
-    # --- Demographic / socio-economic -------------------------------------------------
-    # `age` IS model feature index 0, despite being filed under "demographics_protected"
-    # in feature_metadata.json and omitted from docs/data_dictionary.md entirely.
-    age: float = Field(..., ge=15.0, le=60.0, description="Years. Model feature index 0.")
+    # --- Socio-economic -------------------------------------------------------------------
     commute_distance_km: float = Field(..., ge=0.0, le=100.0)
     income_slab_idx: int = Field(..., ge=0, le=3, description="0=<2 LPA, 1=2-5, 2=5-8, 3=>8 LPA")
     is_first_generation: int = Field(..., ge=0, le=1)
     has_scholarship: int = Field(..., ge=0, le=1)
     fee_payment_delay_days: int = Field(
-        ..., ge=0, le=365, description="Doc says 0-120; the real cohort reaches 124."
+        ..., ge=0, le=365, description="Days the tuition fee payment is overdue."
     )
 
     # Source for the engineered `is_hosteler`. Supply either this or is_hosteler.
@@ -113,7 +110,7 @@ class StudentFeatureInput(BaseModel):
         ...,
         ge=-30.0,
         le=90.0,
-        description="Negative = early. Doc says -5..+15; the cohort reaches -7.8.",
+        description="Days relative to the deadline. Negative = early.",
     )
     resource_access_count: int = Field(..., ge=0, le=1000)
     days_since_last_lms_activity: int = Field(..., ge=0, le=365)
@@ -161,7 +158,8 @@ class StudentFeatureInput(BaseModel):
                 (self.attendance_month_3 - self.attendance_month_1) / 2.0, 2
             )
         if self.attendance_risk_flag is None:
-            self.attendance_risk_flag = int(self.attendance_percentage < 75.0)
+            # ml.config.ATTENDANCE_THRESHOLD comes from ml/simulation/assumptions.yaml
+            self.attendance_risk_flag = int(self.attendance_percentage < ml_config.ATTENDANCE_THRESHOLD)
         if self.is_hosteler is None:
             self.is_hosteler = int(self.hostel_status == "Hosteler")
         return self

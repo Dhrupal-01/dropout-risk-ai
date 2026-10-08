@@ -15,6 +15,7 @@ import {
 } from '../api/endpoints';
 import RiskTierChip from '../components/RiskTierChip';
 import ShapChart from '../components/ShapChart';
+import AdminTokenNotice from '../components/AdminTokenNotice';
 
 const StudentDetail = () => {
   const { studentId } = useParams();
@@ -139,11 +140,14 @@ const StudentDetail = () => {
           This student exists in the database but has no predictive scoring records. 
           Run a manual scoring evaluation now to generate the risk calibration and TreeSHAP attribution profiles.
         </p>
+        <div className="max-w-md mx-auto mb-3">
+          <AdminTokenNotice />
+        </div>
         <button
           onClick={() => {
             // Trigger dummy initial predict payload matching features schema
             const dummyFeatures = {
-              age: 20.0, commute_distance_km: 10.0, income_slab_idx: 1,
+              commute_distance_km: 10.0, income_slab_idx: 1,
               is_first_generation: 0, has_scholarship: 0, fee_payment_delay_days: 0,
               hostel_status: "Day Scholar",
               att_core1: 75.0, att_core2: 75.0, att_lab: 80.0, att_elective: 80.0,
@@ -189,6 +193,8 @@ const StudentDetail = () => {
   const drivers = explanation.top_drivers || [];
   const recommendations = recoData?.recommended_interventions || [];
   const counterfactual = recoData?.counterfactual_recourse;
+  const alerts = counterfactual?.rule_based_alerts || [];
+  const reasonsUnavailable = counterfactual?.drivers_available === false;
 
   const openLogModal = (intervention) => {
     // Check if there is an active log for this intervention already in history
@@ -286,6 +292,31 @@ const StudentDetail = () => {
         </div>
       </div>
 
+      {/* Rule-based alerts: shown for every risk tier, separate from the model estimate */}
+      {alerts.length > 0 && (
+        <div
+          role="alert"
+          className="bg-risk-medium/10 border border-risk-medium/40 p-4 rounded-lg space-y-2"
+        >
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-risk-medium shrink-0" />
+            Rule-based alerts (independent of the model risk tier)
+          </h2>
+          <ul className="space-y-1.5">
+            {alerts.map((alert) => (
+              <li key={alert.code} className="text-xs text-secondary leading-relaxed">
+                <span className="text-primary font-semibold">
+                  {alert.message.charAt(0).toUpperCase() + alert.message.slice(1)}.
+                </span>
+                {alert.recommended_intervention_title && (
+                  <span> Recommended: {alert.recommended_intervention_title}.</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* 2 Column Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* LEFT COLUMN: Risk Hero & SHAP Explainability */}
@@ -350,6 +381,13 @@ const StudentDetail = () => {
                 Recommended Support Interventions
               </h3>
             </div>
+
+            {reasonsUnavailable && (
+              <p className="text-xs text-secondary bg-subtle/50 border border-border/40 rounded p-2.5">
+                Reasons unavailable: the risk drivers for this student could not be computed, so
+                recommendations are not matched to drivers.
+              </p>
+            )}
 
             {recommendations.length === 0 ? (
               <p className="text-xs text-muted italic">No specific interventions recommended by the system.</p>
@@ -683,6 +721,7 @@ const StudentDetail = () => {
             </div>
 
             {/* Modal footer actions */}
+            <AdminTokenNotice />
             <div className="flex items-center space-x-3 border-t border-border pt-4 select-none">
               <button
                 type="button"

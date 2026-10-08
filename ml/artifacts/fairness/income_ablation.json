@@ -1,144 +1,196 @@
 {
   "benchmark": "simulated_income_ablation",
   "n_samples": 2000,
-  "all_features_count": 37,
-  "ablated_features_count": 35,
+  "all_features_count": 36,
+  "ablated_features_count": 34,
   "ablated_features_list": [
     "income_slab_idx",
     "financial_stress_index"
   ],
   "overall_performance": {
     "with_income": {
-      "roc_auc": 0.929,
-      "pr_auc": 0.9078,
-      "accuracy": 0.8815,
-      "f1": 0.8206,
-      "recall": 0.771,
-      "precision": 0.877,
-      "brier_score": 0.0914
+      "roc_auc": 0.9314,
+      "pr_auc": 0.9118,
+      "accuracy": 0.8875,
+      "f1": 0.8292,
+      "recall": 0.78,
+      "precision": 0.8849,
+      "brier_score": 0.0876
     },
     "without_income": {
-      "roc_auc": 0.9292,
-      "pr_auc": 0.908,
-      "accuracy": 0.8825,
-      "f1": 0.8224,
-      "recall": 0.7738,
-      "precision": 0.8774,
-      "brier_score": 0.0913
+      "roc_auc": 0.9316,
+      "pr_auc": 0.9122,
+      "accuracy": 0.888,
+      "f1": 0.83,
+      "recall": 0.7814,
+      "precision": 0.8851,
+      "brier_score": 0.0873
     }
   },
   "slabs_summary": {
     "<2 LPA": {
       "income_slab_idx": 0,
       "n_samples": 432,
-      "n_dropouts": 149,
-      "base_rate": 0.3449,
+      "n_dropouts": 159,
+      "base_rate": 0.3681,
       "with_income_features": {
-        "tpr": 0.5503,
-        "fnr": 0.4497,
-        "selection_rate": 0.1921,
-        "precision": 0.988,
-        "within_group_ece": 0.027
+        "tpr": 0.5597,
+        "fnr": 0.4403,
+        "selection_rate": 0.2153,
+        "precision": 0.957,
+        "within_group_ece": 0.0408
       },
       "without_income_features": {
-        "tpr": 0.5638,
-        "fnr": 0.4362,
-        "selection_rate": 0.1968,
-        "precision": 0.9882,
-        "within_group_ece": 0.0215
+        "tpr": 0.5597,
+        "fnr": 0.4403,
+        "selection_rate": 0.213,
+        "precision": 0.9674,
+        "within_group_ece": 0.0377
       },
-      "fnr_delta_without_minus_with": -0.0135
+      "fnr_delta_without_minus_with": 0.0
     },
     "2-5 LPA": {
       "income_slab_idx": 1,
       "n_samples": 774,
-      "n_dropouts": 281,
-      "base_rate": 0.363,
+      "n_dropouts": 274,
+      "base_rate": 0.354,
       "with_income_features": {
-        "tpr": 0.5694,
-        "fnr": 0.4306,
-        "selection_rate": 0.2093,
-        "precision": 0.9877,
-        "within_group_ece": 0.0418
-      },
-      "without_income_features": {
-        "tpr": 0.5623,
-        "fnr": 0.4377,
+        "tpr": 0.5766,
+        "fnr": 0.4234,
         "selection_rate": 0.2067,
         "precision": 0.9875,
-        "within_group_ece": 0.0385
+        "within_group_ece": 0.0371
       },
-      "fnr_delta_without_minus_with": 0.0071
+      "without_income_features": {
+        "tpr": 0.5803,
+        "fnr": 0.4197,
+        "selection_rate": 0.208,
+        "precision": 0.9876,
+        "within_group_ece": 0.0369
+      },
+      "fnr_delta_without_minus_with": -0.0037
     },
     "5-8 LPA": {
       "income_slab_idx": 2,
       "n_samples": 509,
-      "n_dropouts": 180,
-      "base_rate": 0.3536,
+      "n_dropouts": 178,
+      "base_rate": 0.3497,
       "with_income_features": {
-        "tpr": 0.5444,
-        "fnr": 0.4556,
-        "selection_rate": 0.1984,
-        "precision": 0.9703,
-        "within_group_ece": 0.0408
+        "tpr": 0.5169,
+        "fnr": 0.4831,
+        "selection_rate": 0.1866,
+        "precision": 0.9684,
+        "within_group_ece": 0.0349
       },
       "without_income_features": {
-        "tpr": 0.5444,
-        "fnr": 0.4556,
-        "selection_rate": 0.1984,
-        "precision": 0.9703,
-        "within_group_ece": 0.0373
+        "tpr": 0.5225,
+        "fnr": 0.4775,
+        "selection_rate": 0.1886,
+        "precision": 0.9688,
+        "within_group_ece": 0.0354
       },
-      "fnr_delta_without_minus_with": 0.0
+      "fnr_delta_without_minus_with": -0.0056
     },
     ">8 LPA": {
       "income_slab_idx": 3,
       "n_samples": 285,
-      "n_dropouts": 93,
-      "base_rate": 0.3263,
+      "n_dropouts": 89,
+      "base_rate": 0.3123,
       "with_income_features": {
-        "tpr": 0.5591,
-        "fnr": 0.4409,
-        "selection_rate": 0.1895,
-        "precision": 0.963,
-        "within_group_ece": 0.0364
+        "tpr": 0.5618,
+        "fnr": 0.4382,
+        "selection_rate": 0.1825,
+        "precision": 0.9615,
+        "within_group_ece": 0.0322
       },
       "without_income_features": {
-        "tpr": 0.5591,
-        "fnr": 0.4409,
-        "selection_rate": 0.1895,
-        "precision": 0.963,
-        "within_group_ece": 0.0421
+        "tpr": 0.5506,
+        "fnr": 0.4494,
+        "selection_rate": 0.1789,
+        "precision": 0.9608,
+        "within_group_ece": 0.0389
       },
-      "fnr_delta_without_minus_with": 0.0
+      "fnr_delta_without_minus_with": 0.0112
     }
   },
   "comparison_table": [
     {
-      "configuration": "With Income Features (37 features)",
-      "n_features": 37,
-      "roc_auc": 0.929,
-      "pr_auc": 0.9078,
-      "f1": 0.8206,
-      "recall": 0.771,
-      "precision": 0.877,
-      "brier_score": 0.0914,
-      "fnr_lowest_slab": 0.4497,
-      "fnr_highest_slab": 0.4409,
-      "fnr_gap_low_vs_high": 0.0088
+      "configuration": "With Income Features (36 features)",
+      "n_features": 36,
+      "roc_auc": 0.9314,
+      "pr_auc": 0.9118,
+      "f1": 0.8292,
+      "recall": 0.78,
+      "precision": 0.8849,
+      "brier_score": 0.0876,
+      "fnr_lowest_slab": 0.4403,
+      "fnr_highest_slab": 0.4382,
+      "fnr_gap_low_vs_high": 0.0021
     },
     {
-      "configuration": "Without Income Features (35 features)",
-      "n_features": 35,
-      "roc_auc": 0.9292,
-      "pr_auc": 0.908,
-      "f1": 0.8224,
-      "recall": 0.7738,
-      "precision": 0.8774,
-      "brier_score": 0.0913,
-      "fnr_lowest_slab": 0.4362,
-      "fnr_highest_slab": 0.4409,
-      "fnr_gap_low_vs_high": -0.0047
+      "configuration": "Without Income Features (34 features)",
+      "n_features": 34,
+      "roc_auc": 0.9316,
+      "pr_auc": 0.9122,
+      "f1": 0.83,
+      "recall": 0.7814,
+      "precision": 0.8851,
+      "brier_score": 0.0873,
+      "fnr_lowest_slab": 0.4403,
+      "fnr_highest_slab": 0.4494,
+      "fnr_gap_low_vs_high": -0.0091
     }
-  ]
+  ],
+  "provenance": {
+    "input_files": {
+      "calibrated_model.joblib": {
+        "path": "ml/artifacts/calibrated_model.joblib",
+        "sha256": "6e74d0642e90b62c87ace40610b6c4172337fe2eb57d9180fa9ad1e0931e942f"
+      },
+      "feature_names.json": {
+        "path": "ml/artifacts/feature_names.json",
+        "sha256": "d27fdc6d203908d791ccce51277988dae02e292cea1c7fcf4be6130e461aaa11"
+      },
+      "features.csv": {
+        "path": "data/processed/features.csv",
+        "sha256": "07752170661e5cc9ac3ef04b037c79450931ee853861b0ed5a4fb03dd0b9ea87"
+      }
+    },
+    "git_commit": "81f1229c01096ce795a4871d9ef6852babc2366a",
+    "run_id": "20261008T191504Z-81f1229-d22162",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/sim_to_real.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json",
+      "ml/artifacts/fairness/generator_sanity_check.json",
+      "ml/artifacts/fairness/oulad_fairness.json",
+      "ml/artifacts/fairness/oulad_shift_check.json",
+      "ml/artifacts/fairness/uci_fairness.json",
+      "ml/artifacts/fairness/uci_mitigations.json",
+      "ml/artifacts/fairness_metrics.json",
+      "ml/artifacts/model_metrics.json",
+      "ml/artifacts/simulation_sensitivity.json",
+      "ml/simulation/estimated_parameters.json"
+    ],
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
+  }
 }

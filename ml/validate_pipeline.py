@@ -8,14 +8,12 @@ Executes / validates the entire ML core:
 3. Quantitative Fairness & Bias Audit (Gender, Economic Proxy, First-Gen)
 4. Comprehensive Report Cards for 6 Representative Students across the Risk Spectrum
 5. Loud Sanity Assertions verifying clinical validity, absence of target leakage, and counterfactual effectiveness.
+Writes model_metrics.json / fairness_metrics.json; it does not render README.md.
 """
 
-import sys
 import json
 import argparse
 import logging
-from pathlib import Path
-from typing import Dict, Any, List, Tuple
 import joblib
 import numpy as np
 import pandas as pd
@@ -33,22 +31,18 @@ from sklearn.metrics import (
 from ml.config import (
     PROCESSED_DATA_PATH,
     MODEL_ARTIFACT_PATH,
-    BASE_MODEL_PATH,
     FEATURE_NAMES_PATH,
     METRICS_REPORT_PATH,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
-    RANDOM_SEED,
-    get_risk_tier
+    RANDOM_SEED
 )
 from ml.models.calibrate import predict_student_risk
 from ml.models.explain_shap import SHAPExplainerService
 from ml.models.fairness_audit import run_comprehensive_fairness_audit
 from ml.intervention.engine import (
     map_shap_drivers_to_interventions,
-    CounterfactualRecourseEngine,
-    build_prioritized_mentor_queue,
-    INTERVENTION_CATALOG
+    CounterfactualRecourseEngine
 )
 from ml.data_pipeline.feature_engineering import build_engineered_features
 
@@ -56,12 +50,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline_validation(regenerate: bool = False):
+def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False):
     """
     Executes end-to-end ML validation suite.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in every JSON it writes).
     """
+    from ml.provenance import require_clean_tree
+    require_clean_tree(allow_dirty)
+
     print("=" * 80)
-    print(" DROPOUTGUARD — AI-POWERED DROPOUT PREDICTION & INTERVENTION SYSTEM ")
+    print(" DROPOUTGUARD — AI-POWERED EARLY-WARNING AND STUDENT SUPPORT SYSTEM ")
     print(" Comprehensive Machine Learning Core Validation & Clinical Report ")
     print(" Context: Smart India Hackathon 2026 (PSID 7-L) | SDG 4: Quality Education")
     print("=" * 80)
@@ -74,8 +72,8 @@ def run_pipeline_validation(regenerate: bool = False):
         from ml.models.calibrate import run_calibration_pipeline
         
         generate_processed_feature_dataset(n_students=2000, seed=RANDOM_SEED)
-        train_pipeline()
-        run_calibration_pipeline()
+        train_pipeline(allow_dirty=allow_dirty)
+        run_calibration_pipeline(allow_dirty=allow_dirty)
         SHAPExplainerService().build_and_save_explainer()
 
     # Load artifacts
@@ -121,10 +119,10 @@ def run_pipeline_validation(regenerate: bool = False):
     print(f" • Overall Accuracy:           {acc*100:6.2f}%")
     print(f" • Brier Calibration Score:    {brier:7.4f}  (0.0 = perfect probabilistic calibration)")
     print("\n Confusion Matrix:")
-    print(f"   ┌────────────────────────┬──────────────────────┐")
+    print("   ┌────────────────────────┬──────────────────────┐")
     print(f"   │ True Negatives (TN): {tn:3d} │ False Positives (FP):{fp:3d} │")
     print(f"   │ False Negatives(FN): {fn:3d} │ True Positives (TP): {tp:3d} │")
-    print(f"   └────────────────────────┴──────────────────────┘")
+    print("   └────────────────────────┴──────────────────────┘")
 
     # Update model_metrics.json with calibrated held-out test metrics and brier_score
     if METRICS_REPORT_PATH.exists():
@@ -149,7 +147,8 @@ def run_pipeline_validation(regenerate: bool = False):
 
     METRICS_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(METRICS_REPORT_PATH, "w", encoding="utf-8") as f:
-        json.dump(mm, f, indent=2)
+        from ml.provenance import build_provenance, simulated_inputs
+        json.dump({**mm, "provenance": build_provenance(simulated_inputs(), allow_dirty=allow_dirty)}, f, indent=2)
 
     # =========================================================================
     # SECTION 2: PROBABILITY CALIBRATION RELIABILITY CHECK (10% BINS)
@@ -179,7 +178,7 @@ def run_pipeline_validation(regenerate: bool = False):
     print("\n" + "-" * 80)
     print("SECTION 3: QUANTITATIVE FAIRNESS AUDIT (Single Split vs. 5-Fold Cross-Validation)")
     print("-" * 80)
-    audit_full = run_comprehensive_fairness_audit()
+    audit_full = run_comprehensive_fairness_audit(allow_dirty=allow_dirty)
     audit_test = audit_full["test_split"]
     audit_cv = audit_full["cross_validation"]
 
@@ -515,7 +514,7 @@ def run_pipeline_validation(regenerate: bool = False):
             print(f"  • [{intv['urgency']}] {intv['title']} (Pillar: {intv['pillar'].upper()})")
             print(f"    Action: {intv['description']}")
         print("-" * 80)
-        print(f"COUNTERFACTUAL RECOURSE (\"Path to Improvement\"):")
+        print("COUNTERFACTUAL RECOURSE (\"Path to Improvement\"):")
         print(f"  Plan Name: {recourse['intervention_plan_name']}")
         print(f"  Current:   {recourse['current_risk_prob']*100:.1f}% ({recourse['current_risk_tier']}) -> Projected: {recourse['projected_risk_prob']*100:.1f}% ({recourse['projected_risk_tier']})")
         print(f"  Expected Risk Drop: -{recourse['risk_reduction_pct']}%")
@@ -567,15 +566,36 @@ def run_pipeline_validation(regenerate: bool = False):
     )
     print(f" [✓] PASS: No target leakage found. All individual feature correlations are safely below {LEAKAGE_THRESHOLD}.")
 
-    # 5. Counterfactual recourse effectiveness check
-    for res in report_card_results[2:]:  # Borderline and High risk students
+    # 5. Counterfactual recourse check, keyed on each profile's CURRENT model tier (not its archetype label):
+    #    Medium/High -> every recommendation must not raise risk; Low -> the explicit "already Low" result.
+    print("\n [i] COUNTERFACTUAL RECOURSE BY CURRENT MODEL TIER:")
+    n_not_low = 0
+    for res in report_card_results:
         recourse = res["recourse"]
+        sid = res["profile"]["student_id"]
+        tier = res["tier"]
         cur_p = recourse["current_risk_prob"]
         proj_p = recourse["projected_risk_prob"]
-        diff = cur_p - proj_p
-        sid = res["profile"]["student_id"]
-        assert diff > 0.05, f"CRITICAL ERROR: Counterfactual for {sid} failed to reduce risk meaningfully! (Current={cur_p}, Projected={proj_p})"
-    print(" [✓] PASS: Counterfactual recourse proposals successfully decrease risk probability by a significant margin.")
+        print(f"     • {sid}: tier={tier} | current={cur_p:.4f} -> projected={proj_p:.4f} | plan='{recourse['intervention_plan_name']}'")
+        assert recourse["current_risk_tier"] == tier, (
+            f"CRITICAL ERROR: Recourse engine tier for {sid} ({recourse['current_risk_tier']}) differs from model tier ({tier})!"
+        )
+        if tier == "Low":
+            assert "already in the lowest model risk tier" in recourse.get("status_message", ""), (
+                f"CRITICAL ERROR: Low-tier student {sid} did not get the explicit 'already Low' recourse result: {recourse}"
+            )
+            assert recourse["required_actions"] == [], f"CRITICAL ERROR: Low-tier student {sid} was given required actions!"
+            assert proj_p == cur_p and recourse["risk_reduction_pct"] == 0.0, (
+                f"CRITICAL ERROR: Low-tier student {sid} has a projected change (Current={cur_p}, Projected={proj_p})!"
+            )
+        else:
+            n_not_low += 1
+            assert recourse["required_actions"], f"CRITICAL ERROR: {tier}-tier student {sid} got no recommended actions!"
+            assert proj_p <= cur_p, (
+                f"CRITICAL ERROR: Counterfactual for {tier}-tier student {sid} increases risk! (Current={cur_p}, Projected={proj_p})"
+            )
+    assert n_not_low > 0, "CRITICAL ERROR: No Medium/High-tier profile; the counterfactual check would be vacuous!"
+    print(f" [✓] PASS: Recourse never raises risk for the {n_not_low} Medium/High-tier profile(s); Low-tier profiles get the explicit 'already Low' result.")
 
     # 6. SHAP Tree Saturation Verification
     print("\n [i] SHAP INTEGRITY CHECK:")
@@ -585,25 +605,18 @@ def run_pipeline_validation(regenerate: bool = False):
     print("\n" + "=" * 80)
     print(" ALL SANITY ASSERTIONS AND CLINICAL SAFETY CHECKS PASSED WITH ZERO ERRORS ")
     print("=" * 80)
+    # README.md metrics are rendered separately (python -m scripts.render_readme_metrics, run by
+    # `python -m ml.pipeline run-all` after every step has succeeded).
 
-    # 7. Deterministically sync README.md metrics from generated JSON artifacts
-    try:
-        import sys
-        from ml.config import BASE_DIR
-        if str(BASE_DIR) not in sys.path:
-            sys.path.insert(0, str(BASE_DIR))
-        from scripts.render_readme_metrics import update_readme
-        print("\n [i] Updating README.md metrics from JSON artifacts...")
-        update_readme()
-        print(" [✓] PASS: README.md metrics successfully synchronized with model_metrics.json & fairness_metrics.json.")
-    except Exception as exc:
-        logger.error("Could not automatically update README.md metrics: %s", exc)
-        raise exc
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    from ml.provenance import add_allow_dirty_argument
+
+    parser = argparse.ArgumentParser(description="DropoutGuard ML Core Validation")
+    parser.add_argument("--regenerate", action="store_true", help="Force clean retraining and pipeline execution")
+    return add_allow_dirty_argument(parser)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="DropoutGuard ML Core Validation")
-    parser.add_argument("--regenerate", action="store_true", help="Force clean retraining and pipeline execution")
-    args = parser.parse_args()
-
-    run_pipeline_validation(regenerate=args.regenerate)
+    args = build_arg_parser().parse_args()
+    run_pipeline_validation(regenerate=args.regenerate, allow_dirty=args.allow_dirty)

@@ -3,8 +3,8 @@
   "phase": "Phase 4 - Fairness Audit & Mitigations",
   "uci_higher_ed": {
     "n_samples": 3630,
-    "base_rate": 0.3209,
-    "selection_rate_top20": 0.2,
+    "base_rate": 0.3915,
+    "top_k_pct": 0.2,
     "attributes_audited": [
       "gender",
       "scholarship_holder",
@@ -15,45 +15,45 @@
     "mitigations_comparison": [
       {
         "strategy": "None (Unmitigated)",
-        "roc_auc": 0.9392,
-        "pr_auc": 0.9349,
-        "recall": 0.8216,
-        "precision": 0.8794,
-        "brier_score": 0.0834,
-        "max_fnr_gap": 0.0424
+        "roc_auc": 0.9417,
+        "pr_auc": 0.9383,
+        "recall": 0.8474,
+        "precision": 0.9048,
+        "brier_score": 0.0805,
+        "max_fnr_gap": 0.0721
       },
       {
         "strategy": "Sample Reweighing",
-        "roc_auc": 0.9407,
-        "pr_auc": 0.9351,
-        "recall": 0.8568,
-        "precision": 0.843,
-        "brier_score": 0.0881,
-        "max_fnr_gap": 0.052
+        "roc_auc": 0.9423,
+        "pr_auc": 0.938,
+        "recall": 0.8615,
+        "precision": 0.8595,
+        "brier_score": 0.0859,
+        "max_fnr_gap": 0.089
       },
       {
         "strategy": "Group-Specific Thresholds (FNR Parity)",
-        "roc_auc": 0.9392,
-        "pr_auc": 0.9349,
+        "roc_auc": 0.9417,
+        "pr_auc": 0.9383,
         "recall": 0.8169,
-        "precision": 0.8678,
-        "brier_score": 0.0834,
-        "max_fnr_gap": 0.0229
+        "precision": 0.8788,
+        "brier_score": 0.0805,
+        "max_fnr_gap": 0.0148
       },
       {
         "strategy": "Fairlearn ExponentiatedGradient",
-        "roc_auc": 0.8944,
-        "pr_auc": 0.8468,
-        "recall": 0.7089,
-        "precision": 0.9069,
-        "brier_score": 0.1055,
-        "max_fnr_gap": 0.029
+        "roc_auc": 0.8928,
+        "pr_auc": 0.8346,
+        "recall": 0.7864,
+        "precision": 0.8568,
+        "brier_score": 0.097,
+        "max_fnr_gap": 0.0424
       }
     ]
   },
   "oulad_learning_analytics": {
     "n_samples_holdout": 15092,
-    "base_rate": 0.1543,
+    "base_rate": 0.1635,
     "attributes_audited": [
       "gender",
       "age_band",
@@ -67,126 +67,131 @@
   "generator_sanity_check": {
     "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
     "test_split_fnr_gaps": {
-      "gender": 0.0793,
-      "economic_proxy": 0.146,
-      "first_generation": 0.2067
+      "gender": 0.0142,
+      "economic_proxy": 0.0808,
+      "first_generation": 0.0715,
+      "age_band": 0.0065
     },
     "cross_validation_fnr_gaps": {
-      "gender": 0.008,
-      "economic_proxy": 0.0494,
-      "first_generation": 0.009
+      "gender": 0.0152,
+      "economic_proxy": 0.0561,
+      "first_generation": 0.043,
+      "age_band": 0.0158
     }
   },
   "income_ablation": {
     "comparison_table": [
       {
-        "configuration": "With Income Features (37 features)",
-        "n_features": 37,
-        "roc_auc": 0.929,
-        "pr_auc": 0.9078,
-        "f1": 0.8206,
-        "recall": 0.771,
-        "precision": 0.877,
-        "brier_score": 0.0914,
-        "fnr_lowest_slab": 0.4497,
-        "fnr_highest_slab": 0.4409,
-        "fnr_gap_low_vs_high": 0.0088
+        "configuration": "With Income Features (36 features)",
+        "n_features": 36,
+        "roc_auc": 0.9314,
+        "pr_auc": 0.9118,
+        "f1": 0.8292,
+        "recall": 0.78,
+        "precision": 0.8849,
+        "brier_score": 0.0876,
+        "fnr_lowest_slab": 0.4403,
+        "fnr_highest_slab": 0.4382,
+        "fnr_gap_low_vs_high": 0.0021
       },
       {
-        "configuration": "Without Income Features (35 features)",
-        "n_features": 35,
-        "roc_auc": 0.9292,
-        "pr_auc": 0.908,
-        "f1": 0.8224,
-        "recall": 0.7738,
-        "precision": 0.8774,
-        "brier_score": 0.0913,
-        "fnr_lowest_slab": 0.4362,
-        "fnr_highest_slab": 0.4409,
-        "fnr_gap_low_vs_high": -0.0047
+        "configuration": "Without Income Features (34 features)",
+        "n_features": 34,
+        "roc_auc": 0.9316,
+        "pr_auc": 0.9122,
+        "f1": 0.83,
+        "recall": 0.7814,
+        "precision": 0.8851,
+        "brier_score": 0.0873,
+        "fnr_lowest_slab": 0.4403,
+        "fnr_highest_slab": 0.4494,
+        "fnr_gap_low_vs_high": -0.0091
       }
     ]
   },
-  "gender": {
-    "male": {
-      "n_samples": 176,
-      "base_rate": 0.3636,
-      "selection_rate": 0.3239,
-      "true_positives": 48,
-      "false_negatives": 16,
-      "true_negatives": 103,
-      "false_positives": 9,
-      "tpr_recall": 0.75,
-      "fnr_miss_rate": 0.25,
-      "fpr_alarm_rate": 0.0804
+  "provenance": {
+    "input_files": {
+      "assessments.csv": {
+        "path": "data/raw/oulad/assessments.csv",
+        "sha256": "8cc738fb88ad760571d6f2a23059bfee0ffcae3bcd830514c9cbd5c6d5a046f1"
+      },
+      "calibrated_model.joblib": {
+        "path": "ml/artifacts/calibrated_model.joblib",
+        "sha256": "6e74d0642e90b62c87ace40610b6c4172337fe2eb57d9180fa9ad1e0931e942f"
+      },
+      "courses.csv": {
+        "path": "data/raw/oulad/courses.csv",
+        "sha256": "4f16eee7454b15e109b0a21a0e43be820e6846ed6f9301bb7feb5ab5ad737a75"
+      },
+      "feature_names.json": {
+        "path": "ml/artifacts/feature_names.json",
+        "sha256": "d27fdc6d203908d791ccce51277988dae02e292cea1c7fcf4be6130e461aaa11"
+      },
+      "features.csv": {
+        "path": "data/processed/features.csv",
+        "sha256": "07752170661e5cc9ac3ef04b037c79450931ee853861b0ed5a4fb03dd0b9ea87"
+      },
+      "studentAssessment.csv": {
+        "path": "data/raw/oulad/studentAssessment.csv",
+        "sha256": "fd5320786328d05af841ee7dd4b5871b9dada3b9fe9d6a3642b2f42635510a6e"
+      },
+      "studentInfo.csv": {
+        "path": "data/raw/oulad/studentInfo.csv",
+        "sha256": "7e6f3e474a5eee00639d2a414a6c7e928745823c2d2c2563ca1780145f99b0d6"
+      },
+      "studentRegistration.csv": {
+        "path": "data/raw/oulad/studentRegistration.csv",
+        "sha256": "0d32676285372aaf2e7a80304e5b274b4fba24313e2ca4c04317225e1ec90170"
+      },
+      "studentVle.csv": {
+        "path": "data/raw/oulad/studentVle.csv",
+        "sha256": "52668253d876c5becbcb72185977152700cecab2942aca807fecc3dd54b937f0"
+      },
+      "uci_dropout.csv": {
+        "path": "data/raw/uci_dropout.csv",
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      },
+      "vle.csv": {
+        "path": "data/raw/oulad/vle.csv",
+        "sha256": "d1b28303dea802ad87b4484e1196e878e06824850b9a4fe8aa34693439fe87e9"
+      }
     },
-    "female": {
-      "n_samples": 124,
-      "base_rate": 0.3306,
-      "selection_rate": 0.3387,
-      "true_positives": 34,
-      "false_negatives": 7,
-      "true_negatives": 75,
-      "false_positives": 8,
-      "tpr_recall": 0.8293,
-      "fnr_miss_rate": 0.1707,
-      "fpr_alarm_rate": 0.0964
-    },
-    "fnr_disparity": 0.0793,
-    "disparate_impact_ratio": 1.046
-  },
-  "economic_proxy": {
-    "lower_income_under_5lpa": {
-      "n_samples": 173,
-      "base_rate": 0.3121,
-      "selection_rate": 0.3584,
-      "true_positives": 46,
-      "false_negatives": 8,
-      "true_negatives": 103,
-      "false_positives": 16,
-      "tpr_recall": 0.8519,
-      "fnr_miss_rate": 0.1481,
-      "fpr_alarm_rate": 0.1345
-    },
-    "higher_income_above_5lpa": {
-      "n_samples": 127,
-      "base_rate": 0.4016,
-      "selection_rate": 0.2913,
-      "true_positives": 36,
-      "false_negatives": 15,
-      "true_negatives": 75,
-      "false_positives": 1,
-      "tpr_recall": 0.7059,
-      "fnr_miss_rate": 0.2941,
-      "fpr_alarm_rate": 0.0132
-    },
-    "fnr_disparity": 0.146
-  },
-  "first_generation": {
-    "first_gen": {
-      "n_samples": 102,
-      "base_rate": 0.2941,
-      "selection_rate": 0.2745,
-      "true_positives": 19,
-      "false_negatives": 11,
-      "true_negatives": 63,
-      "false_positives": 9,
-      "tpr_recall": 0.6333,
-      "fnr_miss_rate": 0.3667,
-      "fpr_alarm_rate": 0.125
-    },
-    "non_first_gen": {
-      "n_samples": 198,
-      "base_rate": 0.3788,
-      "selection_rate": 0.3586,
-      "true_positives": 63,
-      "false_negatives": 12,
-      "true_negatives": 115,
-      "false_positives": 8,
-      "tpr_recall": 0.84,
-      "fnr_miss_rate": 0.16,
-      "fpr_alarm_rate": 0.065
-    },
-    "fnr_disparity": 0.2067
+    "git_commit": "81f1229c01096ce795a4871d9ef6852babc2366a",
+    "run_id": "20261008T191504Z-81f1229-d22162",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/sim_to_real.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json",
+      "ml/artifacts/fairness/generator_sanity_check.json",
+      "ml/artifacts/fairness/income_ablation.json",
+      "ml/artifacts/fairness/oulad_fairness.json",
+      "ml/artifacts/fairness/oulad_shift_check.json",
+      "ml/artifacts/fairness/uci_fairness.json",
+      "ml/artifacts/fairness/uci_mitigations.json",
+      "ml/artifacts/fairness_metrics.json",
+      "ml/artifacts/model_metrics.json",
+      "ml/artifacts/simulation_sensitivity.json",
+      "ml/simulation/estimated_parameters.json"
+    ],
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
   }
 }

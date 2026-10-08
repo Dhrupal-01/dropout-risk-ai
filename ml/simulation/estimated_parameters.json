@@ -1,93 +1,129 @@
 {
-  "has_scholarship": {
-    "source_dataset": "UCI (ID 697)",
-    "standardized_effect": -0.4674,
-    "standard_error": 0.061,
-    "standardized_ci_95": [
-      -0.5868,
-      -0.3479
-    ],
-    "simulated_cohort_sd": 0.45,
-    "indian_unit_coefficient": -1.03867,
-    "indian_unit_ci_95": [
-      -1.304,
-      -0.77311
-    ]
-  },
-  "fee_payment_delay_days": {
-    "source_dataset": "UCI (ID 697)",
-    "standardized_effect": 0.8355,
-    "standard_error": 0.0562,
-    "standardized_ci_95": [
-      0.7253,
-      0.9457
-    ],
-    "simulated_cohort_sd": 24.5,
-    "indian_unit_coefficient": 0.0341,
-    "indian_unit_ci_95": [
-      0.0296,
-      0.0386
-    ]
-  },
-  "is_first_generation": {
-    "source_dataset": "UCI (ID 697)",
-    "standardized_effect": -0.0072,
-    "standard_error": 0.0524,
-    "standardized_ci_95": [
-      -0.11,
-      0.0955
-    ],
-    "simulated_cohort_sd": 0.48,
-    "indian_unit_coefficient": -0.015,
-    "indian_unit_ci_95": [
-      -0.22917,
-      0.19896
-    ]
-  },
-  "is_hosteler": {
-    "source_dataset": "UCI (ID 697)",
-    "standardized_effect": 0.0667,
-    "standard_error": 0.0546,
-    "standardized_ci_95": [
-      -0.0403,
-      0.1738
-    ],
-    "simulated_cohort_sd": 0.5,
-    "indian_unit_coefficient": 0.1334,
-    "indian_unit_ci_95": [
-      -0.0806,
-      0.3476
-    ]
-  },
   "current_cgpa": {
     "source_dataset": "UCI (ID 697)",
-    "standardized_effect": -0.8917,
-    "standard_error": 0.0699,
+    "standardized_effect": -0.8914,
+    "standard_error": 0.0775,
     "standardized_ci_95": [
-      -1.0288,
-      -0.7546
+      -1.0433,
+      -0.7395
     ],
-    "simulated_cohort_sd": 1.45,
-    "indian_unit_coefficient": -0.61497,
+    "simulated_cohort_sd": 1.4477,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": -0.61572,
     "indian_unit_ci_95": [
-      -0.70952,
-      -0.52041
-    ]
+      -0.72064,
+      -0.5108
+    ],
+    "n_estimation_rows": 2904,
+    "n_holdout_rows_excluded": 726
   },
   "backlog_count": {
     "source_dataset": "UCI (ID 697)",
-    "standardized_effect": 2.2412,
-    "standard_error": 0.1042,
+    "standardized_effect": 2.1943,
+    "standard_error": 0.1155,
     "standardized_ci_95": [
-      2.037,
-      2.4454
+      1.968,
+      2.4206
     ],
-    "simulated_cohort_sd": 1.25,
-    "indian_unit_coefficient": 1.79296,
+    "simulated_cohort_sd": 1.1233,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": 1.95349,
     "indian_unit_ci_95": [
-      1.6296,
-      1.95632
-    ]
+      1.75202,
+      2.15495
+    ],
+    "n_estimation_rows": 2904,
+    "n_holdout_rows_excluded": 726
+  },
+  "has_scholarship": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": -0.4406,
+    "standard_error": 0.0662,
+    "standardized_ci_95": [
+      -0.5704,
+      -0.3109
+    ],
+    "simulated_cohort_sd": 0.487,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": -0.90481,
+    "indian_unit_ci_95": [
+      -1.17137,
+      -0.63846
+    ],
+    "n_estimation_rows": 2904,
+    "n_holdout_rows_excluded": 726
+  },
+  "fee_payment_delay_days": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": 0.7982,
+    "standard_error": 0.063,
+    "standardized_ci_95": [
+      0.6746,
+      0.9217
+    ],
+    "simulated_cohort_sd": 15.732,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": 0.05074,
+    "indian_unit_ci_95": [
+      0.04288,
+      0.05859
+    ],
+    "n_estimation_rows": 2904,
+    "n_holdout_rows_excluded": 726
+  },
+  "is_first_generation": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": 0.012,
+    "standard_error": 0.0586,
+    "standardized_ci_95": [
+      -0.1028,
+      0.1268
+    ],
+    "simulated_cohort_sd": 0.4856,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": 0.02471,
+    "indian_unit_ci_95": [
+      -0.21168,
+      0.2611
+    ],
+    "n_estimation_rows": 2904,
+    "n_holdout_rows_excluded": 726
+  },
+  "is_hosteler": {
+    "source_dataset": "UCI (ID 697)",
+    "standardized_effect": 0.1148,
+    "standard_error": 0.0605,
+    "standardized_ci_95": [
+      -0.0037,
+      0.2334
+    ],
+    "simulated_cohort_sd": 0.4977,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": 0.23065,
+    "indian_unit_ci_95": [
+      -0.00743,
+      0.46894
+    ],
+    "n_estimation_rows": 2904,
+    "n_holdout_rows_excluded": 726
   },
   "lms_logins_per_week": {
     "source_dataset": "OULAD (ID 349, Snapshot t=56)",
@@ -97,11 +133,15 @@
       -0.2001,
       -0.1087
     ],
-    "simulated_cohort_sd": 2.2,
-    "indian_unit_coefficient": -0.07018,
+    "simulated_cohort_sd": 2.2532,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": -0.06853,
     "indian_unit_ci_95": [
-      -0.09095,
-      -0.04941
+      -0.08881,
+      -0.04824
     ]
   },
   "days_since_last_lms_activity": {
@@ -112,11 +152,15 @@
       0.0912,
       0.1528
     ],
-    "simulated_cohort_sd": 12.0,
-    "indian_unit_coefficient": 0.01017,
+    "simulated_cohort_sd": 4.2024,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": 0.02903,
     "indian_unit_ci_95": [
-      0.0076,
-      0.01273
+      0.0217,
+      0.03636
     ]
   },
   "assignment_submission_lag_days": {
@@ -127,11 +171,77 @@
       0.276,
       0.346
     ],
-    "simulated_cohort_sd": 2.5,
-    "indian_unit_coefficient": 0.1244,
+    "simulated_cohort_sd": 2.3536,
+    "simulated_cohort_sd_source": {
+      "n_students": 2000,
+      "seed": 42
+    },
+    "indian_unit_coefficient": 0.13214,
     "indian_unit_ci_95": [
-      0.1104,
-      0.1384
+      0.11727,
+      0.14701
     ]
+  },
+  "provenance": {
+    "input_files": {
+      "assessments.csv": {
+        "path": "data/raw/oulad/assessments.csv",
+        "sha256": "8cc738fb88ad760571d6f2a23059bfee0ffcae3bcd830514c9cbd5c6d5a046f1"
+      },
+      "courses.csv": {
+        "path": "data/raw/oulad/courses.csv",
+        "sha256": "4f16eee7454b15e109b0a21a0e43be820e6846ed6f9301bb7feb5ab5ad737a75"
+      },
+      "studentAssessment.csv": {
+        "path": "data/raw/oulad/studentAssessment.csv",
+        "sha256": "fd5320786328d05af841ee7dd4b5871b9dada3b9fe9d6a3642b2f42635510a6e"
+      },
+      "studentInfo.csv": {
+        "path": "data/raw/oulad/studentInfo.csv",
+        "sha256": "7e6f3e474a5eee00639d2a414a6c7e928745823c2d2c2563ca1780145f99b0d6"
+      },
+      "studentRegistration.csv": {
+        "path": "data/raw/oulad/studentRegistration.csv",
+        "sha256": "0d32676285372aaf2e7a80304e5b274b4fba24313e2ca4c04317225e1ec90170"
+      },
+      "studentVle.csv": {
+        "path": "data/raw/oulad/studentVle.csv",
+        "sha256": "52668253d876c5becbcb72185977152700cecab2942aca807fecc3dd54b937f0"
+      },
+      "uci_dropout.csv": {
+        "path": "data/raw/uci_dropout.csv",
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      },
+      "vle.csv": {
+        "path": "data/raw/oulad/vle.csv",
+        "sha256": "d1b28303dea802ad87b4484e1196e878e06824850b9a4fe8aa34693439fe87e9"
+      }
+    },
+    "git_commit": "81f1229c01096ce795a4871d9ef6852babc2366a",
+    "run_id": "20261008T191504Z-81f1229-d22162",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json"
+    ],
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
   }
 }

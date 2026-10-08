@@ -13,8 +13,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ml.provenance import assert_consistent_provenance, dirty_artifact_warning, load_labelled_json
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 FAIRNESS_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "fairness"
+BENCHMARK_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "benchmarks"
 DOCS_DIR = BASE_DIR / "docs"
 REPORT_PATH = DOCS_DIR / "ethics_and_fairness.md"
 
@@ -29,6 +32,25 @@ def _format_flt(val: Optional[float], decimals: int = 4) -> str:
     if val is None:
         return "—"
     return f"{val:.{decimals}f}"
+
+
+def _format_age(val: Optional[float]) -> str:
+    return "(cut not recorded)" if val is None else f"({val:.2f} years)"
+
+
+def _format_gap(audit: Dict[str, Any]) -> str:
+    """An age-band FNR gap; a group below the minimum size shows as such, never as 0."""
+    if not audit:
+        return "—"
+    if audit.get("status") == "insufficient_sample":
+        return "insufficient sample"
+    return _format_pct(audit.get("fnr_disparity"), 2)
+
+
+def _format_gap_difference(a: Dict[str, Any], b: Dict[str, Any]) -> str:
+    if a.get("fnr_disparity") is None or b.get("fnr_disparity") is None:
+        return "—"
+    return _format_pct(abs(a["fnr_disparity"] - b["fnr_disparity"]), 2)
 
 
 def _format_ci(ci_tuple: Optional[List[float]], decimals: int = 1) -> str:
@@ -229,10 +251,12 @@ def render_generator_sanity_tables(gen_data: Dict[str, Any]) -> str:
     g_ts = ts.get("gender", {})
     inc_ts = ts.get("economic_proxy", {})
     fg_ts = ts.get("first_generation", {})
+    age_ts = ts.get("age_band", {})
 
     g_cv = cv.get("gender", {})
     inc_cv = cv.get("economic_proxy", {})
     fg_cv = cv.get("first_generation", {})
+    age_cv = cv.get("age_band", {})
 
     lines = [
         "| Demographic Slice | Single Held-Out Test Split ($N=300$) | 5-Fold Cross-Validation ($N=2,000$ Out-of-Fold) | Empirical Difference |",
@@ -240,18 +264,49 @@ def render_generator_sanity_tables(gen_data: Dict[str, Any]) -> str:
         f"| **Gender Disparity Gap** (Female vs Male FNR) | **{_format_pct(g_ts.get('fnr_disparity'), 2)}** | **{_format_pct(g_cv.get('fnr_disparity'), 2)}** | **{_format_pct(abs((g_ts.get('fnr_disparity') or 0) - (g_cv.get('fnr_disparity') or 0)), 2)}** |",
         f"| **Economic Proxy Gap** (<5 LPA vs $\\ge$5 LPA) | **{_format_pct(inc_ts.get('fnr_disparity'), 2)}** | **{_format_pct(inc_cv.get('fnr_disparity'), 2)}** | **{_format_pct(abs((inc_ts.get('fnr_disparity') or 0) - (inc_cv.get('fnr_disparity') or 0)), 2)}** |",
         f"| **First-Generation Gap** (First-Gen vs Non-First-Gen) | **{_format_pct(fg_ts.get('fnr_disparity'), 2)}** | **{_format_pct(fg_cv.get('fnr_disparity'), 2)}** | **{_format_pct(abs((fg_ts.get('fnr_disparity') or 0) - (fg_cv.get('fnr_disparity') or 0)), 2)}** |",
+        f"| **Age Band Gap** (age $\\le$ vs > cohort median {_format_age(age_ts.get('cut_median_age'))}; protected, not a model feature) | **{_format_gap(age_ts)}** | **{_format_gap(age_cv)}** | **{_format_gap_difference(age_ts, age_cv)}** |",
     ]
 
     return "\n".join(lines)
 
 
-def render_fairness_markdown_report() -> None:
-    """Renders docs/ethics_and_fairness.md from serialized JSON artifacts."""
-    DOCS_DIR.mkdir(parents=True, exist_ok=True)
+def render_uci_feature_line(uci_data: Dict[str, Any]) -> str:
+    """Feature-set description for the UCI audit, built only from fields recorded in the JSON."""
+    def _cols(key: str) -> str:
+        return ", ".join(f"`{c}`" for c in uci_data.get(key) or []) or "none recorded"
+
+    return (
+        f"`{uci_data.get('feature_set', 'unknown')}` (${uci_data.get('feature_count', 'unknown')}$ model features). "
+        f"Protected attributes excluded from the model: {_cols('excluded_protected_attributes')}. "
+        f"Audit groups that are also model features (documented): {_cols('audit_groups_used_as_features')}."
+    )
+
+
+def render_fairness_markdown_report(
+    fairness_dir: Optional[Path] = None,
+    report_path: Optional[Path] = None,
+    benchmark_dir: Optional[Path] = None,
+) -> Path:
+    """
+    Renders docs/ethics_and_fairness.md from serialized JSON artifacts.
+    Refuses (ProvenanceError, nothing written) unless every fairness artifact and every benchmark
+    artifact carries provenance and they agree on the checksum of each shared input file.
+    """
+    fairness_dir = Path(fairness_dir) if fairness_dir else FAIRNESS_ARTIFACTS_DIR
+    report_path = Path(report_path) if report_path else REPORT_PATH
+    benchmark_dir = Path(benchmark_dir) if benchmark_dir else BENCHMARK_ARTIFACTS_DIR
+
+    fairness_artifacts = load_labelled_json(sorted(fairness_dir.glob("*.json")))
+    assert_consistent_provenance({
+        **fairness_artifacts,
+        **load_labelled_json(sorted(benchmark_dir.glob("*.json"))),
+    })
+    dirty_warning = dirty_artifact_warning(fairness_artifacts)
+    dirty_block = f"\n{dirty_warning}\n" if dirty_warning else ""
 
     # Load JSON artifacts
     def _load_json(filename: str) -> Dict[str, Any]:
-        p = FAIRNESS_ARTIFACTS_DIR / filename
+        p = fairness_dir / filename
         if p.exists():
             with open(p, "r") as f:
                 return json.load(f)
@@ -265,6 +320,8 @@ def render_fairness_markdown_report() -> None:
     gen_data = _load_json("generator_sanity_check.json")
 
     uci_table = render_uci_audit_table(uci_data) if uci_data else "*UCI audit artifact not found.*"
+    uci_n = f"{uci_data['n_samples']:,}" if uci_data else "unknown (artifact not found)"
+    uci_feature_line = render_uci_feature_line(uci_data) if uci_data else "*UCI audit artifact not found.*"
     mit_table = render_mitigations_table(uci_mit) if uci_mit else "*UCI mitigations artifact not found.*"
     oulad_table = render_oulad_audit_table(oulad_data) if oulad_data else "*OULAD audit artifact not found.*"
     shift_table = render_shift_check_table(oulad_shift) if oulad_shift else "*OULAD shift check artifact not found.*"
@@ -272,10 +329,10 @@ def render_fairness_markdown_report() -> None:
     gen_table = render_generator_sanity_tables(gen_data) if gen_data else "*Generator sanity check artifact not found.*"
 
     content = f"""# Ethics, Responsible AI & Algorithmic Fairness Audit Report
-### DropoutGuard — AI-Powered Academic Dropout Prediction & Intervention System
+### DropoutGuard — AI-Powered Early-Warning and Student Support System
 **Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
-
+{dirty_block}
 ---
 
 ## 1. Executive Summary & Audit Mandate
@@ -290,8 +347,8 @@ All evaluations in this report adhere to the following principles:
 ---
 
 ## 2. Real Higher Education Benchmark: UCI Dataset 697 Audit
-- **Dataset**: UCI "Predict Students' Dropout and Academic Success" (Portuguese Higher Education, $N = 3,630$, Enrolled excluded).
-- **Feature Set**: `END_OF_SEM1` ($25$ model features, strictly omitting protected columns `gender`, `scholarship_holder`, `debtor`, `displaced`, `age_at_enrollment`).
+- **Dataset**: UCI "Predict Students' Dropout and Academic Success" (Portuguese Higher Education, $N = {uci_n}$, Enrolled excluded).
+- **Feature Set**: {uci_feature_line}
 - **Inference Mode**: 5-Fold Stratified Cross-Validation out-of-fold risk probabilities.
 - **Selection Rate Threshold**: Top 20% predicted risk cohort.
 
@@ -300,7 +357,7 @@ All evaluations in this report adhere to the following principles:
 ---
 
 ## 3. Algorithmic Fairness Mitigations Comparative Benchmark
-Evaluates four mitigation approaches on an identical 70/30 stratified train/test split of the UCI cohort ($N = 3,630$, sensitive attribute: `gender`):
+Evaluates four mitigation approaches on an identical 70/30 stratified train/test split of the UCI cohort ($N = {uci_n}$, sensitive attribute: `gender`):
 1. **None**: Unmitigated baseline model ($L_2$-regularized Logistic Regression).
 2. **Sample Reweighing**: Inversely proportional joint class/group weights $w_i = \\frac{{N}}{{K \\cdot \\text{{count}}(s, y)}}$.
 3. **Group-Specific Thresholds**: Post-processing threshold optimization equalizing subgroup False Negative Rates to target cohort FNR.
@@ -357,10 +414,12 @@ Verification of synthetic data generator properties across $N = 2,000$ simulated
    Household income is used as an active model input via `income_slab_idx` and `financial_stress_index` exclusively as an objective need signal to prioritize and route emergency financial aid and fee-waiver interventions to economically vulnerable students. Only the duplicate raw string label (`family_income_slab`) and sensitive social categories are excluded from model training to prevent categorical bias. All socio-economic indicators are confidential, encrypted at rest, and never used for punitive academic actions.
 """
 
-    with open(REPORT_PATH, "w") as f:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(report_path, "w") as f:
         f.write(content.strip() + "\n")
+    return report_path
 
 
 if __name__ == "__main__":
-    render_fairness_markdown_report()
-    print(f"Rendered fairness report successfully to {REPORT_PATH}")
+    path = render_fairness_markdown_report()
+    print(f"Rendered fairness report successfully to {path}")

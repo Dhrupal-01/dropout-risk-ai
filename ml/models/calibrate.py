@@ -6,7 +6,6 @@ Maps calibrated probabilities to Low/Medium/High risk tiers using central config
 
 import json
 import logging
-from pathlib import Path
 from typing import Tuple, Dict, Any, List
 import joblib
 import numpy as np
@@ -20,7 +19,6 @@ from ml.config import (
     BASE_MODEL_PATH,
     MODEL_ARTIFACT_PATH,
     FEATURE_NAMES_PATH,
-    EXCLUDED_FEATURES,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
     RANDOM_SEED,
@@ -158,15 +156,19 @@ def predict_student_risk(
     return calibrated_probs, risk_tiers
 
 
-def run_calibration_pipeline() -> Tuple[CalibratedClassifierCV, Dict[str, Any]]:
+def run_calibration_pipeline(allow_dirty: bool = False) -> Tuple[CalibratedClassifierCV, Dict[str, Any]]:
     """
     Loads trained base model, fits probability calibrator, evaluates on test split, and persists artifact.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in model_metrics.json provenance).
     """
+    from ml.provenance import require_clean_tree
+    require_clean_tree(allow_dirty)
+
     # 1. Load base model and data
     if not BASE_MODEL_PATH.exists():
         logger.info("Base model not found. Running training pipeline first...")
         from ml.models.train import train_pipeline
-        train_pipeline()
+        train_pipeline(allow_dirty=allow_dirty)
 
     base_model = joblib.load(BASE_MODEL_PATH)
     df = pd.read_csv(PROCESSED_DATA_PATH)
@@ -227,6 +229,8 @@ def run_calibration_pipeline() -> Tuple[CalibratedClassifierCV, Dict[str, Any]]:
         "false_negatives": int(fn),
         "true_positives": int(tp)
     }
+    from ml.provenance import build_provenance, simulated_inputs
+    mm["provenance"] = build_provenance(simulated_inputs(), allow_dirty=allow_dirty)
     with open(METRICS_REPORT_PATH, "w", encoding="utf-8") as f:
         json.dump(mm, f, indent=2)
     logger.info("Updated %s with calibrated model evaluation metrics", METRICS_REPORT_PATH)
@@ -234,7 +238,14 @@ def run_calibration_pipeline() -> Tuple[CalibratedClassifierCV, Dict[str, Any]]:
     return calibrated_model, report
 
 
+def build_arg_parser():
+    import argparse
+    from ml.provenance import add_allow_dirty_argument
+    return add_allow_dirty_argument(argparse.ArgumentParser(description="Calibrate the simulated-cohort model"))
+
+
 if __name__ == "__main__":
-    cal_model, report = run_calibration_pipeline()
+    args = build_arg_parser().parse_args()
+    cal_model, report = run_calibration_pipeline(allow_dirty=args.allow_dirty)
     print("Probability Calibration Complete!")
     print(json.dumps(report, indent=2))

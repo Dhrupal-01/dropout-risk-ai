@@ -13,7 +13,11 @@ dependencies = [
     "joblib",
     "ucimlrepo",
     "pytest",
-    "requests"
+    "requests",
+    "pyyaml",
+    "python-dotenv",
+    "pillow",
+    "scipy"
 ]
 
 [project.optional-dependencies]
@@ -34,21 +38,28 @@ research = [
     "pyarrow>=15.0.0",
     "fairlearn>=0.10.0"
 ]
+# Developer tools. Installed with: pip install -e ".[dev]"
+dev = [
+    "ruff==0.16.10"
+]
 
+# The only pyright/Pylance config (relative paths; no machine-specific locations).
 [tool.pyright]
+include = ["ml", "backend", "scripts", "verification"]
 venvPath = "."
 venv = ".venv"
-extraPaths = [
-    ".",
-    ".venv/lib/python3.14/site-packages"
-]
-reportMissingImports = false
+extraPaths = ["."]
+reportMissingImports = "warning"
 
-[tool.pytest.ini_options]
-testpaths = ["ml/tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["F", "E9", "B", "PLE"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI declares dependencies and parameters as call defaults (Depends, File, Query).
+"backend/app/api/v1/endpoints/*.py" = ["B008"]
 
 [tool.setuptools]
 packages = ["ml", "backend"]

@@ -22,10 +22,10 @@ from backend.scripts.seed_students import (
 from backend.tests.conftest import requires_db
 from ml.config import PROCESSED_DATA_PATH
 
-pytestmark = pytest.mark.skipif(
-    not PROCESSED_DATA_PATH.exists(),
-    reason="features.csv absent; run `python -m ml.data_pipeline.feature_engineering`",
-)
+@pytest.fixture(scope="module", autouse=True)
+def _generated_cohort(simulated_artifacts):
+    """features.csv is generated for the session in a temp dir (see ml/tests/simulated_artifacts.py)."""
+    assert PROCESSED_DATA_PATH.exists()
 
 
 @pytest.fixture(scope="module")

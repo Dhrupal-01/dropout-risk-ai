@@ -17,7 +17,8 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
-from backend.app.core.errors import FeatureContractError
+from backend.app.core.config import get_settings
+from backend.app.core.errors import FeatureContractError, UploadTooLargeError
 from backend.app.db.session import get_db
 from backend.app.schemas.prediction import (
     MAX_BATCH_SIZE,
@@ -93,7 +94,7 @@ def predict_batch(
     summary="Score a CSV upload using the project's own features.csv column names",
 )
 def predict_batch_csv(
-    file: UploadFile = File(..., description="CSV with student_id plus the 28 raw feature columns"),
+    file: UploadFile = File(..., description="CSV with student_id plus the 27 raw feature columns"),
     sort_by_risk_desc: bool = Query(default=False),
     include_explanations: bool = Query(default=False),
     db: Session = Depends(get_db),
@@ -109,12 +110,19 @@ def predict_batch_csv(
     if not (file.filename or "").lower().endswith(".csv"):
         raise FeatureContractError("Upload must be a .csv file")
 
+    # Read at most limit + 1 bytes: anything longer is rejected without being parsed.
+    limit = get_settings().MAX_UPLOAD_BYTES
     try:
-        frame = pd.read_csv(io.BytesIO(file.file.read()))
-    except Exception as exc:  # noqa: BLE001 — malformed upload is a client error
-        raise FeatureContractError(f"Could not parse CSV: {exc}") from exc
+        data = file.file.read(limit + 1)
     finally:
         file.file.close()
+    if len(data) > limit:
+        raise UploadTooLargeError(limit)
+
+    try:
+        frame = pd.read_csv(io.BytesIO(data))
+    except Exception as exc:  # noqa: BLE001 — malformed upload is a client error
+        raise FeatureContractError(f"Could not parse CSV: {exc}") from exc
 
     if frame.empty:
         raise FeatureContractError("CSV contains no data rows")

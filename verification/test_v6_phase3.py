@@ -5,8 +5,6 @@ Verification tests for V6 (Phase 3 — grounded simulation).
 import ast
 import json
 import subprocess
-from pathlib import Path
-import pytest
 import yaml
 
 from verification.conftest import PROJECT_ROOT
@@ -77,7 +75,7 @@ class TestV6Phase3Simulation:
         from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
         from backend.app.services.ml_service import RAW_FEATURE_COLUMNS, LABEL_COLUMNS
 
-        df = generate_indian_student_cohort(n_students=50, seed=42)
+        df = generate_indian_student_cohort(n_students=50, seed=42, output_path=None)
         # Must contain all RAW_FEATURE_COLUMNS
         for col in RAW_FEATURE_COLUMNS:
             assert col in df.columns, f"Missing raw feature column: {col}"
@@ -111,7 +109,7 @@ class TestV6Phase3Simulation:
         rates = []
         has_prob_under_half_with_label_one = False
         for s in range(40, 60):
-            df = generate_indian_student_cohort(n_students=200, seed=s)
+            df = generate_indian_student_cohort(n_students=200, seed=s, output_path=None)
             rates.append(df["is_dropout"].mean())
             if ((df["ground_truth_risk_prob"] < 0.5) & (df["is_dropout"] == 1)).any():
                 has_prob_under_half_with_label_one = True
@@ -122,22 +120,30 @@ class TestV6Phase3Simulation:
         assert has_prob_under_half_with_label_one, "Bernoulli sampling should produce is_dropout=1 even when p < 0.5"
 
     def test_v6_5_estimated_parameters_match_assumptions(self):
-        """V6.5: estimated_parameters.json values match assumptions.yaml."""
+        """
+        V6.5: Estimated coefficients exist in exactly one place. assumptions.yaml estimated_* entries
+        hold no literal value, only a value_from reference, and the loader resolves each one to the
+        value in estimated_parameters.json.
+        """
+        from ml.data_pipeline.generate_synthetic_indian import load_simulation_assumptions
+
         assumptions_path = PROJECT_ROOT / "ml" / "simulation" / "assumptions.yaml"
         est_path = PROJECT_ROOT / "ml" / "simulation" / "estimated_parameters.json"
         assert est_path.exists()
         with open(assumptions_path, "r") as f:
-            assumptions = yaml.safe_load(f)
+            raw = yaml.safe_load(f)
         with open(est_path, "r") as f:
             est_params = json.load(f)
+        resolved = load_simulation_assumptions(assumptions_path)
 
-        for name, meta in assumptions.get("risk_coefficients", {}).items():
-            if meta.get("source") in ("estimated_from_uci", "estimated_from_oulad"):
-                assert name in est_params, f"Estimated feature {name} missing from estimated_parameters.json"
-                val = meta.get("value")
-                est_val = est_params[name].get("indian_unit_coefficient")
-                if est_val is not None:
-                    assert abs(val - est_val) < 1e-3, f"Mismatch for {name}: {val} vs {est_val}"
+        estimated = [k for k, m in raw["risk_coefficients"].items() if m.get("source") in ("estimated_from_uci", "estimated_from_oulad")]
+        assert estimated, "No estimated_from_* risk coefficients found"
+        for name in estimated:
+            meta = raw["risk_coefficients"][name]
+            assert "value" not in meta, f"{name} holds a literal value in assumptions.yaml: {meta.get('value')}"
+            assert meta.get("value_from") == f"estimated_parameters.json#indian_unit_coefficient.{name}", f"{name}: {meta.get('value_from')}"
+            assert name in est_params, f"Estimated feature {name} missing from estimated_parameters.json"
+            assert resolved["risk_coefficients"][name]["value"] == est_params[name]["indian_unit_coefficient"]
 
     def test_v6_8_sim_to_real_artifact_and_docs(self):
         """V6.8: sim_to_real.json has both directions with CIs; simulation_mapping.md exists."""
@@ -145,11 +151,13 @@ class TestV6Phase3Simulation:
         assert sim_to_real_path.exists()
         with open(sim_to_real_path, "r") as f:
             data = json.load(f)
-        transfer_evals = data.get("transfer_evaluations", {})
-        assert "sim_to_real" in transfer_evals and "real_to_sim" in transfer_evals, "sim_to_real.json must have both directions"
-
-        doc_path = PROJECT_ROOT / "docs" / "simulation_mapping.md"
-        assert doc_path.exists(), "docs/simulation_mapping.md missing"
+        transfer_evals = data["transfer_evaluations"]
+        directions = ["real_on_real", "sim_on_sim", "sim_to_real", "real_to_sim"]
+        assert set(directions) <= set(transfer_evals), f"sim_to_real.json directions: {sorted(transfer_evals)}"
+        for direction in directions:
+            for metric in ["roc_auc", "pr_auc"]:
+                m = transfer_evals[direction]["metrics"][metric]
+                assert m["ci_lower"] <= m["point"] <= m["ci_upper"], f"{direction}.{metric}: {m}"
 
         doc_path = PROJECT_ROOT / "docs" / "simulation_mapping.md"
         assert doc_path.exists(), "docs/simulation_mapping.md missing"

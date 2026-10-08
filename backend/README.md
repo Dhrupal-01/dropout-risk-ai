@@ -6,13 +6,13 @@ trained model as the source of truth for the feature contract.
 
 ---
 
-## The 37-feature contract
+## The 36-feature contract
 
 Verified empirically against `ml/artifacts/feature_names.json` **and** the trained
 `XGBClassifier.feature_names_in_` — not against the Markdown docs.
 
 ```
-37 model features = 28 RAW inputs + 9 ENGINEERED
+36 model features = 27 RAW inputs + 9 ENGINEERED
 ```
 
 Clients supply **raw inputs only**. The 9 engineered columns are derived server-side by
@@ -21,7 +21,7 @@ built the training set — then reordered to match the artifact exactly.
 
 | Group | Columns |
 |---|---|
-| **Raw (28)** | `age`, `commute_distance_km`, `income_slab_idx`, `is_first_generation`, `has_scholarship`, `fee_payment_delay_days`, `att_core1`, `att_core2`, `att_lab`, `att_elective`, `attendance_month_1..3`, `attendance_percentage`, `attendance_3m_trend`, `consecutive_absences`, `attendance_risk_flag`, `prev_sem_cgpa`, `current_cgpa`, `cgpa_delta`, `backlog_count`, `internal_exam_score_pct`, `stem_core_fail_flag`, `lms_logins_per_week`, `assignment_submission_lag_days`, `resource_access_count`, `days_since_last_lms_activity`, `forum_participation_count` |
+| **Raw (27)** | `commute_distance_km`, `income_slab_idx`, `is_first_generation`, `has_scholarship`, `fee_payment_delay_days`, `att_core1`, `att_core2`, `att_lab`, `att_elective`, `attendance_month_1..3`, `attendance_percentage`, `attendance_3m_trend`, `consecutive_absences`, `attendance_risk_flag`, `prev_sem_cgpa`, `current_cgpa`, `cgpa_delta`, `backlog_count`, `internal_exam_score_pct`, `stem_core_fail_flag`, `lms_logins_per_week`, `assignment_submission_lag_days`, `resource_access_count`, `days_since_last_lms_activity`, `forum_participation_count` |
 | **Engineered (9)** | `subject_attendance_std`, `academic_crisis_flag`, `behavioral_disengagement_index`, `is_hosteler`, `financial_stress_index`, `interaction_att_x_fee`, `interaction_cgpa_x_backlog`, `interaction_firstgen_x_inactivity`, `interaction_att_x_cgpa_drop` |
 | **Also accepted** | `hostel_status` (`"Hosteler"` / `"Day Scholar"`) — the source for the engineered `is_hosteler` |
 
@@ -33,11 +33,11 @@ they are derived using the same formulas as the training pipeline.
 | Column | Why |
 |---|---|
 | `is_dropout`, `ground_truth_risk_prob` | **Labels.** Rejected by `MLService.build_feature_frame` and by `student_service.upsert_student`. |
-| `gender`, `category`, `family_income_slab` | Excluded by `ml.config.EXCLUDED_FEATURES`. Only the ordinal `income_slab_idx` reaches the model. |
+| `age`, `gender`, `category` | **Protected attributes**, excluded by `ml.config.EXCLUDED_FEATURES` and listed in `ml/fairness/attributes.py` `PROTECTED["simulated"]`. Used only by the fairness audit. Not schema fields, so `/predict` rejects them with 422. |
+| `family_income_slab` | Excluded by `ml.config.EXCLUDED_FEATURES`. Only the ordinal `income_slab_idx` reaches the model. |
 | `student_id`, `name`, `department` | Identifier and display metadata. |
 
-> **Note:** `age` **is** a live model feature (index 0), despite being filed under
-> `demographics_protected` in `data/processed/feature_metadata.json`.
+Full definitions of every column: [docs/data_dictionary.md](../docs/data_dictionary.md).
 
 ---
 
@@ -113,7 +113,7 @@ startup; handlers reuse that single instance. Nothing calls `joblib.load` per re
 `/health` reports `model_loaded: false` with the reason, instead of a crash-loop with no
 diagnostics.
 
-**Predictions are append-only.** Each row stores the exact 37-feature snapshot plus the
+**Predictions are append-only.** Each row stores the exact model-feature snapshot plus the
 `model_version` fingerprint, so any historical score is reproducible.
 
 **Neon specifics.** `pool_pre_ping` discards connections the serverless endpoint closed;

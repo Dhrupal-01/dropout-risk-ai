@@ -2,9 +2,8 @@
 Verification tests for V9 (End to end & security hygiene).
 """
 
-import re
+import json
 import subprocess
-from pathlib import Path
 import pytest
 
 from verification.conftest import PROJECT_ROOT
@@ -43,27 +42,53 @@ class TestV9EndToEnd:
         assert res_pred.status_code == 422
 
     def test_v9_3_no_secrets_in_tracked_files(self):
-        """V9.3: No secrets in tracked files (passwords in URLs, API keys)."""
+        """V9.3: No secrets in tracked files (passwords in URLs, API keys).
+
+        Every match is a violation unless verification/secret_allowlist.json lists that exact file
+        and exact matched string with a reason; allowlist entries that match nothing also fail.
+        """
+        from verification.secret_scan import find_secret_violations, load_allowlist
+
         res = subprocess.run(["git", "ls-files"], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
         tracked_files = res.stdout.splitlines()
+        allowlist_rel = "verification/secret_allowlist.json"
+        allowlist = load_allowlist(PROJECT_ROOT / allowlist_rel)
 
-        secret_patterns = [
-            re.compile(r"postgres(?:ql)?://(?!<user>:<password>|user:password|u:p|admin:sup3rs3cret|test:test)[^:\s]+:[^@\s]+@", re.IGNORECASE),
-            re.compile(r"-----BEGIN (?:RSA )?PRIVATE KEY-----"),
-            re.compile(r"AKIA[0-9A-Z]{16}"),
-        ]
-
-        violations = []
-        for rel_path in tracked_files:
-            file_path = PROJECT_ROOT / rel_path
-            if file_path.is_file() and not file_path.name.endswith((".png", ".jpg", ".joblib", ".parquet")):
-                try:
-                    text = file_path.read_text(encoding="utf-8", errors="ignore")
-                    for pat in secret_patterns:
-                        if pat.search(text):
-                            violations.append(rel_path)
-                            break
-                except Exception:
-                    pass
+        violations, unused = find_secret_violations(PROJECT_ROOT, tracked_files, allowlist, allowlist_file=allowlist_rel)
 
         assert not violations, f"Potential real secrets detected in tracked files: {violations}"
+        assert not unused, f"Stale secret allowlist entries (match nothing): {unused}"
+
+    def test_v9_3a_allowlist_honours_only_exact_matches(self, tmp_path):
+        """V9.3a: The allowlist exempts only its exact (file, matched string) pairs; new fake secrets still fail."""
+        from verification.secret_scan import find_secret_violations, load_allowlist
+
+        # Built at runtime so this source file never matches the secret pattern itself.
+        scheme = "postgresql" + "://"
+        allowed = scheme + "fake-user:fake-pass" + "@"
+        new_secret = scheme + "someone:hunter2" + "@"
+        variant = scheme + "fake-user:fake-pasS" + "@"
+        allowlist = [{"file": "a.py", "match": allowed, "reason": "fixture"}]
+
+        def scan(files):
+            for name, text in files.items():
+                (tmp_path / name).write_text(text, encoding="utf-8")
+            result = find_secret_violations(tmp_path, list(files), allowlist)
+            for name in files:
+                (tmp_path / name).unlink()
+            return result
+
+        assert scan({"a.py": f"URL = '{allowed}db.invalid/x'\n"}) == ([], [])
+        violations, _ = scan({"a.py": f"URL = '{allowed}db.invalid/x'\n", "b.py": f"URL = '{new_secret}db.invalid/y'\n"})
+        assert violations == [("b.py", new_secret)]
+        violations, unused = scan({"b.py": f"URL = '{allowed}db.invalid/x'\n"})
+        assert violations == [("b.py", allowed)] and unused == allowlist
+        violations, _ = scan({"a.py": f"URL = '{variant}db.invalid/x'\n"})
+        assert violations == [("a.py", variant)]
+        violations, _ = scan({"a.py": f"A = '{allowed}db.invalid/x'\nB = '{new_secret}db.invalid/y'\n"})
+        assert violations == [("a.py", new_secret)]
+
+        bad = tmp_path / "allowlist.json"
+        bad.write_text(json.dumps([{"file": "a.py", "match": allowed, "reason": " "}]), encoding="utf-8")
+        with pytest.raises(ValueError):
+            load_allowlist(bad)

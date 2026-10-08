@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Sun, Moon, Activity, RefreshCw } from 'lucide-react';
+import { Sun, Moon, Activity, RefreshCw, KeyRound } from 'lucide-react';
 import { checkHealth } from '../api/endpoints';
+import { setAdminToken, useAdminToken } from '../api/adminToken';
 
 const Header = () => {
+  const adminToken = useAdminToken();
   const [theme, setTheme] = useState(
     () => localStorage.getItem('dropoutguard-theme') || 'light'
   );
@@ -75,7 +77,7 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-card border-b border-border shadow-sm">
+    <header className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-y-3 px-6 py-4 bg-card border-b border-border shadow-sm">
       {/* Brand Logo & Name */}
       <div className="flex items-center space-x-3">
         <Link to="/" className="flex flex-col group select-none">
@@ -89,7 +91,7 @@ const Header = () => {
       </div>
 
       {/* Middle Navigation & Health Probe Indicators */}
-      <div className="flex items-center space-x-6">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 min-w-0">
         <nav className="flex items-center space-x-1">
           <Link
             to="/"
@@ -98,24 +100,28 @@ const Header = () => {
             Dashboard
           </Link>
           <Link
-            to="/geo-analytics"
-            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
-          >
-            Geo Analytics
-          </Link>
-          <Link
-            to="/universal-predictor"
-            className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
-          >
-            Multi-Tier Predictor
-          </Link>
-          <Link
             to="/import"
             className="px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
           >
             Batch Import
           </Link>
         </nav>
+
+        {/* Admin token for writes: kept in memory only (src/api/adminToken.js), never stored */}
+        <label className="flex w-full sm:w-auto items-center gap-1.5 text-xs font-semibold text-secondary">
+          <KeyRound className="w-3.5 h-3.5 text-muted" aria-hidden="true" />
+          <span>Admin token</span>
+          <input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={adminToken}
+            onChange={(e) => setAdminToken(e.target.value)}
+            placeholder="needed for changes"
+            title="Needed to score students, upload CSVs and log interventions. Kept in memory only; cleared on reload."
+            className="min-w-0 flex-1 sm:flex-none sm:w-36 px-2 py-1 rounded-md border border-border bg-card text-primary text-xs font-normal placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
 
         {/* API Connection Indicator */}
         <div className="hidden lg:flex items-center space-x-2 border-l border-border pl-4">

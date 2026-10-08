@@ -8,32 +8,26 @@ Tests:
 """
 
 import pytest
-import numpy as np
-import pandas as pd
 import joblib
-from pathlib import Path
 
 from ml.config import (
     MODEL_ARTIFACT_PATH,
     BASE_MODEL_PATH,
     FEATURE_NAMES_PATH,
-    FAIRNESS_REPORT_PATH,
     RISK_THRESHOLD_LOW,
     RISK_THRESHOLD_HIGH,
     get_risk_tier
 )
-from ml.models.train import train_pipeline, prepare_training_data
-from ml.models.calibrate import run_calibration_pipeline, predict_student_risk
+from ml.models.train import prepare_training_data
+from ml.models.calibrate import predict_student_risk
 from ml.models.explain_shap import SHAPExplainerService, build_plain_language_sentence
 from ml.models.fairness_audit import run_comprehensive_fairness_audit
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_model_artifacts():
-    """Ensures model training and calibration artifacts exist."""
-    if not (BASE_MODEL_PATH.exists() and MODEL_ARTIFACT_PATH.exists() and FEATURE_NAMES_PATH.exists()):
-        train_pipeline()
-        run_calibration_pipeline()
+def setup_model_artifacts(simulated_artifacts):
+    """Model training and calibration artifacts, built for the session in a temp dir."""
+    return simulated_artifacts
 
 
 @pytest.fixture(scope="module")
@@ -62,7 +56,7 @@ class TestModelTrainingAndCalibration:
         assert len(tiers) == 50
         assert (probs >= 0.0).all() and (probs <= 1.0).all()
 
-        for p, t in zip(probs, tiers):
+        for p, t in zip(probs, tiers, strict=True):
             if p < RISK_THRESHOLD_LOW:
                 assert t == "Low"
             elif p <= RISK_THRESHOLD_HIGH:
@@ -141,9 +135,20 @@ class TestSHAPExplainability:
 class TestFairnessAudit:
     """Tests for the fairness and bias audit reporting."""
 
-    def test_fairness_audit_execution_and_report_file(self):
-        """Verify fairness audit runs and populates docs/ethics_and_fairness.md."""
-        audit_results = run_comprehensive_fairness_audit()
+    def test_fairness_audit_execution_and_report_file(self, tmp_path):
+        """Verify fairness audit runs and its JSON renders the ethics report (all outputs under tmp_path, never the tracked repo files)."""
+        from scripts.render_fairness_report import render_fairness_markdown_report
+
+        report_path = tmp_path / "docs" / "ethics_and_fairness.md"
+        benchmark_dir = tmp_path / "benchmarks"
+        benchmark_dir.mkdir()
+        audit_results = run_comprehensive_fairness_audit(
+            fairness_dir=tmp_path / "fairness",
+            metrics_path=tmp_path / "fairness_metrics.json",
+            allow_dirty=True,  # writes only under tmp_path
+        )
+        # The audit writes JSON only; the report is rendered separately (as run-all does).
+        render_fairness_markdown_report(fairness_dir=tmp_path / "fairness", report_path=report_path, benchmark_dir=benchmark_dir)
 
         assert "gender" in audit_results
         assert "economic_proxy" in audit_results
@@ -151,10 +156,12 @@ class TestFairnessAudit:
         assert "test_split" in audit_results
         assert "cross_validation" in audit_results
 
-        assert FAIRNESS_REPORT_PATH.exists()
-        content = FAIRNESS_REPORT_PATH.read_text()
+        assert report_path.exists()
+        content = report_path.read_text()
         assert len(content) > 500
-        assert "Gender Disparity Gap" in content or "gender" in content
-        assert "Economic Proxy Gap" in content or "economic_proxy" in content
+        # The renderer writes each of these unconditionally (scripts/render_fairness_report.py).
+        assert "Gender Disparity Gap" in content
+        assert "Economic Proxy Gap" in content
         assert "False Negative" in content
-        assert "Generator Sanity Check" in content or "5-Fold Cross-Validation" in content
+        assert "Generator Sanity Check" in content
+        assert "5-Fold Cross-Validation" in content

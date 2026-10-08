@@ -3,7 +3,6 @@ Verification tests for V4 (Phase 1 — UCI benchmark).
 """
 
 import json
-from pathlib import Path
 import pytest
 from sklearn.pipeline import Pipeline
 
@@ -109,7 +108,7 @@ class TestV4Phase1UCI:
         with open(sem1_path, "r") as f:
             sem1_data = json.load(f)
         with open(full_path, "r") as f:
-            full_data = json.load(f)
+            json.load(f)  # must parse; the full feature set is "not early warning", so no ROC-AUC bound
 
         # In enrolment_time and sem1, check ROC-AUC < 0.97 for all models
         for d, name in [(enrol_data, "enrolment_time"), (sem1_data, "end_of_sem1")]:

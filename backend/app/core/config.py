@@ -8,7 +8,7 @@ from `ml.config`, which stays the single source of truth for the ML core.
 from functools import lru_cache
 from typing import Annotated, List, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Re-exported from the ML core so the backend can never drift from the model contract.
@@ -18,10 +18,12 @@ from ml.config import (  # noqa: F401
     FEATURE_NAMES_PATH,
     MODEL_ARTIFACT_PATH,
     PROCESSED_DATA_PATH,
+    RANDOM_SEED,
     RISK_THRESHOLD_HIGH,
     RISK_THRESHOLD_LOW,
     SHAP_EXPLAINER_PATH,
     get_risk_tier,
+    validate_risk_thresholds,
 )
 
 BASE_DIR = MODEL_ARTIFACT_PATH.parents[2]
@@ -62,10 +64,33 @@ class Settings(BaseSettings):
     # comma-separated form below reaches the validator intact.
     CORS_ORIGINS: Annotated[List[str], NoDecode] = [
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
     ]
     CORS_ALLOW_CREDENTIALS: bool = True
+
+    # Access control, first stage (owner decision): one shared admin bearer token for every write;
+    # reads stay public while PUBLIC_READ_ONLY is true. Per-mentor login comes later. Do not load
+    # real student data until per-mentor authentication exists.
+    API_ADMIN_TOKEN: Optional[SecretStr] = None
+    PUBLIC_READ_ONLY: bool = True
+
+    # Risk tiering and seed. Same source and precedence as ml.config (env > backend/.env > .env >
+    # default), so the server, the tests and the pipeline always use one value; validated below.
+    RISK_THRESHOLD_LOW: float = RISK_THRESHOLD_LOW
+    RISK_THRESHOLD_HIGH: float = RISK_THRESHOLD_HIGH
+    RANDOM_SEED: int = RANDOM_SEED
+
+    # CSV upload limit (owner decision: 2 MB of file bytes). The envelope allowance covers multipart
+    # boundaries and part headers when the request Content-Length is checked before parsing.
+    MAX_UPLOAD_BYTES: int = Field(default=2_000_000, gt=0)
+    MAX_UPLOAD_ENVELOPE_BYTES: int = Field(default=65_536, ge=0)
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -94,6 +119,35 @@ class Settings(BaseSettings):
     def ddl_database_url(self) -> str:
         """URL used for migrations: the direct endpoint when configured, else the default."""
         return self.MIGRATION_DATABASE_URL or self.DATABASE_URL
+
+    @model_validator(mode="after")
+    def _risk_thresholds_valid_and_shared(self) -> "Settings":
+        """0 < low < high < 1, and identical to ml.config, which does the actual tiering."""
+        validate_risk_thresholds(self.RISK_THRESHOLD_LOW, self.RISK_THRESHOLD_HIGH)
+        shared = {
+            "RISK_THRESHOLD_LOW": RISK_THRESHOLD_LOW,
+            "RISK_THRESHOLD_HIGH": RISK_THRESHOLD_HIGH,
+            "RANDOM_SEED": RANDOM_SEED,
+        }
+        mismatched = {k: (getattr(self, k), v) for k, v in shared.items() if getattr(self, k) != v}
+        if mismatched:
+            raise ValueError(
+                f"Settings disagree with ml.config (settings, ml.config): {mismatched}. "
+                "Set these only via the environment or .env so both read the same value."
+            )
+        return self
+
+    @field_validator("API_ADMIN_TOKEN", mode="before")
+    @classmethod
+    def _blank_token_is_unset(cls, v):
+        return None if v is None or (isinstance(v, str) and not v.strip()) else v
+
+    @model_validator(mode="after")
+    def _production_requires_admin_token(self) -> "Settings":
+        """A deployed API must not accept writes without a configured admin token."""
+        if self.ENVIRONMENT == "production" and self.API_ADMIN_TOKEN is None:
+            raise ValueError("ENVIRONMENT=production requires API_ADMIN_TOKEN (writes need a bearer token).")
+        return self
 
     @model_validator(mode="after")
     def _production_requires_postgres(self) -> "Settings":

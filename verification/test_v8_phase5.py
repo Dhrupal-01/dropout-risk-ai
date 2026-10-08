@@ -15,7 +15,7 @@ class TestV8Phase5Backend:
     def test_v8_1_alembic_roundtrip_and_no_drift(self, live_db_url):
         """V8.1: alembic upgrade head -> downgrade base -> upgrade head; alembic check no drift."""
         from alembic import command
-        from backend.tests.conftest import alembic_config_for
+        from backend.tests.db_helpers import alembic_config_for
 
         config = alembic_config_for(live_db_url)
         command.downgrade(config, "base")
@@ -82,7 +82,7 @@ class TestV8Phase5Backend:
         seen_students = []
         cursor = None
         for _ in range(20):  # walk up to 20 pages
-            url = f"/api/v1/mentors/queue?limit=10"
+            url = "/api/v1/mentors/queue?limit=10"
             if cursor:
                 url += f"&cursor={cursor}"
             res = client.get(url)
@@ -153,7 +153,33 @@ class TestV8Phase5Backend:
         assert "/api/v1/mentors/queue" in content
         assert "/api/v1/stats/summary" in content
 
-    def test_v8_11_batched_shap_equals_per_row(self):
+    @pytest.mark.db
+    def test_v8_11a_db_fixture_keeps_real_ml_artifacts(self, db_engine):
+        """V8.11a: After the verification DB fixture runs, ml.config still points at the real ml/artifacts."""
+        import os
+        import ml.config
+        from verification.conftest import REAL_ARTIFACTS_DIR, REAL_PROCESSED_DATA_PATH
+
+        assert "DROPOUTGUARD_ARTIFACTS_DIR" not in os.environ
+        assert "DROPOUTGUARD_PROCESSED_DATA_PATH" not in os.environ
+        assert Path(ml.config.ARTIFACTS_DIR).resolve() == REAL_ARTIFACTS_DIR.resolve()
+        assert Path(ml.config.PROCESSED_DATA_PATH).resolve() == REAL_PROCESSED_DATA_PATH.resolve()
+
+    @pytest.mark.db
+    def test_v8_11b_app_under_verification_uses_test_database(self, client):
+        """V8.11b: The verification client's app engine is bound to TEST_DATABASE_URL, never .env's DATABASE_URL."""
+        from dotenv import dotenv_values
+        from backend.app.db.session import engine
+        from backend.tests.db_guard import database_identity
+        from verification.conftest import TEST_DATABASE_URL
+
+        app_db = database_identity(engine.url.render_as_string(hide_password=False))
+        assert app_db == database_identity(TEST_DATABASE_URL)
+        env_app_url = dotenv_values(PROJECT_ROOT / ".env").get("DATABASE_URL") if (PROJECT_ROOT / ".env").exists() else None
+        if env_app_url:
+            assert app_db != database_identity(env_app_url)
+
+    def test_v8_11_batched_shap_equals_per_row(self, real_ml_artifacts):
         """V8.11: Batched SHAP values equal per-row SHAP within 1e-6 for 50 students."""
         import numpy as np
         import pandas as pd

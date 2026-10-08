@@ -1,4 +1,4 @@
-# DropoutGuard - AI-Powered Academic Dropout Prediction & Intervention System
+# DropoutGuard - AI-Powered Early-Warning and Student Support System
 
 # Python & Environment
 .venv/
@@ -18,7 +18,7 @@ data/raw/*
 !data/raw/.gitkeep
 data/interim/*
 !data/interim/.gitkeep
-data/processed/*.csv
+data/processed/**/*.csv
 !data/processed/.gitkeep
 !data/processed/feature_metadata.json
 data/synthetic/*.csv
@@ -26,7 +26,7 @@ data/synthetic/*.csv
 *.parquet
 
 # Model Binary Artifacts (keep lightweight configs & .gitkeep)
-ml/artifacts/*.joblib
+ml/artifacts/**/*.joblib
 ml/artifacts/*.pkl
 !ml/artifacts/.gitkeep
 !ml/artifacts/interventions.json
@@ -49,3 +49,6 @@ backend/.env
 # Backend (Alembic migration versions ARE tracked — they are schema source of truth)
 .mypy_cache/
 .ruff_cache/
+
+# Legacy local-only documentation copy (its tracked counterpart was removed); never commit
+/DROPOUTGUARD_PROJECT_DOCUMENTATION.txt

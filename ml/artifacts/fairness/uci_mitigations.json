@@ -1,95 +1,155 @@
 {
   "results": {
     "none": {
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
-      "recall": 0.8216,
-      "precision": 0.8794,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0424,
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
+      "recall": 0.8474,
+      "precision": 0.9048,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0721,
       "group_fnrs": {
-        "Female": 0.201,
-        "Male": 0.1586
+        "Female": 0.191,
+        "Male": 0.1189
+      },
+      "split": {
+        "n_train": 2541,
+        "n_test": 1089,
+        "seed": 42
       }
     },
     "sample_reweighing": {
-      "roc_auc": 0.9407,
-      "pr_auc": 0.9351,
-      "recall": 0.8568,
-      "precision": 0.843,
-      "brier_score": 0.0881,
-      "max_fnr_gap": 0.052,
+      "roc_auc": 0.9423,
+      "pr_auc": 0.938,
+      "recall": 0.8615,
+      "precision": 0.8595,
+      "brier_score": 0.0859,
+      "max_fnr_gap": 0.089,
       "group_fnrs": {
-        "Female": 0.1709,
-        "Male": 0.1189
+        "Female": 0.1859,
+        "Male": 0.0969
+      },
+      "split": {
+        "n_train": 2541,
+        "n_test": 1089,
+        "seed": 42
       }
     },
     "group_specific_thresholds": {
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
       "recall": 0.8169,
-      "precision": 0.8678,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0229,
+      "precision": 0.8788,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0148,
       "group_fnrs": {
-        "Female": 0.1709,
-        "Male": 0.1938
+        "Female": 0.191,
+        "Male": 0.1762
       },
       "group_thresholds": {
-        "Female": 0.3849,
-        "Male": 0.5803
+        "Female": 0.4076,
+        "Male": 0.5733
+      },
+      "split": {
+        "n_train": 2541,
+        "n_test": 1089,
+        "seed": 42
       }
     },
     "fairlearn_exponentiated_gradient": {
-      "roc_auc": 0.8944,
-      "pr_auc": 0.8468,
-      "recall": 0.7089,
-      "precision": 0.9069,
-      "brier_score": 0.1055,
-      "max_fnr_gap": 0.029,
+      "roc_auc": 0.8928,
+      "pr_auc": 0.8346,
+      "recall": 0.7864,
+      "precision": 0.8568,
+      "brier_score": 0.097,
+      "max_fnr_gap": 0.0424,
       "group_fnrs": {
-        "Female": 0.3065,
-        "Male": 0.2775
+        "Female": 0.2362,
+        "Male": 0.1938
+      },
+      "split": {
+        "n_train": 2541,
+        "n_test": 1089,
+        "seed": 42
       }
     }
   },
   "comparison_table": [
     {
       "strategy": "None (Unmitigated)",
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
-      "recall": 0.8216,
-      "precision": 0.8794,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0424
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
+      "recall": 0.8474,
+      "precision": 0.9048,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0721
     },
     {
       "strategy": "Sample Reweighing",
-      "roc_auc": 0.9407,
-      "pr_auc": 0.9351,
-      "recall": 0.8568,
-      "precision": 0.843,
-      "brier_score": 0.0881,
-      "max_fnr_gap": 0.052
+      "roc_auc": 0.9423,
+      "pr_auc": 0.938,
+      "recall": 0.8615,
+      "precision": 0.8595,
+      "brier_score": 0.0859,
+      "max_fnr_gap": 0.089
     },
     {
       "strategy": "Group-Specific Thresholds (FNR Parity)",
-      "roc_auc": 0.9392,
-      "pr_auc": 0.9349,
+      "roc_auc": 0.9417,
+      "pr_auc": 0.9383,
       "recall": 0.8169,
-      "precision": 0.8678,
-      "brier_score": 0.0834,
-      "max_fnr_gap": 0.0229
+      "precision": 0.8788,
+      "brier_score": 0.0805,
+      "max_fnr_gap": 0.0148
     },
     {
       "strategy": "Fairlearn ExponentiatedGradient",
-      "roc_auc": 0.8944,
-      "pr_auc": 0.8468,
-      "recall": 0.7089,
-      "precision": 0.9069,
-      "brier_score": 0.1055,
-      "max_fnr_gap": 0.029
+      "roc_auc": 0.8928,
+      "pr_auc": 0.8346,
+      "recall": 0.7864,
+      "precision": 0.8568,
+      "brier_score": 0.097,
+      "max_fnr_gap": 0.0424
     }
   ],
-  "sensitive_attribute": "gender"
+  "sensitive_attribute": "gender",
+  "provenance": {
+    "input_files": {
+      "uci_dropout.csv": {
+        "path": "data/raw/uci_dropout.csv",
+        "sha256": "3ef126de5cefff26eb11fbb4237f1a1401cb64b488e2f1d598c23cedeb4c45ae"
+      }
+    },
+    "git_commit": "81f1229c01096ce795a4871d9ef6852babc2366a",
+    "run_id": "20261008T191504Z-81f1229-d22162",
+    "git_dirty": false,
+    "allow_dirty": false,
+    "uncommitted_generated_outputs": [
+      "ml/artifacts/benchmarks/oulad_snapshot_t14_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t28_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t56_withdrawn.json",
+      "ml/artifacts/benchmarks/oulad_snapshot_t84_withdrawn.json",
+      "ml/artifacts/benchmarks/sim_to_real.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_primary.json",
+      "ml/artifacts/benchmarks/uci_end_of_sem1_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_primary.json",
+      "ml/artifacts/benchmarks/uci_enrolment_time_sensitivity.json",
+      "ml/artifacts/benchmarks/uci_full_primary.json",
+      "ml/artifacts/benchmarks/uci_full_sensitivity.json",
+      "ml/artifacts/fairness/generator_sanity_check.json",
+      "ml/artifacts/fairness_metrics.json",
+      "ml/artifacts/model_metrics.json",
+      "ml/artifacts/simulation_sensitivity.json",
+      "ml/simulation/estimated_parameters.json"
+    ],
+    "python": "3.14.5",
+    "library_versions": {
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "sklearn": "1.9.0",
+      "xgboost": "3.4.1",
+      "shap": "0.52.0",
+      "torch": "2.14.0",
+      "fairlearn": "0.14.0"
+    }
+  }
 }

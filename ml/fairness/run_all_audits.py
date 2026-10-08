@@ -8,13 +8,15 @@ Executes full suite of algorithmic fairness evaluations across real and simulate
 5. Generator Sanity Check (Simulated Indian Cohort, N=2,000, 5-fold CV + Test Split)
 6. Income Feature Ablation Experiment (Simulated Cohort, with vs without financial stress features)
 
-Serializes all audit artifacts to ml/artifacts/fairness/ and renders docs/ethics_and_fairness.md.
+Serializes all audit artifacts to ml/artifacts/fairness/. docs/ethics_and_fairness.md is rendered
+separately (scripts.render_fairness_report, run by `python -m ml.pipeline run-all`).
 """
 
+import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,12 +24,23 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from ml.config import RANDOM_SEED
+from ml.fairness.attributes import AUDIT_GROUPS, PROTECTED
 from ml.fairness.audit import audit_model_fairness
 from ml.fairness.income_ablation import run_income_ablation_experiment
 from ml.fairness.mitigation import compare_fairness_mitigations
 from ml.fairness.shift_check import run_oulad_presentation_shift_check
+from ml.provenance import (
+    add_allow_dirty_argument,
+    build_provenance,
+    merge_input_files,
+    oulad_inputs,
+    require_clean_tree,
+    simulated_inputs,
+    uci_inputs,
+)
 from ml.sources.oulad import build_snapshot_dataset, load_raw_tables
-from ml.sources.uci import FEATURE_SETS, load_uci_clean_df
+from ml.sources.uci import get_uci_benchmark_dataset, load_uci_clean_df
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,19 +62,18 @@ def run_uci_audit_pipeline(
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Executes fairness audit and mitigation comparisons on UCI Higher Education dataset.
-    Audits 5 sensitive attributes strictly excluded from the model feature matrix X:
-    - gender (Male vs Female)
-    - scholarship_holder (Scholarship vs No Scholarship)
-    - debtor (Debtor vs Non-Debtor)
-    - displaced (Displaced vs Non-Displaced)
-    - age_group (<=20, 21-25, >25)
+    The model is the benchmark model: X and y come from get_uci_benchmark_dataset
+    ("end_of_sem1", "primary"), so the audited feature matrix is the benchmarked one.
+    Audited attributes:
+    - PROTECTED (never model features): gender (Male vs Female), age_group (<=20, 21-25, >25)
+    - AUDIT_GROUPS (also model features, documented in ml/fairness/attributes.py):
+      scholarship_holder, debtor, displaced
     """
     logger.info("Loading UCI Higher Education dataset for fairness audit...")
-    raw_df = load_uci_clean_df()
-
     # Primary label variant: Dropout (1) vs Graduate (0), Enrolled excluded
-    df = raw_df[raw_df["target"].isin(["Dropout", "Graduate"])].copy().reset_index(drop=True)
-    y = (df["target"] == "Dropout").astype(int).values
+    X, y, _, feature_names = get_uci_benchmark_dataset(feature_set="end_of_sem1", label_variant="primary")
+    df = load_uci_clean_df().loc[X.index].reset_index(drop=True)
+    X = X.reset_index(drop=True)
 
     # Construct clean categorical audit frame
     audit_df = pd.DataFrame(index=df.index)
@@ -80,12 +92,7 @@ def run_uci_audit_pipeline(
     )
     audit_df["age_group"] = age_groups.astype(str)
 
-    # Feature matrix X: END_OF_SEM1 features strictly omitting protected/sensitive columns
-    protected_cols = ["gender", "scholarship_holder", "debtor", "displaced", "age_at_enrollment"]
-    end_of_sem1_features = [col for col in FEATURE_SETS["end_of_sem1"] if col not in protected_cols]
-    
-    X = df[end_of_sem1_features].copy()
-    logger.info("UCI Feature matrix X constructed with %d features (strictly excluding %s)", len(end_of_sem1_features), protected_cols)
+    logger.info("UCI Feature matrix X: END_OF_SEM1 with %d features (PROTECTED excluded: %s)", len(feature_names), PROTECTED["uci"])
 
     # 5-Fold Stratified Cross-Validation for Out-of-Fold risk probabilities
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
@@ -122,9 +129,11 @@ def run_uci_audit_pipeline(
         n_bootstraps=n_bootstraps,
         seed=seed,
     )
-    uci_audit["feature_count"] = len(end_of_sem1_features)
-    uci_audit["feature_set"] = "END_OF_SEM1 (Protected attributes strictly excluded)"
-    uci_audit["excluded_protected_attributes"] = protected_cols
+    uci_audit["base_rate"] = round(float(np.mean(y)), 4)
+    uci_audit["feature_count"] = len(feature_names)
+    uci_audit["feature_set"] = "END_OF_SEM1"
+    uci_audit["excluded_protected_attributes"] = PROTECTED["uci"]
+    uci_audit["audit_groups_used_as_features"] = AUDIT_GROUPS["uci"]
 
     # Mitigations Benchmark on standard 70/30 split using sensitive attribute 'gender'
     logger.info("Running fairness mitigation comparison on UCI split...")
@@ -158,32 +167,16 @@ def run_oulad_audit_pipeline(
 ) -> Dict[str, Any]:
     """
     Executes fairness audit on OULAD snapshot t=56 temporal test holdout cohort (2014B/J).
-    Audits 7 attributes strictly excluded from feature matrix X:
-    - gender (M vs F)
-    - age_band (0-35, 35-55, 55<=)
-    - imd_band (deprivation deciles)
-    - disability (N vs Y)
-    - highest_education (5 qualifications)
-    - region (13 UK administrative regions)
-    - imd_x_gender (intersectional deprivation x gender)
+    The model trains on the benchmark feature matrix from the shared builder. Audited attributes:
+    - PROTECTED, never model features: gender, age_band, imd_band, disability, region, and the
+      intersection imd_x_gender
+    - AUDIT_GROUPS, also a documented model feature: highest_education
     """
     logger.info("Building OULAD snapshot t=%d for fairness audit...", t)
     raw_tables = load_raw_tables()
     X, y, splits, groups, audit_df, feature_names = build_snapshot_dataset(t=t, tables=raw_tables)
 
-    # Ensure highest_education is strictly in audit_df and dropped from X
-    if "highest_education" in X.columns:
-        X = X.drop(columns=["highest_education"])
-    if "highest_education" not in audit_df.columns:
-        info_df = raw_tables["studentInfo"]
-        pop_keys = audit_df[["code_module", "code_presentation", "id_student"]]
-        merged = pd.merge(pop_keys, info_df[["code_module", "code_presentation", "id_student", "highest_education"]], on=["code_module", "code_presentation", "id_student"], how="left")
-        audit_df["highest_education"] = merged["highest_education"].fillna("Unknown").values
-
-    # Clean imd_band formatting and add intersectional imd_x_gender
-    if "imd_band" in audit_df.columns:
-        audit_df["imd_band"] = audit_df["imd_band"].replace({"10-20": "10-20%"}).fillna("Missing")
-    audit_df["imd_x_gender"] = audit_df["imd_band"].astype(str) + "_" + audit_df["gender"].astype(str)
+    # X is used exactly as built by the shared OULAD builder (same matrix as the benchmark).
 
     # Train on 2013 presentations, evaluate on 2014 holdout presentations
     train_idx, test_idx = splits[0]
@@ -220,10 +213,12 @@ def run_oulad_audit_pipeline(
         seed=seed,
     )
     oulad_audit["snapshot_horizon_t"] = t
+    oulad_audit["base_rate"] = round(float(np.mean(y_test)), 4)
     oulad_audit["train_cohort"] = "2013B + 2013J"
     oulad_audit["test_cohort"] = "2014B + 2014J (Temporal Holdout)"
     oulad_audit["feature_count"] = X.shape[1]
-    oulad_audit["excluded_protected_attributes"] = list(attr_configs.keys())
+    oulad_audit["excluded_protected_attributes"] = PROTECTED["oulad"]
+    oulad_audit["audit_groups_used_as_features"] = AUDIT_GROUPS["oulad"]
 
     return oulad_audit
 
@@ -239,11 +234,19 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
     Explicitly labeled as a generator calibration check, NOT real-world predictive validity.
     """
     from ml.models.fairness_audit import (
+        compute_age_band_audit,
         compute_cross_validated_fairness_audit,
         compute_group_fairness_metrics,
     )
     from ml.config import PROCESSED_DATA_PATH, MODEL_ARTIFACT_PATH, FEATURE_NAMES_PATH
     import joblib
+
+    if not MODEL_ARTIFACT_PATH.exists():
+        raise FileNotFoundError(
+            f"Trained model not found: {MODEL_ARTIFACT_PATH}. The generator sanity check audits the "
+            "deployed model only. Create it with `python -m ml.validate_pipeline --regenerate` "
+            "(run `python -m ml.data_pipeline.feature_engineering` first if features.csv is missing)."
+        )
 
     logger.info("Executing generator sanity check on simulated Indian cohort...")
     full_df = pd.read_csv(PROCESSED_DATA_PATH)
@@ -261,15 +264,10 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
         X, y, full_df, test_size=0.15, random_state=seed, stratify=y
     )
 
-    if MODEL_ARTIFACT_PATH.exists():
-        model = joblib.load(MODEL_ARTIFACT_PATH)
-        from ml.models.calibrate import predict_student_risk
-        test_probs, _ = predict_student_risk(model, X_test)
-    else:
-        # Fallback logistic regression if artifact absent
-        clf = LogisticRegression(max_iter=1000, random_state=seed)
-        clf.fit(X, y)
-        test_probs = clf.predict_proba(X_test)[:, 1]
+    from ml.models.calibrate import predict_student_risk
+
+    model = joblib.load(MODEL_ARTIFACT_PATH)
+    test_probs, _ = predict_student_risk(model, X_test)
 
     test_preds = (test_probs >= 0.50).astype(int)
 
@@ -287,6 +285,9 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
     nfg_mask_t = (test_df["is_first_generation"] == 0).values
     fg_m_t = compute_group_fairness_metrics(y_test, test_preds, fg_mask_t)
     nfg_m_t = compute_group_fairness_metrics(y_test, test_preds, nfg_mask_t)
+
+    # age is protected (audit frame only); cut = median age of the full cohort
+    age_band_t = compute_age_band_audit(test_df, y_test, test_preds, float(full_df["age"].median()))
 
     return {
         "benchmark": "generator_sanity_check_simulated_cohort",
@@ -307,6 +308,7 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
                 "non_first_gen": nfg_m_t,
                 "fnr_disparity": round(abs(fg_m_t["fnr_miss_rate"] - nfg_m_t["fnr_miss_rate"]), 4),
             },
+            "age_band": age_band_t,
         },
         "cross_validation_n2000": cv_audit,
     }
@@ -318,14 +320,16 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
 
 def run_all_fairness_audits(
     n_bootstraps: int = 1000,
-    seed: int = 42,
-    render_docs: bool = True,
+    seed: int = RANDOM_SEED,
     force_rerun: bool = False,
+    allow_dirty: bool = False,
 ) -> Dict[str, Any]:
     """
-    Executes all Phase 4 fairness audits, writes JSON artifacts, and triggers doc rendering.
+    Executes all Phase 4 fairness audits and writes JSON artifacts (no doc rendering).
     Uses existing artifacts if force_rerun is False and files exist.
+    Refuses to run on a dirty tree unless allow_dirty (recorded in each JSON's provenance).
     """
+    require_clean_tree(allow_dirty)
     FAIRNESS_ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
     print("=" * 80)
@@ -345,6 +349,8 @@ def run_all_fairness_audits(
     else:
         print("\n[1/5] Running UCI Higher Education Fairness Audit & Mitigations...")
         uci_audit, uci_mitigations = run_uci_audit_pipeline(n_splits=5, n_bootstraps=n_bootstraps, seed=seed)
+        uci_audit["provenance"] = build_provenance(uci_inputs(), allow_dirty=allow_dirty)
+        uci_mitigations["provenance"] = build_provenance(uci_inputs(), allow_dirty=allow_dirty)
         with open(uci_fair_path, "w") as f:
             json.dump(uci_audit, f, indent=2)
         with open(uci_mit_path, "w") as f:
@@ -360,6 +366,7 @@ def run_all_fairness_audits(
     else:
         print("\n[2/5] Running OULAD Day 56 Fairness Audit (Temporal Holdout 2014)...")
         oulad_audit = run_oulad_audit_pipeline(t=56, n_bootstraps=n_bootstraps, seed=seed)
+        oulad_audit["provenance"] = build_provenance(oulad_inputs(), allow_dirty=allow_dirty)
         with open(oulad_fair_path, "w") as f:
             json.dump(oulad_audit, f, indent=2)
     print(f" ✓ Saved/Loaded OULAD audit ({len(oulad_audit.get('attributes', {}))} attributes).")
@@ -373,6 +380,7 @@ def run_all_fairness_audits(
     else:
         print("\n[3/5] Running OULAD Presentation Shift Check (2013 vs 2014)...")
         oulad_shift = run_oulad_presentation_shift_check(t=56, n_bootstraps=n_bootstraps, seed=seed)
+        oulad_shift["provenance"] = build_provenance(oulad_inputs(), allow_dirty=allow_dirty)
         with open(oulad_shift_path, "w") as f:
             json.dump(oulad_shift, f, indent=2)
     print(" ✓ Saved/Loaded OULAD temporal presentation shift comparison.")
@@ -380,6 +388,7 @@ def run_all_fairness_audits(
     # 4. Generator Sanity Check
     print("\n[4/5] Running Generator Sanity Check on Simulated Cohort...")
     generator_check = run_generator_sanity_check_pipeline(seed=seed)
+    generator_check["provenance"] = build_provenance(simulated_inputs(), allow_dirty=allow_dirty)
     with open(FAIRNESS_ARTIFACTS_DIR / "generator_sanity_check.json", "w") as f:
         json.dump(generator_check, f, indent=2)
     print(" ✓ Saved generator sanity check.")
@@ -387,6 +396,7 @@ def run_all_fairness_audits(
     # 5. Income Ablation Experiment
     print("\n[5/5] Running Income Feature Ablation Experiment...")
     income_ablation_res = run_income_ablation_experiment(seed=seed)
+    income_ablation_res["provenance"] = build_provenance(simulated_inputs(), allow_dirty=allow_dirty)
     with open(FAIRNESS_ARTIFACTS_DIR / "income_ablation.json", "w") as f:
         json.dump(income_ablation_res, f, indent=2)
     print(" ✓ Saved income feature ablation results.")
@@ -396,15 +406,15 @@ def run_all_fairness_audits(
         "status": "completed",
         "phase": "Phase 4 - Fairness Audit & Mitigations",
         "uci_higher_ed": {
-            "n_samples": uci_audit.get("n_samples", 3630),
-            "base_rate": uci_audit.get("base_rate", 0.3209),
-            "selection_rate_top20": uci_audit.get("top_k_selection_rate", 0.20),
+            "n_samples": uci_audit["n_samples"],
+            "base_rate": uci_audit["base_rate"],
+            "top_k_pct": uci_audit["top_k_pct"],
             "attributes_audited": list(uci_audit.get("attributes", {}).keys()),
             "mitigations_comparison": uci_mitigations.get("comparison_table", []),
         },
         "oulad_learning_analytics": {
-            "n_samples_holdout": oulad_audit.get("n_samples", 15092),
-            "base_rate": oulad_audit.get("base_rate", 0.1543),
+            "n_samples_holdout": oulad_audit["n_samples"],
+            "base_rate": oulad_audit["base_rate"],
             "attributes_audited": list(oulad_audit.get("attributes", {}).keys()),
         },
         "generator_sanity_check": {
@@ -413,27 +423,23 @@ def run_all_fairness_audits(
                 "gender": generator_check["test_split_n300"]["gender"]["fnr_disparity"],
                 "economic_proxy": generator_check["test_split_n300"]["economic_proxy"]["fnr_disparity"],
                 "first_generation": generator_check["test_split_n300"]["first_generation"]["fnr_disparity"],
+                "age_band": generator_check["test_split_n300"]["age_band"]["fnr_disparity"],
             },
             "cross_validation_fnr_gaps": {
                 "gender": generator_check["cross_validation_n2000"]["gender"]["fnr_disparity"],
                 "economic_proxy": generator_check["cross_validation_n2000"]["economic_proxy"]["fnr_disparity"],
                 "first_generation": generator_check["cross_validation_n2000"]["first_generation"]["fnr_disparity"],
+                "age_band": generator_check["cross_validation_n2000"]["age_band"]["fnr_disparity"],
             },
         },
         "income_ablation": {
             "comparison_table": income_ablation_res["comparison_table"],
         },
+        "provenance": build_provenance(merge_input_files(uci_inputs(), oulad_inputs(), simulated_inputs()), allow_dirty=allow_dirty),
     }
     with open(FAIRNESS_METRICS_PATH, "w") as f:
         json.dump(unified_summary, f, indent=2)
     print(f" ✓ Synchronized unified summary to {FAIRNESS_METRICS_PATH}")
-
-    # 7. Render docs/ethics_and_fairness.md
-    if render_docs:
-        print("\nRendering docs/ethics_and_fairness.md from generated JSON artifacts...")
-        from scripts.render_fairness_report import render_fairness_markdown_report
-        render_fairness_markdown_report()
-        print(" ✓ Generated docs/ethics_and_fairness.md successfully.")
 
     print("\n" + "=" * 80)
     print(" ALL FAIRNESS AUDITS COMPLETED SUCCESSFULLY! ")
@@ -442,5 +448,12 @@ def run_all_fairness_audits(
     return unified_summary
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run all DropoutGuard fairness audits")
+    parser.add_argument("--force-rerun", action="store_true", help="Recompute audits instead of reusing existing JSON")
+    return add_allow_dirty_argument(parser)
+
+
 if __name__ == "__main__":
-    run_all_fairness_audits()
+    args = build_arg_parser().parse_args()
+    run_all_fairness_audits(force_rerun=args.force_rerun, allow_dirty=args.allow_dirty)

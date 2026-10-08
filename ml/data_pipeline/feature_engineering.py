@@ -12,22 +12,21 @@ Combines data sources and builds engineered features across the four core pillar
 Outputs the clean, standardized dataset: data/processed/features.csv
 """
 
-import os
 import logging
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict
+from typing import Optional
 import numpy as np
 import pandas as pd
 
+from ml.config import ATTENDANCE_THRESHOLD, PROCESSED_DATA_PATH
 from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-PROCESSED_DATA_DIR = BASE_DIR / "data" / "processed"
-FEATURES_CSV_PATH = PROCESSED_DATA_DIR / "features.csv"
-FEATURE_METADATA_PATH = PROCESSED_DATA_DIR / "feature_metadata.json"
+FEATURES_CSV_PATH = PROCESSED_DATA_PATH
+FEATURE_METADATA_FILENAME = "feature_metadata.json"  # written next to the features CSV
 
 # Categorization of features for modeling, explainability, and fairness audits
 PILLAR_COLUMNS = {
@@ -113,9 +112,9 @@ def build_engineered_features(df_raw: pd.DataFrame) -> pd.DataFrame:
         else:
             df["attendance_3m_trend"] = 0.0
 
-    # Attendance risk flag (<75% mandatory threshold)
+    # Attendance risk flag (below the statutory threshold, ml.config.ATTENDANCE_THRESHOLD)
     if "attendance_risk_flag" not in df.columns:
-        df["attendance_risk_flag"] = (df["attendance_percentage"] < 75.0).astype(int)
+        df["attendance_risk_flag"] = (df["attendance_percentage"] < ATTENDANCE_THRESHOLD).astype(int)
 
     # ---------------------------------------------------------
     # 2. Pillar 2: Academic Performance Feature Engineering
@@ -191,7 +190,8 @@ def build_engineered_features(df_raw: pd.DataFrame) -> pd.DataFrame:
 def generate_processed_feature_dataset(
     n_students: int = 2000,
     seed: int = 42,
-    output_path: Path = FEATURES_CSV_PATH
+    output_path: Path = FEATURES_CSV_PATH,
+    target_base_rate: Optional[float] = None,
 ) -> pd.DataFrame:
     """
     Executes the end-to-end data pipeline:
@@ -202,7 +202,10 @@ def generate_processed_feature_dataset(
     logger.info("Starting end-to-end feature engineering pipeline...")
     
     # 1. Generate the primary Indian collegiate cohort
-    raw_cohort = generate_indian_student_cohort(n_students=n_students, seed=seed)
+    # The raw cohort is not written anywhere; only the processed features CSV is saved below.
+    raw_cohort = generate_indian_student_cohort(
+        n_students=n_students, seed=seed, output_path=None, target_base_rate=target_base_rate
+    )
     
     # 3. Apply feature engineering transformations
     processed_df = build_engineered_features(raw_cohort)
@@ -213,11 +216,12 @@ def generate_processed_feature_dataset(
     
     # 5. Save feature metadata dictionary for backend and model services
     import json
-    with open(FEATURE_METADATA_PATH, "w") as f:
+    metadata_path = output_path.parent / FEATURE_METADATA_FILENAME
+    with open(metadata_path, "w") as f:
         json.dump(PILLAR_COLUMNS, f, indent=2)
 
     logger.info("Successfully produced %s: %d rows, %d columns.", output_path, len(processed_df), len(processed_df.columns))
-    logger.info("Saved feature metadata schema to %s", FEATURE_METADATA_PATH)
+    logger.info("Saved feature metadata schema to %s", metadata_path)
     
     return processed_df
 

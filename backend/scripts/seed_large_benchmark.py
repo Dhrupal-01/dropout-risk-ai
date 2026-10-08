@@ -4,12 +4,10 @@ Uses PostgreSQL COPY via psycopg for maximum throughput (100k rows in ~3 seconds
 """
 
 import argparse
-import io
 import json
 import logging
 import os
 import random
-import sys
 import time
 import uuid
 from datetime import datetime, timezone
@@ -62,7 +60,6 @@ def generate_benchmark_cohort(n: int = 100_000, target_db_url: str = None):
             logger.info("Generating and copying %d benchmark student records...", n)
             now_dt = datetime.now(timezone.utc)
             base_features = {
-                "age": 20.0,
                 "commute_distance_km": 15.0,
                 "income_slab_idx": 2,
                 "is_first_generation": 0,

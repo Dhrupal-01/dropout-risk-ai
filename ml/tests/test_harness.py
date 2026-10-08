@@ -11,25 +11,23 @@ Tests:
 
 import numpy as np
 import pandas as pd
-import pytest
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import LeaveOneGroupOut
+
 from ml.evaluation.harness import (
-    build_models,
+    compute_per_fold_metrics,
     compute_bootstrap_cis,
-    compute_metrics,
     evaluate_split_strategy,
 )
 from ml.sources.uci import (
     END_OF_SEM1,
     ENROLMENT_TIME,
-    FEATURE_SETS,
     FULL,
-    get_uci_benchmark_dataset,
-    load_uci_clean_df,
 )
 
 
@@ -188,3 +186,90 @@ class TestHarnessReproducibility:
                 assert metrics1[metric_name][key] == metrics2[metric_name][key], (
                     f"Reproducibility mismatch in {metric_name}['{key}']: {metrics1[metric_name][key]} != {metrics2[metric_name][key]}"
                 )
+
+
+class _ScoreColumnModel(BaseEstimator):
+    """Stub estimator: fit is a no-op, predict_proba returns the `score` column as P(y=1)."""
+
+    def fit(self, X, y):
+        return self
+
+    def predict_proba(self, X):
+        p = X["score"].to_numpy(dtype=float)
+        return np.column_stack([1.0 - p, p])
+
+
+class TestLeaveOneGroupOutPerFold:
+    """LOGO reports per-fold mean ± SD as primary and pooled out-of-fold metrics as secondary."""
+
+    def test_logo_per_fold_differs_from_pooled(self):
+        # Within each group the scores rank perfectly (fold ROC-AUC = 1.0), but group B's scores are
+        # shifted low: pooled, B's positives (0.3, 0.4) rank below A's negatives (0.6, 0.7).
+        # Pooled ROC-AUC = 12 correctly ordered pairs / 16 = 0.75.
+        X = pd.DataFrame({"score": [0.6, 0.7, 0.8, 0.9, 0.1, 0.2, 0.3, 0.4]})
+        y = np.array([0, 0, 1, 1, 0, 0, 1, 1])
+        groups = np.array(["A", "A", "A", "A", "B", "B", "B", "B"])
+        splits = list(LeaveOneGroupOut().split(X, y, groups=groups))
+        labels = [groups[test_idx][0] for _, test_idx in splits]
+
+        res = evaluate_split_strategy(
+            X, y, splits, {"stub": _ScoreColumnModel()}, seed=0, fold_labels=labels
+        )["stub"]
+
+        per_fold_auc = res["per_fold"]["summary"]["roc_auc"]
+        assert per_fold_auc == {"mean": 1.0, "sd": 0.0, "n_folds_defined": 2, "n_folds_total": 2}
+        assert [f["group"] for f in res["per_fold"]["folds"]] == ["A", "B"]
+
+        assert res["metrics_pooling"] == "pooled_out_of_fold"
+        assert res["metrics"]["roc_auc"]["point"] == 0.75
+        assert res["metrics"]["roc_auc"]["point"] == round(roc_auc_score(y, X["score"]), 4)
+        assert per_fold_auc["mean"] != res["metrics"]["roc_auc"]["point"]
+
+    def test_per_fold_metrics_exclude_single_class_folds(self):
+        # Fold "A" has no positives: ROC-AUC, PR-AUC and recall are undefined there and must not be
+        # averaged in (compute_metrics alone would report ROC-AUC 0.5 for it).
+        y = np.array([0, 0, 0, 0, 0, 1, 0, 1])
+        probs_a = np.array([0.1, 0.2, 0.3, 0.4])
+        probs_b = np.array([0.2, 0.9, 0.3, 0.6])
+        fold_probs = [(np.arange(0, 4), probs_a), (np.arange(4, 8), probs_b)]
+
+        result = compute_per_fold_metrics(y, fold_probs, ["A", "B"])
+        fold_a, fold_b = result["folds"]
+
+        for m in ("roc_auc", "pr_auc", "recall_top_10", "recall_top_20"):
+            assert fold_a["metrics"][m] is None, f"{m} must be undefined on a fold with no positives"
+        assert fold_a["metrics"]["brier_score"] is not None
+
+        auc_summary = result["summary"]["roc_auc"]
+        assert auc_summary["n_folds_defined"] == 1 and auc_summary["n_folds_total"] == 2
+        assert auc_summary["mean"] == fold_b["metrics"]["roc_auc"] == 1.0
+        assert auc_summary["sd"] is None
+        assert result["summary"]["brier_score"]["n_folds_defined"] == 2
+
+    def test_format_fold_summary(self):
+        from scripts.render_benchmark_report import format_fold_summary
+
+        assert format_fold_summary({"mean": 0.71234, "sd": 0.0456, "n_folds_defined": 17, "n_folds_total": 17}) == "0.7123 ± 0.0456 (k=17/17)"
+        assert format_fold_summary({"mean": 1.0, "sd": None, "n_folds_defined": 1, "n_folds_total": 2}) == "1.0000 ± n/a (k=1/2)"
+        assert format_fold_summary({"mean": None, "sd": None, "n_folds_defined": 0, "n_folds_total": 2}) == "N/A"
+
+
+class TestRequestedModelsAreNeverDropped:
+    """Audit M5: a benchmark never silently drops a model it was asked to run."""
+
+    def test_gru_without_pytorch_raises(self, monkeypatch):
+        import pytest
+        import ml.models.gru as gru
+        from ml.evaluation.harness import build_models
+
+        monkeypatch.setattr(gru, "HAS_TORCH", False)
+        with pytest.raises(ImportError, match="PyTorch is not installed"):
+            build_models(seed=0, include_gru=True)
+
+    def test_gru_is_built_when_requested(self):
+        import ml.models.gru as gru
+        from ml.evaluation.harness import build_models
+
+        assert gru.HAS_TORCH, "PyTorch is pinned in requirements.lock and must be installed"
+        assert "pytorch_gru" in build_models(seed=0, include_gru=True)
+        assert "pytorch_gru" not in build_models(seed=0, include_gru=False)

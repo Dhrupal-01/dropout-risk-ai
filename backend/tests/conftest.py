@@ -22,6 +22,12 @@ for env_file in (PROJECT_ROOT / ".env", PROJECT_ROOT / "backend" / ".env"):
     if env_file.exists():
         load_dotenv(env_file, override=False)
 
+# Abort before DATABASE_URL is replaced and before any engine exists if TEST_DATABASE_URL is the
+# application database: the DB-backed tests drop tables.
+from backend.tests.db_guard import abort_if_test_db_is_app_db  # noqa: E402
+
+abort_if_test_db_is_app_db()
+
 # Must precede any `backend.app.*` import: db.session builds its engine at import time.
 # The application under test is pointed at the TEST database, never the app database, so
 # nothing in the suite can touch real data.
@@ -31,6 +37,19 @@ if os.environ.get("TEST_DATABASE_URL"):
 else:
     os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
 os.environ["ENVIRONMENT"] = "test"
+# Writes need the admin bearer token (backend/app/core/security.py). Tests use a fixed fake token;
+# the shared client sends it by default and auth tests override or omit it.
+# setdefault, so a session that also loads verification/conftest.py uses one token throughout.
+os.environ.setdefault("API_ADMIN_TOKEN", "test-admin-token-not-a-secret")
+os.environ.setdefault("PUBLIC_READ_ONLY", "true")
+TEST_ADMIN_TOKEN = os.environ["API_ADMIN_TOKEN"]
+AUTH_HEADER = {"Authorization": f"Bearer {TEST_ADMIN_TOKEN}"}
+
+# Generated ML artifacts are built per session in a temp dir, never in the repository.
+# Must precede any `ml.config` import (backend.app.* imports it).
+from ml.tests.simulated_artifacts import build_simulated_artifacts, redirect_artifacts_to_tempdir  # noqa: E402
+
+redirect_artifacts_to_tempdir()
 
 
 def _psycopg3(url: str | None) -> str | None:
@@ -59,7 +78,13 @@ def settings():
 
 
 @pytest.fixture(scope="session")
-def ml():
+def simulated_artifacts():
+    """Temp dir holding features.csv, the trained/calibrated model and the SHAP explainer."""
+    return build_simulated_artifacts()
+
+
+@pytest.fixture(scope="session")
+def ml(simulated_artifacts):
     """Process-wide MLService, loaded once (mirrors the app lifespan)."""
     from backend.app.services.ml_service import ml_service
 
@@ -68,7 +93,7 @@ def ml():
 
 
 @pytest.fixture(scope="session")
-def client():
+def client(simulated_artifacts):
     """
     TestClient that runs the real lifespan handler, so ML artifacts load exactly as they
     do in production.
@@ -77,30 +102,12 @@ def client():
 
     from backend.app.main import app
 
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=AUTH_HEADER) as test_client:
         yield test_client
 
 
-def alembic_config_for(url: str):
-    """Alembic config pointed at an explicit database."""
-    from alembic.config import Config
-
-    config = Config(str(PROJECT_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
-    config.set_main_option("sqlalchemy.url", url)
-    return config
-
-
-def _reset_schema(engine) -> None:
-    """Drop every table plus Alembic's bookkeeping, leaving a clean slate."""
-    from sqlalchemy import text
-
-    import backend.app.models  # noqa: F401 — populate metadata
-    from backend.app.db.base import Base
-
-    Base.metadata.drop_all(engine)
-    with engine.begin() as connection:
-        connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+# Defined in a side-effect-free module so verification can use them without importing this conftest.
+from backend.tests.db_helpers import _reset_schema, alembic_config_for  # noqa: E402,F401
 
 
 @pytest.fixture(scope="session")
@@ -160,9 +167,8 @@ def db_session(db_engine):
 
 @pytest.fixture
 def sample_raw_features():
-    """A realistic high-risk raw payload: the 28 model inputs plus hostel_status."""
+    """A realistic high-risk raw payload: the 27 model inputs plus hostel_status."""
     return {
-        "age": 20.5,
         "commute_distance_km": 28.0,
         "income_slab_idx": 0,
         "is_first_generation": 1,

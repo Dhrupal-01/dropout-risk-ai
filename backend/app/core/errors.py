@@ -2,8 +2,10 @@
 Centralised API error handling.
 
 Contract:
+  401  missing or wrong admin bearer token (unauthorized)
   404  student not found
-  422  invalid feature payload (Pydantic validation or contract violation)
+  413  CSV upload larger than Settings.MAX_UPLOAD_BYTES (upload_too_large)
+  422  invalid feature payload (Pydantic validation or contract violation), invalid_cursor
   503  ML artifacts unavailable
   500  unexpected internal error
 
@@ -22,6 +24,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.services.intervention_service import InvalidLifecycleTransition
+from backend.app.services.mentor_queue_service import InvalidCursorError
 from backend.app.services.ml_service import MLArtifactsNotLoaded
 
 logger = logging.getLogger(__name__)
@@ -43,8 +46,28 @@ class NoPredictionError(Exception):
         super().__init__(f"Student '{student_id}' has no prediction history")
 
 
+class UnauthorizedError(Exception):
+    """Raised when a request needs the admin bearer token and does not carry the right one."""
+
+
 class FeatureContractError(Exception):
-    """Raised when a payload violates the 37-feature contract."""
+    """Raised when a payload violates the model-feature contract."""
+
+
+class UploadTooLargeError(Exception):
+    """Raised when an upload exceeds Settings.MAX_UPLOAD_BYTES."""
+
+    def __init__(self, limit_bytes: int) -> None:
+        self.limit_bytes = limit_bytes
+        super().__init__(f"Upload exceeds the {limit_bytes:,}-byte limit.")
+
+
+def upload_too_large_response(limit_bytes: int) -> JSONResponse:
+    """413 body shared by the pre-parse middleware and the endpoint's bounded read."""
+    return JSONResponse(
+        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+        content=_body("upload_too_large", str(UploadTooLargeError(limit_bytes)), limit_bytes=limit_bytes),
+    )
 
 
 def _body(error: str, message: str, **extra: Any) -> Dict[str, Any]:
@@ -105,10 +128,29 @@ def register_exception_handlers(app: FastAPI) -> None:
             ),
         )
 
+    @app.exception_handler(UnauthorizedError)
+    async def _unauthorized(request: Request, exc: UnauthorizedError):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=_body("unauthorized", str(exc)),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    @app.exception_handler(UploadTooLargeError)
+    async def _upload_too_large(request: Request, exc: UploadTooLargeError):
+        return upload_too_large_response(exc.limit_bytes)
+
+    @app.exception_handler(InvalidCursorError)
+    async def _invalid_cursor(request: Request, exc: InvalidCursorError):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content=_body("invalid_cursor", str(exc)),
+        )
+
     @app.exception_handler(FeatureContractError)
     async def _feature_contract(request: Request, exc: FeatureContractError):
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content=_body("invalid_feature_payload", str(exc)),
         )
 
@@ -119,14 +161,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         by the request, not by a server fault.
         """
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content=_body("invalid_feature_payload", str(exc)),
         )
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError):
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content=_body(
                 "validation_error",
                 "Request payload failed validation.",
