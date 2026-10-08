@@ -8,12 +8,12 @@
 
 ## Quick Links & Documentation
 
-- [**Master Architecture & System Documentation**](docs/project_architecture_and_system_documentation.md) — Comprehensive end-to-end technical documentation
 - [**Frontend API Handover**](docs/frontend_api_handover.md) — Endpoint specifications, schemas & error codes
 - [Backend Architecture & Feature Contract](backend/README.md)
-- [ML Architecture, Feature Engineering & Pipeline Spec](docs/ml_architecture_and_pipeline.md)
 - [Feature Data Dictionary](docs/data_dictionary.md)
-- [Ethics, Responsible AI & Algorithmic Fairness Audit](docs/ethics_and_fairness.md)
+- [Real-Data Benchmarks](docs/benchmarks.md) (generated)
+- [Ethics, Responsible AI & Algorithmic Fairness Audit](docs/ethics_and_fairness.md) (generated)
+- [Simulated Cohort Specification](docs/simulation.md) and [Parameter Mapping](docs/simulation_mapping.md) (generated)
 
 ---
 
@@ -250,10 +250,12 @@ python -m backend.app.main
 
 ```bash
 pytest                      # everything (ml/tests + backend/tests)
-pytest ml/tests/ -v         # ML core only  (27 tests)
-pytest backend/tests/ -v    # backend only  (224 tests)
+pytest ml/tests/ -v         # ML core only
+pytest backend/tests/ -v    # backend only
 pytest -k "predict"         # by keyword
 ```
+
+For the current number of tests, run `pytest --collect-only -q`.
 
 Database-backed tests skip unless `TEST_DATABASE_URL` is set. Point it at a **throwaway**
 database — the suite creates and drops tables. Its schema is built by running the real
@@ -301,8 +303,13 @@ dropout-risk-ai/
 │   ├── raw/                       # Reference benchmark datasets (UCI, OULAD)
 │   └── processed/                 # Standardized features.csv & feature_metadata.json
 ├── docs/
-│   ├── ml_architecture_and_pipeline.md  # Comprehensive ML & Backend handover guide
-│   └── ethics_and_fairness.md           # Quantitative fairness audit report
+│   ├── frontend_api_handover.md   # API contract: endpoints, schemas, error codes
+│   ├── data_dictionary.md         # Feature definitions
+│   ├── benchmarks.md              # Generated: real-data benchmark report
+│   ├── ethics_and_fairness.md     # Generated: fairness audit report
+│   ├── simulation.md              # Generated: simulated cohort parameters
+│   ├── simulation_mapping.md      # Generated: parameter estimation from real data
+│   └── figures/                   # Generated: benchmark figures
 ├── ml/
 │   ├── artifacts/                 # Serialized model, explainer, and intervention JSONs
 │   │   ├── calibrated_model.joblib
@@ -314,7 +321,7 @@ dropout-risk-ai/
 │   ├── data_pipeline/             # Ingestion & feature engineering scripts
 │   ├── models/                    # Training, calibration, SHAP & fairness audit
 │   ├── intervention/              # Prescriptive recommendation & counterfactual engine
-│   ├── tests/                     # 27 comprehensive automated test cases
+│   ├── tests/                     # ML test suite
 │   └── validate_pipeline.py       # End-to-end report generator and sanity assertions
 ├── pytest.ini
 ├── pyrightconfig.json

@@ -3,7 +3,8 @@
 **Backend**: FastAPI + PostgreSQL (Neon) · **Model**: calibrated XGBoost + TreeSHAP
 **Status**: Phase 4 complete — every endpoint below is implemented, tested and verified live.
 
-> All examples in this document are **real captured responses**, not illustrations.
+> Example responses were captured from a local run on the **simulated cohort** and are abridged.
+> Cohort counts and queue totals are omitted: they depend on the data you load.
 
 ---
 
@@ -17,7 +18,28 @@
 - All feature endpoints are under `/api/v1`. `/health` is at the root.
 - Everything is JSON except the CSV upload, which is `multipart/form-data`.
 - Interactive docs: **`/docs`** (Swagger UI) and **`/redoc`**. The OpenAPI schema is at `/openapi.json` — usable to generate a typed client.
-- No authentication yet. Do not ship this publicly without adding it.
+- `GET /` returns the service name, version and the paths of `/docs` and `/health`.
+
+### Authentication (first stage)
+
+Every `/api/v1` write (`POST /api/v1/predict`, `POST /api/v1/predict/batch`,
+`POST /api/v1/predict/batch/csv`, `POST /api/v1/interventions/log`) needs the shared admin token:
+
+```
+Authorization: Bearer <API_ADMIN_TOKEN>
+```
+
+- Without the right token the API returns **401** `unauthorized` with a `WWW-Authenticate: Bearer` header.
+- If the server has no `API_ADMIN_TOKEN` configured, every write is refused with 401.
+- Reads (`GET`) are public while the server runs with `PUBLIC_READ_ONLY=true` (the default). With
+  `PUBLIC_READ_ONLY=false`, reads need the same token.
+- `GET /health` and `GET /` are outside `/api/v1` and never need the token.
+- The token is compared in constant time (`backend/app/core/security.py`). The frontend keeps it in
+  memory only (`frontend/src/api/adminToken.js`: never `localStorage`, `sessionStorage` or cookies),
+  so a page reload clears it.
+
+This is one shared token, not per-mentor login. **Do not load real student data until per-mentor
+authentication exists.**
 
 ### CORS
 
@@ -46,8 +68,6 @@ Assigned by `ml.config.get_risk_tier` from the calibrated probability. **The API
 | `High` | `p > 0.66` | Priority mentor outreach |
 
 Thresholds are configurable via `RISK_THRESHOLD_LOW` / `RISK_THRESHOLD_HIGH`, so treat them as data, not constants.
-
-> **Cohort note:** the `Medium` band is genuinely narrow — in the 2,000-student reference cohort it holds only 92 students (1,250 `Low`, 658 `High`). A tier filter returning few Medium results is expected, not a bug.
 
 ### Intervention lifecycle statuses
 
@@ -138,6 +158,7 @@ Every error shares one envelope. **Tracebacks are never returned.**
 
 | Status | `error` | When |
 |---|---|---|
+| 401 | `unauthorized` | Missing or wrong admin token on a write (or on a read when `PUBLIC_READ_ONLY=false`), or no token configured on the server; sends `WWW-Authenticate: Bearer`. See §1 Authentication |
 | 404 | `student_not_found` | Unknown `student_id` |
 | 404 | `no_prediction_history` | Student exists but was never scored — call `/predict` first |
 | 409 | `invalid_lifecycle_transition` | Backward status move; includes `current_status` and `requested_status` |
@@ -222,7 +243,7 @@ Top SHAP drivers are always stored with the prediction; `include_explanation: tr
 }
 ```
 
-**Errors:** 422 · 503 · 500.
+**Errors:** 401 · 422 · 503 · 500.
 
 > **No `confidence_interval`.** The ML package implements no interval estimator, so the field is deliberately absent rather than fabricated. Do not build UI expecting it.
 
@@ -230,7 +251,7 @@ Top SHAP drivers are always stored with the prediction; `include_explanation: tr
 
 ### 5.3 `POST /api/v1/predict/batch`
 
-**Purpose:** score many students in **one** inference call (~0.5 ms/student vs ~110 ms looping).
+**Purpose:** score many students in **one** inference call, much cheaper per student than looping `/predict`.
 
 **Body:** `students` (1–1000 items, each shaped like a `/predict` body), `sort_by_risk_desc` (default `false`), `include_explanations` (default `false` — SHAP is per-row and slow in bulk).
 
@@ -250,6 +271,8 @@ Duplicate `student_id`s in one batch are rejected (422). One invalid row fails t
 ```
 
 **Also:** `POST /api/v1/predict/batch/csv` — `multipart/form-data` with `file`, plus query params `sort_by_risk_desc`, `include_explanations`. Accepts the project's own `features.csv` column names; extra columns (labels, engineered, protected attributes) are ignored, never scored. Requires a `student_id` column. Same response shape.
+
+**Errors (both batch routes):** 401 · 422 · 503 · 500; the CSV route can also return 413 `upload_too_large`.
 
 ---
 
@@ -397,7 +420,7 @@ Only `student_id` and `intervention_id` are required. Sending `post_intervention
 }
 ```
 
-**Errors:** 404 (unknown student) · 422 (unknown `intervention_id`, invalid `status` value) · **409** (backward transition) · 500.
+**Errors:** 401 · 404 (unknown student) · 422 (unknown `intervention_id`, invalid `status` value) · **409** (backward transition) · 500.
 
 **409 example**
 
@@ -454,7 +477,7 @@ Each student appears **once**, ranked on their most recent prediction — histor
       "intervention_outcome_status": "IMPROVED"
     }
   ],
-  "total": 660,
+  "total": "<int>",
   "limit": 25,
   "offset": 0,
   "department": null,
@@ -464,9 +487,58 @@ Each student appears **once**, ranked on their most recent prediction — histor
 }
 ```
 
-`total` is the count **before** pagination — use it for the pager. `attendance`, `cgpa`, `backlogs` and `fee_delay_days` come from the same prediction snapshot as the score, so the numbers always agree with the risk shown. Any of them may be `null`; `primary_intervention` / `intervention_status` are `null` until something is logged.
+`total` is the count **before** pagination (an integer; omitted from the example) — use it for the pager. `attendance`, `cgpa`, `backlogs` and `fee_delay_days` come from the same prediction snapshot as the score, so the numbers always agree with the risk shown. Any of them may be `null`; `primary_intervention` / `intervention_status` are `null` until something is logged.
 
 Students who have never been scored do not appear.
+
+---
+
+### 5.8 `GET /api/v1/mentors/filters`
+
+**Purpose:** the values to offer in the queue's department and mentor filter dropdowns.
+
+**Request:** none.
+
+**Response `200`**
+
+```json
+{
+  "departments": ["Computer Science & Engineering", "..."],
+  "mentor_ids": ["FAC_007", "..."]
+}
+```
+
+Both lists hold distinct, non-null values, sorted ascending (`mentor_queue_service.get_filters`).
+Either list may be empty.
+
+**Errors:** 500.
+
+---
+
+### 5.9 `GET /api/v1/stats/summary`
+
+**Purpose:** cohort totals for the dashboard KPI tiles, without paging through the queue.
+
+**Request:** none.
+
+**Response `200`** (shape; the counts depend on the loaded data)
+
+```json
+{
+  "total": "<int>",
+  "by_tier": { "High": "<int>", "Medium": "<int>", "Low": "<int>" },
+  "by_department": { "<department>": "<int>" }
+}
+```
+
+- Counts students that have a latest prediction (`latest_predictions`), so never-scored students
+  are not counted, the same as in the queue.
+- `by_tier` always has all three keys; a tier with no students is `0`.
+- `total` is the sum of `by_tier`.
+- `by_department` leaves out students with no department, so its values can sum to less than `total`.
+  Keys are sorted by department name.
+
+**Errors:** 500.
 
 ---
 
@@ -482,7 +554,7 @@ Students who have never been scored do not appear.
 
 ### Practical notes
 
-- `/predict` takes roughly **150 ms** (model + SHAP + database). Show a spinner; don't debounce-spam it.
+- `/predict` runs the model, SHAP and a database write per call. Show a spinner; don't debounce-spam it.
 - Batch is far cheaper per student — prefer it for more than ~3 students.
 - `evaluation_timestamp` / `evaluated_at` are UTC ISO-8601; convert for display.
 - `prediction_id` and log `id` are UUIDs — treat as opaque strings.

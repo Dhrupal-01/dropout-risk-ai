@@ -171,11 +171,70 @@ TYPED_METRIC = re.compile(
     rf"|{_VALUE}[^\w\n]{{0,4}}{_KW}\b",  # value, then metric name
     re.IGNORECASE,
 )
+# Any number with a %, pp or ms unit (LaTeX `\%` and `\text{ pp}` included), and any decimal between
+# 0 and 1 with 2+ digits. Catches values TYPED_METRIC misses because the metric name is elsewhere
+# (a table header, a chart label).
+UNIT_NUMBER = re.compile(
+    r"(?<![\w.])\d+(?:\.\d+)?\s*(?:\\text\{\s*)?\\?(?:%|pp\b|ms\b)"
+    r"|(?<![\w.])0\.\d{2,}(?![\d.])"
+)
+# Exact lines (stripped) that may carry such a number, with the reason. Unused entries fail the test.
+_R_ATT = "the statutory 75% attendance rule (ml.config.ATTENDANCE_THRESHOLD)"
+_R_DD = "feature range or formula text; docs/data_dictionary.md is corrected in its own step"
+_R_TIER = "configured risk-tier thresholds (ml/config.py DEFAULT_RISK_THRESHOLD_LOW/HIGH)"
+_R_OUT = "outcome band (backend/app/services/intervention_service.py RISK_DELTA_THRESHOLD)"
+_R_EX = "example API response value from the simulated cohort, not a metric"
+ALLOWED_NUMBER_LINES = {
+    ('README.md', '1. **Attendance & Discipline**: Overall 3-month attendance %, recent-month trajectory, consecutive absence streaks, and the mandatory 75% AICTE/UGC debarment rule.'): _R_ATT,
+    ('docs/data_dictionary.md', '| `attendance_percentage` | Overall 3-Month Attendance | Float | `10.0 – 100.0%` | ERP Attendance System | Weighted 3-month attendance ($0.25 \\times M_1 + 0.35 \\times M_2 + 0.40 \\times M_3$). Primary metric evaluated against the statutory 75% minimum threshold. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `attendance_month_1` | Month 1 Attendance | Float | `10.0 – 100.0%` | ERP Attendance System | Attendance percentage during the first 30 days of the semester (baseline engagement). |'): _R_DD,
+    ('docs/data_dictionary.md', '| `attendance_month_2` | Month 2 Attendance | Float | `10.0 – 100.0%` | ERP Attendance System | Attendance percentage during the middle 30 days of the semester (mid-term engagement). |'): _R_DD,
+    ('docs/data_dictionary.md', '| `attendance_month_3` | Current Month Attendance (M3) | Float | `10.0 – 100.0%` | ERP Attendance System | Attendance percentage during the most recent 30-day tracking window (acute disengagement). |'): _R_DD,
+    ('docs/data_dictionary.md', '| `attendance_3m_trend` | 3-Month Attendance Trend Slope | Float | `-25.0 to +25.0%` | Derived Feature | Monthly rate of change in attendance: $(M_3 - M_1) / 2$. Negative values indicate progressive disengagement. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `attendance_risk_flag` | Attendance Debarment Risk (<75%) | Binary | `{0, 1}` | Statutory Rule Engine | Set to `1` if `attendance_percentage < 75.0%`. Marks the student for mandatory parent alert and examination debarment review. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `att_core1` | Core Mathematics/Theory Course Attendance | Float | `10.0 – 100.0%` | Department Subject Register | Attendance in foundational mathematics and theoretical engineering sciences (e.g., Engineering Mathematics, Discrete Structures). |'): _R_DD,
+    ('docs/data_dictionary.md', '| `att_core2` | Department Major Core Course Attendance | Float | `10.0 – 100.0%` | Department Subject Register | Attendance in primary departmental engineering courses (e.g., Data Structures, Signals & Systems, Thermodynamics). |'): _R_DD,
+    ('docs/data_dictionary.md', '| `att_lab` | Practical Laboratory Course Attendance | Float | `15.0 – 100.0%` | Department Lab Register | Attendance in hands-on laboratory practicals. Practical shortfall directly blocks term-work submission. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `att_elective` | Elective Course Attendance | Float | `10.0 – 100.0%` | Department Subject Register | Attendance in departmental/open elective courses. Highlights elective-specific disinterest. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `current_cgpa` | Current Semester CGPA | Float | `0.00 – 10.00` | Examination Branch | Cumulative Grade Point Average on the standard Indian 10-point scale at the most recent evaluation checkpoint. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `prev_sem_cgpa` | Previous Semester CGPA | Float | `0.00 – 10.00` | Examination Branch | Historical cumulative GPA from the preceding academic semester (baseline reference). |'): _R_DD,
+    ('docs/data_dictionary.md', '| `cgpa_delta` | Semester CGPA Trajectory | Float | `-3.50 to +3.50` | Derived Feature | Change in GPA: $\\text{current\\_cgpa} - \\text{prev\\_sem\\_cgpa}$. Negative drops $>0.75$ indicate academic distress. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `internal_exam_score_pct` | Internal Assessment Marks | Float | `0.0 – 100.0%` | Faculty Gradebook | Continuous internal evaluation (In-Sem tests, quizzes, assignments). Leading mid-semester signal before final university end-sems. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `behavioral_disengagement_index` | Composite Behavioral Index | Float | `0.00 – 1.00` | Engineered Composite | Normalized composite index combining low logins, late submissions, and long inactivity: $\\frac{1}{3}\\left[\\left(1 - \\frac{\\text{logins}}{12}\\right) + \\frac{\\text{lag}}{10} + \\frac{\\text{inactivity}}{30}\\right]$. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `financial_stress_index` | Composite Financial Stress Index | Float | `0.00 – 1.00` | Engineered Composite | Combines low income slab and fee payment delays: $\\frac{1}{2}\\left[\\left(1 - \\frac{\\text{income\\_idx}}{3}\\right) + \\min\\left(1.0, \\frac{\\text{fee\\_delay}}{60}\\right)\\right]$. |'): _R_DD,
+    ('docs/data_dictionary.md', '| `ground_truth_risk_prob` | Float | `0.00 – 1.00` | Generative underlying latent risk probability for calibration validation. |'): _R_DD,
+    ('docs/frontend_api_handover.md', '| `Low` | `p < 0.33` | No urgent action; routine monitoring |'): _R_TIER,
+    ('docs/frontend_api_handover.md', '| `Medium` | `0.33 ≤ p ≤ 0.66` | Watch list; early supportive outreach |'): _R_TIER,
+    ('docs/frontend_api_handover.md', '| `High` | `p > 0.66` | Priority mentor outreach |'): _R_TIER,
+    ('docs/frontend_api_handover.md', '| `IMPROVED` | delta > +0.05 |'): _R_OUT,
+    ('docs/frontend_api_handover.md', '| `NO_CHANGE` | −0.05 ≤ delta ≤ +0.05 |'): _R_OUT,
+    ('docs/frontend_api_handover.md', '| `DETERIORATED` | delta < −0.05 |'): _R_OUT,
+    ('docs/frontend_api_handover.md', '"calibrated_risk_probability": 0.9257,'): _R_EX,
+    ('docs/frontend_api_handover.md', '"risk_probability": 0.9257,'): _R_EX,
+    ('docs/frontend_api_handover.md', '"plain_language_explanation": "Low recent-month (Month 3) attendance (36.0%) is increasing risk by 26.4 percentage points."'): _R_EX,
+    ('docs/frontend_api_handover.md', '"current_risk_probability": 0.9257,'): _R_EX,
+    ('docs/frontend_api_handover.md', '"rationale": "Triggered by Current Month Attendance (+26.4% risk impact): ..."'): _R_EX,
+    ('docs/frontend_api_handover.md', '"current_risk_prob": 0.9257, "current_risk_tier": "High",'): _R_EX,
+    ('docs/frontend_api_handover.md', '"projected_risk_prob": 0.0436, "projected_risk_tier": "Low",'): _R_EX,
+    ('docs/frontend_api_handover.md', '"plain_language_action": "Raise class attendance from 44.2% to 80.0% (+35.8% via regular attendance & lab make-up)."'): _R_EX,
+    ('docs/frontend_api_handover.md', '"baseline_risk_probability": 0.9257,'): _R_EX,
+    ('docs/frontend_api_handover.md', '"post_intervention_risk_probability": 0.31,'): _R_EX,
+    ('docs/frontend_api_handover.md', '"risk_delta": 0.6157,'): _R_EX,
+    ('docs/frontend_api_handover.md', '"notes": "Mentor call scheduled | Attendance recovered to 79%",'): _R_EX,
+    ('docs/frontend_api_handover.md', '"risk_probability": 0.9258,'): _R_EX,
+}
 
 
 def _tracked(*paths):
     out = subprocess.run(["git", "ls-files", *paths], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
     return out.stdout.split()
+
+
+def _markup_text(text):
+    """Text content of an .svg/.html file: tags, <style> and <script> are blanked, newlines kept."""
+    blank = lambda m: "\n" * m.group(0).count("\n")  # noqa: E731
+    text = re.sub(r"<(style|script)\b.*?</\1>", blank, text, flags=re.DOTALL | re.IGNORECASE)
+    return re.sub(r"<[^>]*>", blank, text)
 
 
 def _hand_written_docs():
@@ -188,6 +247,17 @@ def _hand_written_docs():
             continue
         text = (PROJECT_ROOT / rel).read_text(encoding="utf-8", errors="ignore")
         yield rel, strip_generated_readme_blocks(text) if rel == "README.md" else text
+
+
+def _unit_number_hits():
+    """(path, line number, stripped line, matches) for every hand-written line with a UNIT_NUMBER match."""
+    for rel, text in _hand_written_docs():
+        if rel.endswith((".svg", ".html")):
+            text = _markup_text(text)
+        for i, line in enumerate(text.splitlines(), 1):
+            found = [m.group(0) for m in UNIT_NUMBER.finditer(line)]
+            if found:
+                yield rel, i, line.strip(), found
 
 
 class TestV2HandWrittenDocs:
@@ -208,6 +278,29 @@ class TestV2HandWrittenDocs:
             for m in TYPED_METRIC.finditer(line)
         ]
         assert not hits, "Typed metric values in hand-written docs (link to the generated block instead):\n" + "\n".join(hits)
+
+    def test_v2_8_unit_number_pattern(self):
+        for bad in ["│ 845 F / 1155 M      │ 84.39% vs 85.57%  │ 1.18 percentage pts  │", "• Gender Gap: 1.18 pp",
+                    "FNR Gap <= 1.36 pp Verified", "• Sub-50ms Inference", "risk to **$49.4\\%$ (Medium)**",
+                    "gaps are $\\le 1.36\\text{ pp}$", '"calibrated_risk_probability": 0.9257,', "takes ~150 ms"]:
+            assert UNIT_NUMBER.search(bad), bad
+        for ok in ["Python 3.12.10", "fill #fab219", "Held-Out Test Set $N=300$", "`top_k` (default `5`, 1–37)",
+                   "version 0.12.3", "probability 0.5", "INT_ATT_01", "pool_recycle=280s"]:
+            assert not UNIT_NUMBER.search(ok), ok
+
+    def test_v2_8_no_unit_numbers_in_hand_written_docs(self):
+        """No number with a %, pp or ms unit and no 0.xx decimal in hand-written docs (.svg text included),
+        except exact lines listed in ALLOWED_NUMBER_LINES with a reason. Allowlist entries that no longer
+        match a line fail too, so the list cannot go stale."""
+        hits, used = [], set()
+        for rel, i, line, found in _unit_number_hits():
+            if (rel, line) in ALLOWED_NUMBER_LINES:
+                used.add((rel, line))
+            else:
+                hits.append(f"{rel}:{i}: {found} in {line[:160]!r}")
+        stale = [f"{rel}: {line[:160]!r}" for rel, line in ALLOWED_NUMBER_LINES if (rel, line) not in used]
+        assert not hits, "Typed numbers in hand-written docs (allowlist the exact line with a reason if legitimate):\n" + "\n".join(hits)
+        assert not stale, "ALLOWED_NUMBER_LINES entries that match no line:\n" + "\n".join(stale)
 
     def test_v2_9_relative_links_resolve(self):
         """Every relative link in tracked README.md and docs/*.md points at a tracked file or directory (a link
@@ -235,3 +328,14 @@ class TestV2HandWrittenDocs:
                         broken.append(f"{rel}:{i}: {target}")
         assert checked > 0
         assert not broken, "Broken relative links:\n" + "\n".join(broken)
+
+    def test_v2_10_api_handover_documents_every_route(self):
+        """V2.10: Every route in app.openapi() appears in docs/frontend_api_handover.md as `METHOD /path`."""
+        from backend.app.main import app
+
+        doc = (PROJECT_ROOT / "docs" / "frontend_api_handover.md").read_text(encoding="utf-8")
+        methods = {"get", "post", "put", "patch", "delete"}
+        routes = [(m.upper(), p) for p, ops in app.openapi()["paths"].items() for m in ops if m in methods]
+        assert routes
+        missing = [f"{m} {p}" for m, p in routes if not re.search(rf"\b{m} {re.escape(p)}(?![\w/{{])", doc)]
+        assert not missing, "Routes missing from docs/frontend_api_handover.md:\n" + "\n".join(missing)
