@@ -39,6 +39,10 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+# Module import (not `from ml.config import ATTENDANCE_THRESHOLD`) so the threshold is read at
+# validation time from the same source as the generator and feature_engineering.
+from ml import config as ml_config
+
 HostelStatus = Literal["Hosteler", "Day Scholar"]
 
 # Category D. Never predictors — see ml.config.EXCLUDED_FEATURES.
@@ -154,7 +158,8 @@ class StudentFeatureInput(BaseModel):
                 (self.attendance_month_3 - self.attendance_month_1) / 2.0, 2
             )
         if self.attendance_risk_flag is None:
-            self.attendance_risk_flag = int(self.attendance_percentage < 75.0)
+            # ml.config.ATTENDANCE_THRESHOLD comes from ml/simulation/assumptions.yaml
+            self.attendance_risk_flag = int(self.attendance_percentage < ml_config.ATTENDANCE_THRESHOLD)
         if self.is_hosteler is None:
             self.is_hosteler = int(self.hostel_status == "Hosteler")
         return self

@@ -250,3 +250,18 @@ def test_within_group_ece_calculation():
 
     ece = compute_within_group_ece(y_true, y_prob, n_bins=5)
     assert 0.0 <= ece <= 0.05, f"Expected near-zero ECE for well-calibrated probabilities, got {ece}"
+
+
+def test_generator_sanity_check_fails_loudly_when_model_missing(tmp_path, monkeypatch):
+    """No fallback model: a missing calibrated model must raise, naming the file and the command that creates it."""
+    import ml.config
+    from ml.fairness.run_all_audits import run_generator_sanity_check_pipeline
+
+    missing = tmp_path / "calibrated_model.joblib"
+    monkeypatch.setattr(ml.config, "MODEL_ARTIFACT_PATH", missing)
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        run_generator_sanity_check_pipeline()
+    message = str(excinfo.value)
+    assert str(missing) in message
+    assert "python -m ml.validate_pipeline --regenerate" in message

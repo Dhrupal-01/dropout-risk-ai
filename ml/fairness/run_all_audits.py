@@ -240,6 +240,13 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
     from ml.config import PROCESSED_DATA_PATH, MODEL_ARTIFACT_PATH, FEATURE_NAMES_PATH
     import joblib
 
+    if not MODEL_ARTIFACT_PATH.exists():
+        raise FileNotFoundError(
+            f"Trained model not found: {MODEL_ARTIFACT_PATH}. The generator sanity check audits the "
+            "deployed model only. Create it with `python -m ml.validate_pipeline --regenerate` "
+            "(run `python -m ml.data_pipeline.feature_engineering` first if features.csv is missing)."
+        )
+
     logger.info("Executing generator sanity check on simulated Indian cohort...")
     full_df = pd.read_csv(PROCESSED_DATA_PATH)
     with open(FEATURE_NAMES_PATH, "r") as f:
@@ -256,15 +263,10 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
         X, y, full_df, test_size=0.15, random_state=seed, stratify=y
     )
 
-    if MODEL_ARTIFACT_PATH.exists():
-        model = joblib.load(MODEL_ARTIFACT_PATH)
-        from ml.models.calibrate import predict_student_risk
-        test_probs, _ = predict_student_risk(model, X_test)
-    else:
-        # Fallback logistic regression if artifact absent
-        clf = LogisticRegression(max_iter=1000, random_state=seed)
-        clf.fit(X, y)
-        test_probs = clf.predict_proba(X_test)[:, 1]
+    from ml.models.calibrate import predict_student_risk
+
+    model = joblib.load(MODEL_ARTIFACT_PATH)
+    test_probs, _ = predict_student_risk(model, X_test)
 
     test_preds = (test_probs >= 0.50).astype(int)
 
