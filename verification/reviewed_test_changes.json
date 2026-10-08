@@ -208,5 +208,61 @@
     "line": "@pytest.mark.skipif(not HAS_TORCH, reason=\"PyTorch is required for GRU test\")",
     "decision": "KEEP",
     "reason": "PyTorch is the optional research extra; the skip reason shows under -rs, and since M5 requesting the GRU without PyTorch raises instead of dropping it."
+  },
+  {
+    "file": "backend/tests/test_api_predict.py",
+    "sign": "-",
+    "line": "assert len(prediction.input_features) == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "backend/tests/test_health.py",
+    "sign": "-",
+    "line": "assert body[\"feature_count\"] == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert len(ml.feature_names) == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert len(RAW_FEATURE_COLUMNS) == 28",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 27."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert \"age\" in ml.feature_names",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Inverted on purpose: test_age_is_not_a_model_feature asserts age is in neither feature_names nor RAW_FEATURE_COLUMNS."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert frame.shape == (1, 37)",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-shape assert, now (1, 36)."
+  },
+  {
+    "file": "backend/tests/test_ml_service.py",
+    "sign": "-",
+    "line": "assert len(result[\"input_features\"]) == 37",
+    "decision": "REPLACE",
+    "reason": "Owner decision 2026-10-08: age is a protected attribute (ml/fairness/attributes.py) and was removed from the model inputs, so the contract is 36 = 27 raw + 9 engineered. Same exact-equality assert, now == 36."
+  },
+  {
+    "file": "ml/tests/test_monotone_attendance.py",
+    "sign": "-",
+    "line": "for i in np.nonzero(np.diff(p) > 0)[0]:",
+    "decision": "REPLACE",
+    "reason": "exact float equality is the wrong test for float32 output; tolerance is set at float32 precision and still catches any real violation."
   }
 ]

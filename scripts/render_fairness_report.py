@@ -34,6 +34,25 @@ def _format_flt(val: Optional[float], decimals: int = 4) -> str:
     return f"{val:.{decimals}f}"
 
 
+def _format_age(val: Optional[float]) -> str:
+    return "(cut not recorded)" if val is None else f"({val:.2f} years)"
+
+
+def _format_gap(audit: Dict[str, Any]) -> str:
+    """An age-band FNR gap; a group below the minimum size shows as such, never as 0."""
+    if not audit:
+        return "—"
+    if audit.get("status") == "insufficient_sample":
+        return "insufficient sample"
+    return _format_pct(audit.get("fnr_disparity"), 2)
+
+
+def _format_gap_difference(a: Dict[str, Any], b: Dict[str, Any]) -> str:
+    if a.get("fnr_disparity") is None or b.get("fnr_disparity") is None:
+        return "—"
+    return _format_pct(abs(a["fnr_disparity"] - b["fnr_disparity"]), 2)
+
+
 def _format_ci(ci_tuple: Optional[List[float]], decimals: int = 1) -> str:
     if not ci_tuple or len(ci_tuple) < 2 or ci_tuple[0] is None or ci_tuple[1] is None:
         return "—"
@@ -232,10 +251,12 @@ def render_generator_sanity_tables(gen_data: Dict[str, Any]) -> str:
     g_ts = ts.get("gender", {})
     inc_ts = ts.get("economic_proxy", {})
     fg_ts = ts.get("first_generation", {})
+    age_ts = ts.get("age_band", {})
 
     g_cv = cv.get("gender", {})
     inc_cv = cv.get("economic_proxy", {})
     fg_cv = cv.get("first_generation", {})
+    age_cv = cv.get("age_band", {})
 
     lines = [
         "| Demographic Slice | Single Held-Out Test Split ($N=300$) | 5-Fold Cross-Validation ($N=2,000$ Out-of-Fold) | Empirical Difference |",
@@ -243,6 +264,7 @@ def render_generator_sanity_tables(gen_data: Dict[str, Any]) -> str:
         f"| **Gender Disparity Gap** (Female vs Male FNR) | **{_format_pct(g_ts.get('fnr_disparity'), 2)}** | **{_format_pct(g_cv.get('fnr_disparity'), 2)}** | **{_format_pct(abs((g_ts.get('fnr_disparity') or 0) - (g_cv.get('fnr_disparity') or 0)), 2)}** |",
         f"| **Economic Proxy Gap** (<5 LPA vs $\\ge$5 LPA) | **{_format_pct(inc_ts.get('fnr_disparity'), 2)}** | **{_format_pct(inc_cv.get('fnr_disparity'), 2)}** | **{_format_pct(abs((inc_ts.get('fnr_disparity') or 0) - (inc_cv.get('fnr_disparity') or 0)), 2)}** |",
         f"| **First-Generation Gap** (First-Gen vs Non-First-Gen) | **{_format_pct(fg_ts.get('fnr_disparity'), 2)}** | **{_format_pct(fg_cv.get('fnr_disparity'), 2)}** | **{_format_pct(abs((fg_ts.get('fnr_disparity') or 0) - (fg_cv.get('fnr_disparity') or 0)), 2)}** |",
+        f"| **Age Band Gap** (age $\\le$ vs > cohort median {_format_age(age_ts.get('cut_median_age'))}; protected, not a model feature) | **{_format_gap(age_ts)}** | **{_format_gap(age_cv)}** | **{_format_gap_difference(age_ts, age_cv)}** |",
     ]
 
     return "\n".join(lines)

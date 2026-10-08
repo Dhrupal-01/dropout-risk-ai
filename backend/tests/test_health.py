@@ -16,7 +16,7 @@ class TestHealthEndpoint:
         """The lifespan handler must have loaded artifacts before the first request."""
         body = client.get("/health").json()
         assert body["model_loaded"] is True
-        assert body["feature_count"] == 37
+        assert body["feature_count"] == 36
         assert body["model_version"].startswith("calibrated-")
 
     def test_no_credentials_leak(self, client):

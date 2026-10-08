@@ -15,7 +15,7 @@ from typing import Dict, List
 PROTECTED: Dict[str, List[str]] = {
     "uci": ["gender", "age_at_enrollment"],
     "oulad": ["gender", "age_band", "disability", "imd_band", "region"],
-    "simulated": ["gender", "category"],
+    "simulated": ["gender", "category", "age"],
 }
 
 AUDIT_GROUPS: Dict[str, List[str]] = {

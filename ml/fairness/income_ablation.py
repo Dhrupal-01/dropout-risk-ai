@@ -2,8 +2,8 @@
 Simulated Cohort Income Feature Ablation
 Context: Evaluates the empirical effect of removing explicit income features on overall predictive performance
 and disaggregated False Negative Rates (FNR) across family income brackets:
-- Model A (With Income Features): Includes income_slab_idx and financial_stress_index (37 features)
-- Model B (Without Income Features): Strictly ablates income_slab_idx and financial_stress_index (35 features)
+- Model A (With Income Features): every feature in feature_names.json, including income_slab_idx and financial_stress_index
+- Model B (Without Income Features): the same list without income_slab_idx and financial_stress_index
 
 Measures overall metrics (ROC-AUC, PR-AUC, F1, Recall, Precision, Brier) and disaggregated FNR by income slab.
 """
@@ -142,7 +142,7 @@ def run_income_ablation_experiment(
     # Summary table rows
     comparison_table = [
         {
-            "configuration": "With Income Features (37 features)",
+            "configuration": f"With Income Features ({len(all_features)} features)",
             "n_features": len(all_features),
             "roc_auc": overall_with["roc_auc"],
             "pr_auc": overall_with["pr_auc"],
@@ -155,7 +155,7 @@ def run_income_ablation_experiment(
             "fnr_gap_low_vs_high": round(slabs_summary["<2 LPA"]["with_income_features"]["fnr"] - slabs_summary[">8 LPA"]["with_income_features"]["fnr"], 4),
         },
         {
-            "configuration": "Without Income Features (35 features)",
+            "configuration": f"Without Income Features ({len(ablated_features)} features)",
             "n_features": len(ablated_features),
             "roc_auc": overall_without["roc_auc"],
             "pr_auc": overall_without["pr_auc"],

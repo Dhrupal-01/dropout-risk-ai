@@ -1,5 +1,4 @@
 [
-  "age",
   "commute_distance_km",
   "income_slab_idx",
   "is_first_generation",

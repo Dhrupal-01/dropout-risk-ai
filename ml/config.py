@@ -88,10 +88,12 @@ ATTENDANCE_THRESHOLD = _attendance_threshold()
 # NOTE: Income IS used as a model input via `income_slab_idx` (serving as an objective
 # need signal for routing institutional financial support and feeding `financial_stress_index`).
 # Only its duplicate raw string label `family_income_slab` is excluded here to avoid categorical redundancy.
+# Protected attributes (gender, category, age) stay in the cohort for fairness audits only (ml/fairness/attributes.py).
 EXCLUDED_FEATURES = [
     "student_id",
     "gender",
     "category",
+    "age",
     "family_income_slab",
     "hostel_status",
     "ground_truth_risk_prob",

@@ -3,7 +3,7 @@ Explanation endpoint.
 
     GET /api/v1/students/{student_id}/explanation
 
-Explains the student's LATEST PERSISTED PREDICTION, using the exact 37-feature snapshot
+Explains the student's LATEST PERSISTED PREDICTION, using the exact model-feature snapshot
 that produced it — never the current mutable `students.features` record. If the student's
 features have been updated since they were scored, explaining the live record would
 attribute drivers to a probability that was never computed from them, and the SHAP values
@@ -23,7 +23,7 @@ from backend.app.core.errors import NoPredictionError, StudentNotFoundError
 from backend.app.db.session import get_db
 from backend.app.schemas.explanation import ExplanationResponse
 from backend.app.services import student_service
-from backend.app.services.ml_service import ml_service
+from backend.app.services.ml_service import MODEL_FEATURE_COUNT, ml_service
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/students")
 )
 def get_explanation(
     student_id: str,
-    top_k: int = Query(default=5, ge=1, le=37, description="Number of drivers to return."),
+    top_k: int = Query(default=5, ge=1, le=MODEL_FEATURE_COUNT, description="Number of drivers to return."),
     db: Session = Depends(get_db),
 ) -> ExplanationResponse:
     """

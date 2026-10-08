@@ -151,11 +151,11 @@ def test_oulad_snapshot_matrices_exclude_protected():
         assert leaked == set(), f"OULAD snapshot t={t} uses protected attributes: {sorted(leaked)}"
 
 
-def test_simulated_feature_matrices_exclude_protected(tmp_path):
+def test_simulated_feature_matrices_exclude_protected(tmp_path, simulated_artifacts):
     """
-    The simulated-cohort training matrix (prepare_training_data on a generated cohort) and the
-    serving contract (feature_names.json, RAW_FEATURE_COLUMNS) share no column with
-    PROTECTED["simulated"]. Columns are taken as built.
+    The simulated-cohort training matrix (prepare_training_data on a generated cohort), the
+    serving contract (feature_names.json, RAW_FEATURE_COLUMNS) and the trained models (calibrated
+    model and every XGBoost booster) share no column with PROTECTED["simulated"]. Columns are taken as built.
     """
     features_csv = tmp_path / "features.csv"
     generate_processed_feature_dataset(n_students=300, seed=42, output_path=features_csv)
@@ -170,6 +170,26 @@ def test_simulated_feature_matrices_exclude_protected(tmp_path):
 
     leaked = set(RAW_FEATURE_COLUMNS) & set(PROTECTED["simulated"])
     assert leaked == set(), f"RAW_FEATURE_COLUMNS uses protected attributes: {sorted(leaked)}"
+
+    # The trained models themselves: the columns each was fitted on. Uses the session-built artifacts
+    # (trained by the current code in a temp dir), so the committed contract must match what the code trains.
+    import joblib
+    from ml.config import BASE_MODEL_PATH, MODEL_ARTIFACT_PATH
+    from ml.config import FEATURE_NAMES_PATH as TRAINED_FEATURE_NAMES_PATH
+
+    trained_features = json.loads(TRAINED_FEATURE_NAMES_PATH.read_text(encoding="utf-8"))
+    assert trained_features == serving_features, "the committed feature_names.json differs from what the code trains on"
+    calibrated = joblib.load(MODEL_ARTIFACT_PATH)
+    fitted = {
+        "calibrated_model.feature_names_in_": list(calibrated.feature_names_in_),
+        "base_xgboost_model booster": list(joblib.load(BASE_MODEL_PATH).get_booster().feature_names or []),
+    }
+    for i, member in enumerate(calibrated.calibrated_classifiers_):
+        fitted[f"calibrated_model fold {i} booster"] = list(member.estimator.get_booster().feature_names or [])
+    for name, columns in fitted.items():
+        assert columns == serving_features, f"{name} was not fitted on feature_names.json: {columns}"
+        leaked = set(columns) & set(PROTECTED["simulated"])
+        assert leaked == set(), f"{name} uses protected attributes: {sorted(leaked)}"
 
 
 def test_mitigations_comparison_structure():

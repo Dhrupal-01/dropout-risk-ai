@@ -167,9 +167,8 @@ def db_session(db_engine):
 
 @pytest.fixture
 def sample_raw_features():
-    """A realistic high-risk raw payload: the 28 model inputs plus hostel_status."""
+    """A realistic high-risk raw payload: the 27 model inputs plus hostel_status."""
     return {
-        "age": 20.5,
         "commute_distance_km": 28.0,
         "income_slab_idx": 0,
         "is_first_generation": 1,

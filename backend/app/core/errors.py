@@ -51,7 +51,7 @@ class UnauthorizedError(Exception):
 
 
 class FeatureContractError(Exception):
-    """Raised when a payload violates the 37-feature contract."""
+    """Raised when a payload violates the model-feature contract."""
 
 
 class UploadTooLargeError(Exception):

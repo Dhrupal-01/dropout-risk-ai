@@ -7,6 +7,7 @@ and Equal Opportunity metrics across:
 1. Gender (Male vs. Female)
 2. Economic Proxy (Family Income: <5 LPA vs. >=5 LPA)
 3. First-Generation Learner Status (First-Gen vs. Non-First-Gen)
+4. Age band (protected, audit frame only): at or below vs above the cohort median age
 
 Outputs real, computed results directly to docs/ethics_and_fairness.md.
 """
@@ -26,6 +27,7 @@ from ml.config import (
     FEATURE_NAMES_PATH,
     FAIRNESS_METRICS_PATH
 )
+from ml.fairness.audit import MINIMUM_AUDIT_SAMPLE_SIZE
 from ml.models.calibrate import predict_student_risk
 from ml.provenance import add_allow_dirty_argument, build_provenance, require_clean_tree, simulated_inputs
 
@@ -77,6 +79,25 @@ def compute_group_fairness_metrics(
         "tpr_recall": round(tpr, 4),
         "fnr_miss_rate": round(fnr, 4),
         "fpr_alarm_rate": round(fpr, 4)
+    }
+
+
+def compute_age_band_audit(
+    audit_df: pd.DataFrame, y_true: np.ndarray, y_pred: np.ndarray, cut: float
+) -> Dict[str, Any]:
+    """
+    FNR parity by age band. age is protected (never a model feature); it is read from the audit
+    frame only. `cut` is the median age of the full simulated cohort, computed by the caller.
+    """
+    low = compute_group_fairness_metrics(y_true, y_pred, (audit_df["age"] <= cut).values)
+    high = compute_group_fairness_metrics(y_true, y_pred, (audit_df["age"] > cut).values)
+    sufficient = min(low.get("n_samples", 0), high.get("n_samples", 0)) >= MINIMUM_AUDIT_SAMPLE_SIZE
+    return {
+        "cut_median_age": round(float(cut), 2),
+        "at_or_below_median": low,
+        "above_median": high,
+        "status": "ok" if sufficient else "insufficient_sample",
+        "fnr_disparity": round(abs(low["fnr_miss_rate"] - high["fnr_miss_rate"]), 4) if sufficient else None,
     }
 
 
@@ -146,6 +167,9 @@ def compute_cross_validated_fairness_audit(n_splits: int = 5) -> Dict[str, Any]:
     fg_n = compute_group_fairness_metrics(y, oof_preds, nfg_mask)
     fg_fnr_diff = abs(fg_y["fnr_miss_rate"] - fg_n["fnr_miss_rate"])
 
+    # 4. Age band (median split of the full cohort)
+    age_band = compute_age_band_audit(full_df, y, oof_preds, float(full_df["age"].median()))
+
     return {
         "evaluation_scope": f"5-Fold Stratified Cross-Validation (N = {len(full_df)} out-of-fold samples)",
         "total_false_negatives": int(np.sum((y == 1) & (oof_preds == 0))),
@@ -164,7 +188,8 @@ def compute_cross_validated_fairness_audit(n_splits: int = 5) -> Dict[str, Any]:
             "first_gen": fg_y,
             "non_first_gen": fg_n,
             "fnr_disparity": round(fg_fnr_diff, 4)
-        }
+        },
+        "age_band": age_band,
     }
 
 
@@ -227,6 +252,9 @@ def run_comprehensive_fairness_audit(
     nfg_m_t = compute_group_fairness_metrics(y_test, test_preds, nfg_mask_t)
     fg_fnr_diff_t = abs(fg_m_t["fnr_miss_rate"] - nfg_m_t["fnr_miss_rate"])
 
+    # Age Band Audit (Test Split; cut = median age of the full cohort)
+    age_band_t = compute_age_band_audit(test_df, y_test, test_preds, float(full_df["age"].median()))
+
     # 2. 5-Fold Cross-Validation Audit (N = 2,000 full cohort)
     cv_audit = compute_cross_validated_fairness_audit(n_splits=5)
 
@@ -248,7 +276,8 @@ def run_comprehensive_fairness_audit(
             "first_gen": fg_m_t,
             "non_first_gen": nfg_m_t,
             "fnr_disparity": round(fg_fnr_diff_t, 4)
-        }
+        },
+        "age_band": age_band_t,
     }
 
     # -------------------------------------------------------------
@@ -280,6 +309,7 @@ def run_comprehensive_fairness_audit(
         "gender": test_split_summary["gender"],
         "economic_proxy": test_split_summary["economic_proxy"],
         "first_generation": test_split_summary["first_generation"],
+        "age_band": test_split_summary["age_band"],
         "test_split": test_split_summary,
         "cross_validation": cv_audit,
     }
@@ -287,17 +317,20 @@ def run_comprehensive_fairness_audit(
     existing_metrics["gender"] = summary_dict["gender"]
     existing_metrics["economic_proxy"] = summary_dict["economic_proxy"]
     existing_metrics["first_generation"] = summary_dict["first_generation"]
+    existing_metrics["age_band"] = summary_dict["age_band"]
     existing_metrics["generator_sanity_check"] = {
         "description": gen_check_dict["description"],
         "test_split_fnr_gaps": {
             "gender": test_split_summary["gender"]["fnr_disparity"],
             "economic_proxy": test_split_summary["economic_proxy"]["fnr_disparity"],
             "first_generation": test_split_summary["first_generation"]["fnr_disparity"],
+            "age_band": test_split_summary["age_band"]["fnr_disparity"],
         },
         "cross_validation_fnr_gaps": {
             "gender": cv_audit["gender"]["fnr_disparity"],
             "economic_proxy": cv_audit["economic_proxy"]["fnr_disparity"],
             "first_generation": cv_audit["first_generation"]["fnr_disparity"],
+            "age_band": cv_audit["age_band"]["fnr_disparity"],
         },
     }
 

@@ -1,5 +1,5 @@
 """
-ML artifact lifecycle and the raw -> 37-feature contract.
+ML artifact lifecycle and the raw -> 36-feature contract.
 
 Owns the single process-wide instance of the expensive artifacts (calibrated model, SHAP
 TreeExplainer, counterfactual engine). They are loaded once during FastAPI startup and
@@ -8,7 +8,9 @@ reused for every request — never re-loaded per call.
 FEATURE CONTRACT (verified against ml/artifacts/feature_names.json and the trained
 XGBClassifier's own `feature_names_in_`, not against the Markdown docs):
 
-  37 model features = 28 RAW inputs + 9 ENGINEERED, in a fixed order.
+  36 model features = 27 RAW inputs + 9 ENGINEERED, in a fixed order.
+
+  Protected attributes (gender, category, age) are never model inputs (ml/fairness/attributes.py PROTECTED).
 
   The caller supplies RAW inputs only. The 9 engineered columns are derived here by
   `ml.data_pipeline.feature_engineering.build_engineered_features`, the same function used
@@ -43,13 +45,12 @@ LABEL_COLUMNS = frozenset({"is_dropout", "ground_truth_risk_prob"})
 # Protected/identifier columns present in the dataset but excluded from the model
 # (ml.config.EXCLUDED_FEATURES). Dropped before the frame reaches predict_proba.
 NON_FEATURE_COLUMNS = frozenset(
-    {"student_id", "gender", "category", "family_income_slab", "name", "department"}
+    {"student_id", "gender", "category", "age", "family_income_slab", "name", "department"}
 )
 
-# The 28 raw columns a client must supply. `hostel_status` is additionally accepted as the
+# The 27 raw columns a client must supply. `hostel_status` is additionally accepted as the
 # source for the engineered `is_hosteler`.
 RAW_FEATURE_COLUMNS: tuple[str, ...] = (
-    "age",
     "commute_distance_km",
     "income_slab_idx",
     "is_first_generation",
@@ -91,6 +92,8 @@ ENGINEERED_FEATURE_COLUMNS: tuple[str, ...] = (
     "interaction_firstgen_x_inactivity",
     "interaction_att_x_cgpa_drop",
 )
+
+MODEL_FEATURE_COUNT = len(RAW_FEATURE_COLUMNS) + len(ENGINEERED_FEATURE_COLUMNS)
 
 
 class MLArtifactsNotLoaded(RuntimeError):
@@ -235,7 +238,7 @@ class MLService:
 
     def build_feature_frame(self, raw_features: Dict[str, Any]) -> pd.DataFrame:
         """
-        Turn a raw feature dict into the exact ordered 37-column frame the model expects.
+        Turn a raw feature dict into the exact ordered 36-column frame the model expects.
 
         Applies the same engineering function used to build the training set, then selects
         `feature_names` in artifact order. Labels and protected/identifier columns are
@@ -356,7 +359,7 @@ class MLService:
         self, model_features: Dict[str, Any], top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Explain a PERSISTED 37-feature snapshot.
+        Explain a PERSISTED 36-feature snapshot.
 
         Takes the exact vector that produced a stored prediction, so the explanation
         always matches that score — even if the student's mutable feature record has
@@ -375,7 +378,7 @@ class MLService:
         self, model_features_list: List[Dict[str, Any]], top_k: int = 5
     ) -> List[List[Dict[str, Any]]]:
         """
-        Explain a batch of PERSISTED 37-feature snapshots in a SINGLE TreeExplainer call.
+        Explain a batch of PERSISTED 36-feature snapshots in a SINGLE TreeExplainer call.
         """
         self._require_loaded()
         if not model_features_list:
@@ -414,7 +417,7 @@ class MLService:
             columns (att_core1, hostel_status, ...) must survive too.
 
         Passing raw-only fails with a KeyError on the engineered columns, and passing the
-        37-column frame alone breaks scenario re-engineering. A DataFrame is handed over
+        36-column frame alone breaks scenario re-engineering. A DataFrame is handed over
         rather than a Series so per-column dtypes are preserved.
         """
         self._require_loaded()
@@ -431,7 +434,7 @@ class MLService:
         student_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Counterfactual recourse for a PERSISTED 37-feature snapshot.
+        Counterfactual recourse for a PERSISTED 36-feature snapshot.
 
         The snapshot already contains every column the engine needs: it scores the
         baseline with `base_df[feature_names]`, and its perturbed scenarios re-run

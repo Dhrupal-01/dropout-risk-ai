@@ -147,7 +147,7 @@ const StudentDetail = () => {
           onClick={() => {
             // Trigger dummy initial predict payload matching features schema
             const dummyFeatures = {
-              age: 20.0, commute_distance_km: 10.0, income_slab_idx: 1,
+              commute_distance_km: 10.0, income_slab_idx: 1,
               is_first_generation: 0, has_scholarship: 0, fee_payment_delay_days: 0,
               hostel_status: "Day Scholar",
               att_core1: 75.0, att_core2: 75.0, att_lab: 80.0, att_elective: 80.0,

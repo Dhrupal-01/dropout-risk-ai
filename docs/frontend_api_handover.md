@@ -105,14 +105,16 @@ These outputs are **risk estimates and recommended support**, not verdicts:
 
 ## 3. The feature contract
 
-`POST /predict` requires **28 raw features** plus residency. The 9 engineered features
+`POST /predict` takes **27 raw features** plus residency: the 24 below are required, and the 3
+in the optional table are derived if omitted. The 9 engineered features
 (`subject_attendance_std`, `academic_crisis_flag`, `behavioral_disengagement_index`,
 `is_hosteler`, `financial_stress_index`, and four `interaction_*` terms) are **computed by
-the backend** — sending them is rejected with 422.
+the backend** — sending them is rejected with 422 (`is_hosteler` is the one exception: it may be
+sent instead of `hostel_status`).
 
-**Required (28):**
+**Required (24):**
 
-`age`, `commute_distance_km`, `income_slab_idx`, `is_first_generation`, `has_scholarship`,
+`commute_distance_km`, `income_slab_idx`, `is_first_generation`, `has_scholarship`,
 `fee_payment_delay_days`, `att_core1`, `att_core2`, `att_lab`, `att_elective`,
 `attendance_month_1`, `attendance_month_2`, `attendance_month_3`, `attendance_percentage`,
 `consecutive_absences`, `prev_sem_cgpa`, `current_cgpa`, `backlog_count`,
@@ -128,22 +130,26 @@ the backend** — sending them is rejected with 422.
 |---|---|
 | `cgpa_delta` | `current_cgpa − prev_sem_cgpa` |
 | `attendance_3m_trend` | `(attendance_month_3 − attendance_month_1) / 2` |
-| `attendance_risk_flag` | `1` if `attendance_percentage < 75` |
+| `attendance_risk_flag` | `1` if `attendance_percentage` is below the statutory attendance threshold |
 
 **Never send** `is_dropout` or `ground_truth_risk_prob` — these are training labels and are rejected with 422.
+
+**Never send protected attributes** (`age`, `gender`, `category`): they are not model inputs and are
+rejected with 422 `validation_error`. Every column with its definition is in
+[data_dictionary.md](data_dictionary.md).
 
 ### Ranges
 
 | Field | Range | Field | Range |
 |---|---|---|---|
-| `age` | 15–60 | `prev_sem_cgpa`, `current_cgpa` | 0–10 |
-| `commute_distance_km` | 0–100 | `cgpa_delta` | −10–10 |
-| `income_slab_idx` | 0–3 (0=`<2 LPA` … 3=`>8 LPA`) | `backlog_count` | 0–20 |
-| `is_first_generation`, `has_scholarship`, `stem_core_fail_flag`, `attendance_risk_flag`, `is_hosteler` | 0 or 1 | `internal_exam_score_pct` | 0–100 |
-| `fee_payment_delay_days` | 0–365 | `lms_logins_per_week` | 0–50 |
-| all `att_*` and `attendance_*` percentages | 0–100 | `assignment_submission_lag_days` | −30–90 (negative = early) |
-| `attendance_3m_trend` | −50–50 | `resource_access_count` | 0–1000 |
-| `consecutive_absences` | 0–180 | `days_since_last_lms_activity` | 0–365 |
+| `commute_distance_km` | 0–100 | `prev_sem_cgpa`, `current_cgpa` | 0–10 |
+| `income_slab_idx` | 0–3 (0=`<2 LPA` … 3=`>8 LPA`) | `cgpa_delta` | −10–10 |
+| `is_first_generation`, `has_scholarship`, `stem_core_fail_flag`, `attendance_risk_flag`, `is_hosteler` | 0 or 1 | `backlog_count` | 0–20 |
+| `fee_payment_delay_days` | 0–365 | `internal_exam_score_pct` | 0–100 |
+| all `att_*` and `attendance_*` percentages | 0–100 | `lms_logins_per_week` | 0–50 |
+| `attendance_3m_trend` | −50–50 | `assignment_submission_lag_days` | −30–90 (negative = early) |
+| `consecutive_absences` | 0–180 | `resource_access_count` | 0–1000 |
+| | | `days_since_last_lms_activity` | 0–365 |
 | | | `forum_participation_count` | 0–200 |
 
 ---
@@ -164,6 +170,7 @@ Every error shares one envelope. **Tracebacks are never returned.**
 | 409 | `invalid_lifecycle_transition` | Backward status move; includes `current_status` and `requested_status` |
 | 422 | `validation_error` | Schema/range failure; includes a `details[]` array of `{field, type, message}` |
 | 422 | `invalid_feature_payload` | Contract violation (label sent, unknown intervention id, bad CSV) |
+| 422 | `invalid_cursor` | `GET /api/v1/mentors/queue` received a `cursor` it cannot decode; request the first page without a cursor |
 | 503 | `model_unavailable` | ML artifacts not loaded — check `/health`; sends `Retry-After: 30` |
 | 500 | `internal_error` | Unexpected fault; includes an `incident_id` to quote to the backend team |
 
@@ -186,7 +193,7 @@ Every error shares one envelope. **Tracebacks are never returned.**
   "model_loaded": true,
   "environment": "development",
   "model_version": "calibrated-14c199cc584b",
-  "feature_count": 37,
+  "feature_count": 36,
   "detail": null
 }
 ```
@@ -213,7 +220,7 @@ Top SHAP drivers are always stored with the prediction; `include_explanation: tr
   "assigned_mentor_id": "FAC_007",
   "include_explanation": false,
   "features": {
-    "age": 20.5, "commute_distance_km": 28.0, "income_slab_idx": 0,
+    "commute_distance_km": 28.0, "income_slab_idx": 0,
     "is_first_generation": 1, "has_scholarship": 0, "fee_payment_delay_days": 75,
     "hostel_status": "Day Scholar",
     "att_core1": 40.0, "att_core2": 42.0, "att_lab": 52.0, "att_elective": 41.0,
@@ -280,7 +287,7 @@ Duplicate `student_id`s in one batch are rejected (422). One invalid row fails t
 
 **Purpose:** the top SHAP drivers behind the student's **latest** prediction.
 
-**Query:** `top_k` (default `5`, 1–37).
+**Query:** `top_k` (default `5`, 1 to the model feature count, currently 36).
 
 Explanations come from the immutable snapshot that produced the stored score, so `risk_probability` here always matches the prediction shown elsewhere — even if the student's features changed since.
 
@@ -448,10 +455,14 @@ Disable already-passed statuses in the UI rather than relying on the 409.
 | `department` | string | — | Case-insensitive exact match |
 | `risk_tier` | `Low`\|`Medium`\|`High` | — | 422 on any other value |
 | `assigned_mentor_id` | string | — | e.g. `FAC_007` |
+| `search` | string, ≤ 64 chars | — | Case-insensitive substring match on `student_id` or `name` |
+| `cursor` | string | — | Keyset pagination: pass the previous response's `next_cursor`. When set, `offset` is ignored |
 | `limit` | int 1–200 | `25` | |
-| `offset` | int ≥ 0 | `0` | |
+| `offset` | int ≥ 0 | `0` | Classic pagination, used when no `cursor` is sent |
 
-Each student appears **once**, ranked on their most recent prediction — historical predictions never create duplicate rows. `priority_rank` is cohort-wide across the filtered set, so page 2 continues `4, 5, 6…` rather than restarting.
+Each student appears **once**, ranked on their most recent prediction — historical predictions never create duplicate rows. Order: calibrated risk (4 dp) descending, then more backlogs, then lower attendance, then `student_id` (`backend/app/services/priority_scoring.py`, `mentor_queue_service.py`). `priority_rank` is cohort-wide across the filtered set, so page 2 continues `4, 5, 6…` rather than restarting, with either pagination style.
+
+**Cursor pagination.** Send the first page without `cursor`. If the page came back full (`limit` items), the response carries `next_cursor`; pass it as `cursor` to get the next page. `next_cursor` is `null` on a page with fewer than `limit` items. Keep the same filters while paging. A cursor the server cannot decode returns **422** `invalid_cursor`; restart from the first page without a cursor.
 
 **Response `200`**
 
@@ -480,9 +491,12 @@ Each student appears **once**, ranked on their most recent prediction — histor
   "total": "<int>",
   "limit": 25,
   "offset": 0,
+  "cursor": null,
+  "next_cursor": "<opaque string, or null>",
   "department": null,
   "risk_tier": "High",
   "assigned_mentor_id": null,
+  "search": null,
   "disclaimer": "Support triage order based on model risk estimates..."
 }
 ```
@@ -490,6 +504,8 @@ Each student appears **once**, ranked on their most recent prediction — histor
 `total` is the count **before** pagination (an integer; omitted from the example) — use it for the pager. `attendance`, `cgpa`, `backlogs` and `fee_delay_days` come from the same prediction snapshot as the score, so the numbers always agree with the risk shown. Any of them may be `null`; `primary_intervention` / `intervention_status` are `null` until something is logged.
 
 Students who have never been scored do not appear.
+
+**Errors:** 422 (`validation_error` for a bad `risk_tier`, `limit`, `offset` or a `search` over 64 characters; `invalid_cursor`) · 500.
 
 ---
 

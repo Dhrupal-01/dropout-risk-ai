@@ -1,5 +1,5 @@
 """
-ML service: artifact loading and the 37-feature contract.
+ML service: artifact loading and the 36-feature contract.
 
 These tests treat ml/artifacts/feature_names.json and the trained model as the source of
 truth — never the Markdown docs.
@@ -41,23 +41,24 @@ class TestArtifactLoading:
 
 
 class TestFeatureContract:
-    def test_exactly_37_features(self, ml):
-        assert len(ml.feature_names) == 37
+    def test_exactly_36_features(self, ml):
+        assert len(ml.feature_names) == 36
 
     def test_matches_artifact_order_exactly(self, ml):
         on_disk = json.loads(FEATURE_NAMES_PATH.read_text(encoding="utf-8"))
         assert ml.feature_names == on_disk
 
-    def test_split_is_28_raw_plus_9_engineered(self, ml):
-        assert len(RAW_FEATURE_COLUMNS) == 28
+    def test_split_is_27_raw_plus_9_engineered(self, ml):
+        assert len(RAW_FEATURE_COLUMNS) == 27
         assert len(ENGINEERED_FEATURE_COLUMNS) == 9
         assert sorted(list(RAW_FEATURE_COLUMNS) + list(ENGINEERED_FEATURE_COLUMNS)) == sorted(
             ml.feature_names
         )
 
-    def test_age_is_a_model_feature(self, ml):
-        """Documented as 'demographics_protected' but genuinely fed to the model."""
-        assert "age" in ml.feature_names
+    def test_age_is_not_a_model_feature(self, ml):
+        """age is a protected attribute (ml/fairness/attributes.py): audit frame only, never a model input."""
+        assert "age" not in ml.feature_names
+        assert "age" not in RAW_FEATURE_COLUMNS
 
     def test_family_income_slab_excluded_but_encoding_included(self, ml):
         assert "family_income_slab" not in ml.feature_names
@@ -70,7 +71,7 @@ class TestFeatureContract:
     def test_frame_has_exact_columns_in_exact_order(self, ml, sample_raw_features):
         frame = ml.build_feature_frame(sample_raw_features)
         assert list(frame.columns) == ml.feature_names
-        assert frame.shape == (1, 37)
+        assert frame.shape == (1, 36)
 
     def test_engineered_columns_are_derived_not_supplied(self, ml, sample_raw_features):
         """The caller sends no engineered values, yet all 9 appear in the frame."""
@@ -130,7 +131,7 @@ class TestInference:
             result["calibrated_risk_probability"] * 100.0, abs=0.01
         )
         assert result["model_version"] == ml.model_version
-        assert len(result["input_features"]) == 37
+        assert len(result["input_features"]) == 36
 
     def test_tier_agrees_with_ml_core(self, ml, sample_raw_features):
         from ml.config import get_risk_tier

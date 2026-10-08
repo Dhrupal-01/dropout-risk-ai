@@ -25,6 +25,10 @@ MONTH_COLS = ["attendance_month_1", "attendance_month_2", "attendance_month_3"]
 REBUILT = ["attendance_risk_flag"]  # recomputed only when absent; attendance_3m_trend is held fixed
 TARGETS = np.arange(40, 96)  # 40..95 inclusive, step 1
 N_SAMPLED = 200
+# Covers float32 rounding in sklearn's isotonic calibrator (it casts its output to float32, so a
+# ~1e-16 interpolation error can surface as one float32 ulp); far below display precision.
+# A step counts as an increase only when p[i+1] > p[i] + FLOAT32_TOLERANCE.
+FLOAT32_TOLERANCE = 1e-6
 
 
 def _bounds():
@@ -89,12 +93,13 @@ def _predict(model, feature_names, frame: pd.DataFrame) -> np.ndarray:
 
 
 def _increases(frame: pd.DataFrame, probs: np.ndarray, id_col: str):
-    """(id, from_target, to_target, p_from, p_to) wherever risk rises as attendance rises."""
+    """(id, from_target, to_target, p_from, p_to) wherever risk rises by more than FLOAT32_TOLERANCE
+    as attendance rises, i.e. wherever p[i+1] <= p[i] + FLOAT32_TOLERANCE does not hold."""
     out = []
     df = frame[[id_col, "sweep_target"]].assign(p=probs).sort_values([id_col, "sweep_target"])
     for sid, g in df.groupby(id_col, sort=False):
         p, t = g["p"].to_numpy(), g["sweep_target"].to_numpy()
-        for i in np.nonzero(np.diff(p) > 0)[0]:
+        for i in np.nonzero(np.diff(p) > FLOAT32_TOLERANCE)[0]:
             out.append((sid, int(t[i]), int(t[i + 1]), float(p[i]), float(p[i + 1])))
     return out
 
@@ -150,3 +155,15 @@ def test_stu03_sweep_table(production):
             print(f"{r['sweep_target']:>6} {r['attendance_percentage']:>8.1f} {r['attendance_3m_trend']:>7.2f} "
                   f"{int(r['attendance_risk_flag']):>4} {r['subject_attendance_std']:>8.2f} {p:>8.4f}")
     assert not _increases(frame, probs, "student_id")
+
+
+def test_tolerance_still_catches_a_real_increase(production):
+    """Guard for FLOAT32_TOLERANCE: a 0.001 rise injected into a copy of the STU_03 sweep is reported."""
+    model, feature_names = production
+    frame = sweep_frame(pd.DataFrame([_stu03_profile()]), TARGETS)
+    probs = _predict(model, feature_names, frame).astype(np.float64)
+    injected = probs.copy()
+    i = len(injected) // 2
+    injected[i + 1] = injected[i] + 0.001
+    bad = _increases(frame, injected, "student_id")
+    assert [(b[1], b[2]) for b in bad] == [(int(TARGETS[i]), int(TARGETS[i + 1]))], bad

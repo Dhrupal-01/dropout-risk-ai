@@ -1,7 +1,7 @@
 """
 Student reference cohort.
 
-`features` holds the canonical RAW inference input only — the 28 raw model columns plus
+`features` holds the canonical RAW inference input only — the 27 raw model columns plus
 `hostel_status` (from which `is_hosteler` is derived). The 9 engineered columns are NOT
 stored: they are deterministically recomputed by `build_engineered_features` at predict
 time, so persisting them would create a second source of truth that can silently drift.

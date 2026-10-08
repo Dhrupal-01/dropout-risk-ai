@@ -186,7 +186,7 @@ class TestV1TestIntegrity:
     def test_v1_3_zero_skipped_tests_when_resources_present(self):
         """V1.3: Zero skipped tests when all resources are available."""
         res = subprocess.run(
-            [sys.executable, "-m", "pytest", "ml/tests", "backend/tests", "-q", "-rs"],
+            [sys.executable, "-m", "pytest", "ml/tests", "backend/tests", "-q", "-rfEs"],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,

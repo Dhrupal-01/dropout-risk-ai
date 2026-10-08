@@ -82,16 +82,22 @@ class TestV2Phase0A:
         assert "## Limitations" in readme or "### Limitations" in readme, "Limitations section missing from README"
 
     def test_v2_4_feature_names_json_unaltered(self):
-        """V2.4: ml/artifacts/feature_names.json identical to BASELINE."""
+        """V2.4: ml/artifacts/feature_names.json identical to BASELINE, except for the contract changes
+        listed in removed_since_baseline (each an owner decision). Order is otherwise unchanged."""
+        # 2026-10-08, owner decision: age is a protected attribute (ml/fairness/attributes.py), not a model input.
+        removed_since_baseline = ["age"]
+
         cmd = ["git", "show", f"{BASELINE_COMMIT}:ml/artifacts/feature_names.json"]
         res = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
         baseline_json = json.loads(res.stdout)
+        assert all(name in baseline_json for name in removed_since_baseline)
+        expected = [name for name in baseline_json if name not in removed_since_baseline]
 
         current_path = PROJECT_ROOT / "ml" / "artifacts" / "feature_names.json"
         with open(current_path, "r") as f:
             current_json = json.load(f)
 
-        assert current_json == baseline_json, "feature_names.json has drifted from BASELINE!"
+        assert current_json == expected, "feature_names.json has drifted from BASELINE (minus the decided removals)!"
 
     def test_v2_5_loader_runtime_error_and_standin_guard(self, monkeypatch, tmp_path):
         """V2.5: Missing files + download failure raise with instructions; real loaders refuse is_synthetic files."""
@@ -180,29 +186,12 @@ UNIT_NUMBER = re.compile(
 )
 # Exact lines (stripped) that may carry such a number, with the reason. Unused entries fail the test.
 _R_ATT = "the statutory 75% attendance rule (ml.config.ATTENDANCE_THRESHOLD)"
-_R_DD = "feature range or formula text; docs/data_dictionary.md is corrected in its own step"
+_R_FORMULA = "formula constant copied from ml/data_pipeline/"
 _R_TIER = "configured risk-tier thresholds (ml/config.py DEFAULT_RISK_THRESHOLD_LOW/HIGH)"
 _R_OUT = "outcome band (backend/app/services/intervention_service.py RISK_DELTA_THRESHOLD)"
 _R_EX = "example API response value from the simulated cohort, not a metric"
 ALLOWED_NUMBER_LINES = {
     ('README.md', '1. **Attendance & Discipline**: Overall 3-month attendance %, recent-month trajectory, consecutive absence streaks, and the mandatory 75% AICTE/UGC debarment rule.'): _R_ATT,
-    ('docs/data_dictionary.md', '| `attendance_percentage` | Overall 3-Month Attendance | Float | `10.0 – 100.0%` | ERP Attendance System | Weighted 3-month attendance ($0.25 \\times M_1 + 0.35 \\times M_2 + 0.40 \\times M_3$). Primary metric evaluated against the statutory 75% minimum threshold. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `attendance_month_1` | Month 1 Attendance | Float | `10.0 – 100.0%` | ERP Attendance System | Attendance percentage during the first 30 days of the semester (baseline engagement). |'): _R_DD,
-    ('docs/data_dictionary.md', '| `attendance_month_2` | Month 2 Attendance | Float | `10.0 – 100.0%` | ERP Attendance System | Attendance percentage during the middle 30 days of the semester (mid-term engagement). |'): _R_DD,
-    ('docs/data_dictionary.md', '| `attendance_month_3` | Current Month Attendance (M3) | Float | `10.0 – 100.0%` | ERP Attendance System | Attendance percentage during the most recent 30-day tracking window (acute disengagement). |'): _R_DD,
-    ('docs/data_dictionary.md', '| `attendance_3m_trend` | 3-Month Attendance Trend Slope | Float | `-25.0 to +25.0%` | Derived Feature | Monthly rate of change in attendance: $(M_3 - M_1) / 2$. Negative values indicate progressive disengagement. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `attendance_risk_flag` | Attendance Debarment Risk (<75%) | Binary | `{0, 1}` | Statutory Rule Engine | Set to `1` if `attendance_percentage < 75.0%`. Marks the student for mandatory parent alert and examination debarment review. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `att_core1` | Core Mathematics/Theory Course Attendance | Float | `10.0 – 100.0%` | Department Subject Register | Attendance in foundational mathematics and theoretical engineering sciences (e.g., Engineering Mathematics, Discrete Structures). |'): _R_DD,
-    ('docs/data_dictionary.md', '| `att_core2` | Department Major Core Course Attendance | Float | `10.0 – 100.0%` | Department Subject Register | Attendance in primary departmental engineering courses (e.g., Data Structures, Signals & Systems, Thermodynamics). |'): _R_DD,
-    ('docs/data_dictionary.md', '| `att_lab` | Practical Laboratory Course Attendance | Float | `15.0 – 100.0%` | Department Lab Register | Attendance in hands-on laboratory practicals. Practical shortfall directly blocks term-work submission. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `att_elective` | Elective Course Attendance | Float | `10.0 – 100.0%` | Department Subject Register | Attendance in departmental/open elective courses. Highlights elective-specific disinterest. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `current_cgpa` | Current Semester CGPA | Float | `0.00 – 10.00` | Examination Branch | Cumulative Grade Point Average on the standard Indian 10-point scale at the most recent evaluation checkpoint. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `prev_sem_cgpa` | Previous Semester CGPA | Float | `0.00 – 10.00` | Examination Branch | Historical cumulative GPA from the preceding academic semester (baseline reference). |'): _R_DD,
-    ('docs/data_dictionary.md', '| `cgpa_delta` | Semester CGPA Trajectory | Float | `-3.50 to +3.50` | Derived Feature | Change in GPA: $\\text{current\\_cgpa} - \\text{prev\\_sem\\_cgpa}$. Negative drops $>0.75$ indicate academic distress. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `internal_exam_score_pct` | Internal Assessment Marks | Float | `0.0 – 100.0%` | Faculty Gradebook | Continuous internal evaluation (In-Sem tests, quizzes, assignments). Leading mid-semester signal before final university end-sems. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `behavioral_disengagement_index` | Composite Behavioral Index | Float | `0.00 – 1.00` | Engineered Composite | Normalized composite index combining low logins, late submissions, and long inactivity: $\\frac{1}{3}\\left[\\left(1 - \\frac{\\text{logins}}{12}\\right) + \\frac{\\text{lag}}{10} + \\frac{\\text{inactivity}}{30}\\right]$. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `financial_stress_index` | Composite Financial Stress Index | Float | `0.00 – 1.00` | Engineered Composite | Combines low income slab and fee payment delays: $\\frac{1}{2}\\left[\\left(1 - \\frac{\\text{income\\_idx}}{3}\\right) + \\min\\left(1.0, \\frac{\\text{fee\\_delay}}{60}\\right)\\right]$. |'): _R_DD,
-    ('docs/data_dictionary.md', '| `ground_truth_risk_prob` | Float | `0.00 – 1.00` | Generative underlying latent risk probability for calibration validation. |'): _R_DD,
     ('docs/frontend_api_handover.md', '| `Low` | `p < 0.33` | No urgent action; routine monitoring |'): _R_TIER,
     ('docs/frontend_api_handover.md', '| `Medium` | `0.33 ≤ p ≤ 0.66` | Watch list; early supportive outreach |'): _R_TIER,
     ('docs/frontend_api_handover.md', '| `High` | `p > 0.66` | Priority mentor outreach |'): _R_TIER,
@@ -222,6 +211,8 @@ ALLOWED_NUMBER_LINES = {
     ('docs/frontend_api_handover.md', '"risk_delta": 0.6157,'): _R_EX,
     ('docs/frontend_api_handover.md', '"notes": "Mentor call scheduled | Attendance recovered to 79%",'): _R_EX,
     ('docs/frontend_api_handover.md', '"risk_probability": 0.9258,'): _R_EX,
+    ('docs/data_dictionary.md', '| `behavioral_disengagement_index` | engineered | `0.35 * (1 - clip(lms_logins_per_week / 10)) + 0.35 * clip(assignment_submission_lag_days / 7) + 0.30 * clip(days_since_last_lms_activity / 30)`, rounded to 3 dp | `feature_engineering.py:133-136` |'): _R_FORMULA + 'feature_engineering.py:136',
+    ('docs/data_dictionary.md', '| `financial_stress_index` | engineered | `0.40 * (3 - income_slab_idx) / 3 + 0.40 * clip(fee_payment_delay_days / 60) + 0.20 * (1 - has_scholarship)`, rounded to 3 dp | `feature_engineering.py:152-155` |'): _R_FORMULA + 'feature_engineering.py:155',
 }
 
 
@@ -330,12 +321,47 @@ class TestV2HandWrittenDocs:
         assert not broken, "Broken relative links:\n" + "\n".join(broken)
 
     def test_v2_10_api_handover_documents_every_route(self):
-        """V2.10: Every route in app.openapi() appears in docs/frontend_api_handover.md as `METHOD /path`."""
+        """V2.10: Every route in app.openapi() appears in docs/frontend_api_handover.md as `METHOD /path`,
+        and every query parameter of every route appears in it as `name`."""
         from backend.app.main import app
 
         doc = (PROJECT_ROOT / "docs" / "frontend_api_handover.md").read_text(encoding="utf-8")
         methods = {"get", "post", "put", "patch", "delete"}
-        routes = [(m.upper(), p) for p, ops in app.openapi()["paths"].items() for m in ops if m in methods]
-        assert routes
-        missing = [f"{m} {p}" for m, p in routes if not re.search(rf"\b{m} {re.escape(p)}(?![\w/{{])", doc)]
+        operations = [(m.upper(), p, op) for p, ops in app.openapi()["paths"].items() for m, op in ops.items() if m in methods]
+        assert operations
+        missing = [f"{m} {p}" for m, p, _ in operations if not re.search(rf"\b{m} {re.escape(p)}(?![\w/{{])", doc)]
         assert not missing, "Routes missing from docs/frontend_api_handover.md:\n" + "\n".join(missing)
+
+        query_params = [(m, p, q["name"]) for m, p, op in operations for q in op.get("parameters", []) if q.get("in") == "query"]
+        assert query_params
+        missing = [f"{m} {p}: `{name}`" for m, p, name in query_params if f"`{name}`" not in doc]
+        assert not missing, "Query parameters missing from docs/frontend_api_handover.md:\n" + "\n".join(missing)
+
+    def test_v2_11_data_dictionary_matches_feature_contract(self):
+        """V2.11: docs/data_dictionary.md rows with role `raw` are exactly RAW_FEATURE_COLUMNS, rows with role
+        `engineered` exactly ENGINEERED_FEATURE_COLUMNS, and together exactly feature_names.json. Every column
+        of a generated cohort has exactly one row, and `age` is `audit-only`."""
+        from backend.app.services.ml_service import ENGINEERED_FEATURE_COLUMNS, RAW_FEATURE_COLUMNS
+        from ml.data_pipeline.feature_engineering import build_engineered_features
+        from ml.data_pipeline.generate_synthetic_indian import generate_indian_student_cohort
+
+        doc = (PROJECT_ROOT / "docs" / "data_dictionary.md").read_text(encoding="utf-8")
+        rows = re.findall(r"^\| `([a-z0-9_]+)` \| (raw|engineered|audit-only|excluded|input-only|label|identifier) \|", doc, re.M)
+        names = [name for name, _ in rows]
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        assert not duplicates, f"Columns listed more than once: {duplicates}"
+        role = dict(rows)
+
+        raw = [n for n, r in rows if r == "raw"]
+        engineered = [n for n, r in rows if r == "engineered"]
+        assert sorted(raw) == sorted(RAW_FEATURE_COLUMNS)
+        assert sorted(engineered) == sorted(ENGINEERED_FEATURE_COLUMNS)
+        feature_names = json.loads((PROJECT_ROOT / "ml" / "artifacts" / "feature_names.json").read_text())
+        assert sorted(raw + engineered) == sorted(feature_names)
+        assert role.get("age") == "audit-only"
+
+        cohort = build_engineered_features(generate_indian_student_cohort(n_students=50, seed=7, output_path=None))
+        assert sorted(role) == sorted(cohort.columns), (
+            f"In cohort, not in dictionary: {sorted(set(cohort.columns) - set(role))}; "
+            f"in dictionary, not in cohort: {sorted(set(role) - set(cohort.columns))}"
+        )

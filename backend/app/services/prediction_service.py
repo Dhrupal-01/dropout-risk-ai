@@ -26,7 +26,7 @@ SINGLE_PREDICTION_TOP_K = 5
 
 def canonical_stored_features(raw: Dict[str, Any]) -> Dict[str, Any]:
     """
-    The representation persisted on `students.features`: the 28 raw model inputs plus the
+    The representation persisted on `students.features`: the 27 raw model inputs plus the
     residency source column.
 
     `is_hosteler` is an ENGINEERED feature, so it is not stored when `hostel_status` is

@@ -59,7 +59,6 @@ def medium_risk_features():
     must not assume one; tier mapping is tested with a stub model instead.
     """
     return {
-        "age": 22.4,
         "commute_distance_km": 11.1,
         "income_slab_idx": 3,
         "is_first_generation": 0,
@@ -125,7 +124,6 @@ class TestInputValidation:
             ("income_slab_idx", 9),          # ordinal 0-3
             ("has_scholarship", 2),          # binary
             ("backlog_count", -1),
-            ("age", 5.0),
         ],
     )
     def test_out_of_range_values_are_422(self, client, high_risk_features, field, bad_value):
@@ -134,6 +132,15 @@ class TestInputValidation:
         )
         assert response.status_code == 422
         assert any(field in d["field"] for d in response.json()["details"])
+
+    @pytest.mark.parametrize("protected,value", [("age", 20.0), ("gender", "Female"), ("category", "General")])
+    def test_protected_attributes_are_rejected(self, client, high_risk_features, protected, value):
+        """Protected attributes (ml/fairness/attributes.py) are never model inputs, so /predict refuses them."""
+        response = client.post(
+            PREDICT_URL, json=body("V_008", dict(high_risk_features, **{protected: value}))
+        )
+        assert response.status_code == 422
+        assert any(protected in d["field"] for d in response.json()["details"])
 
     @pytest.mark.parametrize("label", ["is_dropout", "ground_truth_risk_prob"])
     def test_label_leakage_is_rejected(self, client, high_risk_features, label):
@@ -318,7 +325,7 @@ class TestPersistence:
         # which is exactly why explain_from_snapshot reindexes by feature_names instead
         # of trusting dict order.
         assert set(prediction.input_features) == set(ml_service.feature_names)
-        assert len(prediction.input_features) == 37
+        assert len(prediction.input_features) == 36
 
         # Reconstructing the canonical order from the snapshot must still work.
         frame = ml_service.build_feature_frame_batch([high_risk_features])

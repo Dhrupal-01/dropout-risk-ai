@@ -48,6 +48,24 @@ class TestV7Phase4Fairness:
         leaked = set(RAW_FEATURE_COLUMNS) & set(PROTECTED["simulated"])
         assert leaked == set(), f"RAW_FEATURE_COLUMNS: {sorted(leaked)}"
 
+        # The trained simulated models: the columns each was fitted on (binaries gitignored; missing = fail)
+        import joblib
+        from ml.config import BASE_MODEL_PATH, MODEL_ARTIFACT_PATH
+
+        for path in (MODEL_ARTIFACT_PATH, BASE_MODEL_PATH):
+            assert path.exists(), f"{path} missing: run `python -m ml.validate_pipeline --regenerate`"
+        calibrated = joblib.load(MODEL_ARTIFACT_PATH)
+        fitted = {
+            "calibrated_model.feature_names_in_": list(calibrated.feature_names_in_),
+            "base_xgboost_model booster": list(joblib.load(BASE_MODEL_PATH).get_booster().feature_names or []),
+        }
+        for i, member in enumerate(calibrated.calibrated_classifiers_):
+            fitted[f"calibrated_model fold {i} booster"] = list(member.estimator.get_booster().feature_names or [])
+        for name, columns in fitted.items():
+            assert columns == serving_features, f"{name} was not fitted on feature_names.json"
+            leaked = set(columns) & set(PROTECTED["simulated"])
+            assert leaked == set(), f"{name}: {sorted(leaked)}"
+
     def test_v7_2_small_groups_flagged(self):
         """V7.2: Groups with n < 50 are flagged with insufficient sample."""
         from ml.fairness.audit import compute_group_metrics

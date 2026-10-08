@@ -2,7 +2,7 @@
 Immutable prediction history.
 
 Every inference is appended, never updated in place: `input_features` stores the exact
-37-column snapshot fed to `predict_proba`, so any past score can be reproduced against
+model-feature snapshot fed to `predict_proba`, so any past score can be reproduced against
 the model version that produced it.
 """
 
@@ -36,7 +36,7 @@ class Prediction(Base):
     # Fingerprint of the artifact that produced this row (see MLService.model_version).
     model_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
-    # Exact ordered 37-feature vector used for this inference.
+    # Exact model-feature vector (36 columns; rows written before age was removed hold 37) used for this inference.
     input_features: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
     # Top SHAP drivers, when the explanation was computed alongside the prediction.

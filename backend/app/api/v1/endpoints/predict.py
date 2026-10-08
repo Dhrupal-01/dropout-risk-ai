@@ -94,7 +94,7 @@ def predict_batch(
     summary="Score a CSV upload using the project's own features.csv column names",
 )
 def predict_batch_csv(
-    file: UploadFile = File(..., description="CSV with student_id plus the 28 raw feature columns"),
+    file: UploadFile = File(..., description="CSV with student_id plus the 27 raw feature columns"),
     sort_by_risk_desc: bool = Query(default=False),
     include_explanations: bool = Query(default=False),
     db: Session = Depends(get_db),

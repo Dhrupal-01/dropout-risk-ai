@@ -63,7 +63,6 @@ FEATURE_DISPLAY_NAMES = {
     "interaction_cgpa_x_backlog": "Compounded Academic Deficit x Backlogs",
     "interaction_firstgen_x_inactivity": "First-Gen Status x LMS Inactivity",
     "interaction_att_x_cgpa_drop": "Attendance Collapse x CGPA Drop",
-    "age": "Student Age"
 }
 
 

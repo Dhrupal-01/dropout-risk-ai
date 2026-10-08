@@ -233,6 +233,7 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
     Explicitly labeled as a generator calibration check, NOT real-world predictive validity.
     """
     from ml.models.fairness_audit import (
+        compute_age_band_audit,
         compute_cross_validated_fairness_audit,
         compute_group_fairness_metrics,
     )
@@ -282,6 +283,9 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
     fg_m_t = compute_group_fairness_metrics(y_test, test_preds, fg_mask_t)
     nfg_m_t = compute_group_fairness_metrics(y_test, test_preds, nfg_mask_t)
 
+    # age is protected (audit frame only); cut = median age of the full cohort
+    age_band_t = compute_age_band_audit(test_df, y_test, test_preds, float(full_df["age"].median()))
+
     return {
         "benchmark": "generator_sanity_check_simulated_cohort",
         "description": "Verification of simulated Indian cohort generator. Note: metrics reflect generator design parameters and are NOT evidence of real-world predictive validity.",
@@ -301,6 +305,7 @@ def run_generator_sanity_check_pipeline(seed: int = 42) -> Dict[str, Any]:
                 "non_first_gen": nfg_m_t,
                 "fnr_disparity": round(abs(fg_m_t["fnr_miss_rate"] - nfg_m_t["fnr_miss_rate"]), 4),
             },
+            "age_band": age_band_t,
         },
         "cross_validation_n2000": cv_audit,
     }
@@ -415,11 +420,13 @@ def run_all_fairness_audits(
                 "gender": generator_check["test_split_n300"]["gender"]["fnr_disparity"],
                 "economic_proxy": generator_check["test_split_n300"]["economic_proxy"]["fnr_disparity"],
                 "first_generation": generator_check["test_split_n300"]["first_generation"]["fnr_disparity"],
+                "age_band": generator_check["test_split_n300"]["age_band"]["fnr_disparity"],
             },
             "cross_validation_fnr_gaps": {
                 "gender": generator_check["cross_validation_n2000"]["gender"]["fnr_disparity"],
                 "economic_proxy": generator_check["cross_validation_n2000"]["economic_proxy"]["fnr_disparity"],
                 "first_generation": generator_check["cross_validation_n2000"]["first_generation"]["fnr_disparity"],
+                "age_band": generator_check["cross_validation_n2000"]["age_band"]["fnr_disparity"],
             },
         },
         "income_ablation": {

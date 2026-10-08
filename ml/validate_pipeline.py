@@ -581,7 +581,7 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
             f"CRITICAL ERROR: Recourse engine tier for {sid} ({recourse['current_risk_tier']}) differs from model tier ({tier})!"
         )
         if tier == "Low":
-            assert "already in the lowest risk tier" in recourse.get("status_message", ""), (
+            assert "already in the lowest model risk tier" in recourse.get("status_message", ""), (
                 f"CRITICAL ERROR: Low-tier student {sid} did not get the explicit 'already Low' recourse result: {recourse}"
             )
             assert recourse["required_actions"] == [], f"CRITICAL ERROR: Low-tier student {sid} was given required actions!"
