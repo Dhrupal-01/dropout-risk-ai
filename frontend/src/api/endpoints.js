@@ -9,20 +9,17 @@ export const checkHealth = () => {
   return client.get('/health');
 };
 
+// Drop empty filters ('' from an "All" select, null, undefined) so the API applies no filter for them.
+const withoutEmptyParams = (params) =>
+  Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+
 /**
  * Fetch prioritized mentor triage queue
  * @param {Object} params - Query filters { department, risk_tier, assigned_mentor_id, limit, offset }
  * @returns {Promise<Object>} Page of students ranked by risk priority
  */
 export const getMentorQueue = (params = {}) => {
-  // Clean up empty params
-  const cleanParams = {};
-  Object.keys(params).forEach(key => {
-    if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-      cleanParams[key] = params[key];
-    }
-  });
-  return client.get('/api/v1/mentors/queue', { params: cleanParams });
+  return client.get('/api/v1/mentors/queue', { params: withoutEmptyParams(params) });
 };
 
 /**
@@ -39,6 +36,40 @@ export const getMentorFilters = () => {
  */
 export const getStatsSummary = () => {
   return client.get('/api/v1/stats/summary');
+};
+
+/**
+ * Histogram of latest calibrated risk probabilities
+ * @param {number} [bins=10] - Equal-width bins over [0, 1] (2-50)
+ * @returns {Promise<Object>} { total, bin_count, bins: [{ lower, upper, count }] }
+ */
+export const getStatsDistribution = (bins = 10) => {
+  return client.get('/api/v1/stats/distribution', { params: { bins } });
+};
+
+/**
+ * Most common risk-increasing SHAP drivers among students' latest predictions
+ * @param {Object} [params] - { limit?: number, risk_tier?: 'High'|'Medium'|'Low' }
+ * @returns {Promise<Object>} { risk_tier, students_considered, students_with_drivers, drivers: [{ feature_name, display_name, student_count }] }
+ */
+export const getStatsDrivers = (params = {}) => {
+  return client.get('/api/v1/stats/drivers', { params: withoutEmptyParams(params) });
+};
+
+/**
+ * Intervention log counts by lifecycle and outcome status
+ * @returns {Promise<Object>} { total, open, students_with_open_interventions, by_status, by_outcome_status }
+ */
+export const getStatsInterventions = () => {
+  return client.get('/api/v1/stats/interventions');
+};
+
+/**
+ * Students triggering each rule-based alert, with the configured attendance threshold
+ * @returns {Promise<Object>} { students_considered, students_with_any_alert, attendance_threshold, alerts: [{ code, student_count }] }
+ */
+export const getStatsAlerts = () => {
+  return client.get('/api/v1/stats/alerts');
 };
 
 

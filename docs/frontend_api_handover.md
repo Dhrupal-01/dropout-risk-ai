@@ -556,6 +556,124 @@ Either list may be empty.
 
 **Errors:** 500.
 
+### 5.10 `GET /api/v1/stats/distribution`
+
+**Purpose:** histogram of risk scores for the Overview dashboard.
+
+**Query**
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `bins` | int | `10` | Number of equal-width bins over [0, 1]; 2–50 |
+
+**Response `200`** (shape)
+
+```json
+{
+  "total": "<int>",
+  "bin_count": "<int>",
+  "bins": [ { "lower": "<float>", "upper": "<float>", "count": "<int>" } ]
+}
+```
+
+- Uses each student's latest `calibrated_risk_probability` (`latest_predictions`).
+- Bins are `[lower, upper)`; the last bin includes 1.0. Every bin is present, including empty ones.
+- `total` is the sum of the bin counts and equals `/stats/summary` `total`.
+
+**Errors:** 422 `validation_error` (`bins` out of range), 500.
+
+### 5.11 `GET /api/v1/stats/drivers`
+
+**Purpose:** the features that most often push students' risk up, for the "top risk drivers" chart.
+
+**Query**
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `limit` | int | `10` | Maximum drivers returned; 1–50 |
+| `risk_tier` | `High` \| `Medium` \| `Low` | none | Only count students in this tier |
+
+**Response `200`** (shape)
+
+```json
+{
+  "risk_tier": "High",
+  "students_considered": "<int>",
+  "students_with_drivers": "<int>",
+  "drivers": [ { "feature_name": "attendance_percentage", "display_name": "<string>", "student_count": "<int>" } ]
+}
+```
+
+- Counts, per feature, the students whose latest prediction lists it among its stored top SHAP
+  drivers with `impact_direction: "RISK_INCREASING"`. Drivers are stored at scoring time (top 5
+  for `/predict`), so a feature outside a student's top drivers is not counted for them.
+- Ordered by `student_count` (highest first), then `feature_name`.
+- `students_with_drivers` can be lower than `students_considered` when predictions were stored
+  without drivers. Divide by `students_with_drivers`, not `students_considered`, for a share.
+- Drivers explain the model's score; they are not causes. Label the chart accordingly
+  ("most common reasons for a raised risk score").
+
+**Errors:** 422 `validation_error` (unknown tier, `limit` out of range), 500.
+
+### 5.12 `GET /api/v1/stats/interventions`
+
+**Purpose:** intervention counts for the status funnel and the "open interventions" KPI.
+
+**Request:** none.
+
+**Response `200`** (shape)
+
+```json
+{
+  "total": "<int>",
+  "open": "<int>",
+  "students_with_open_interventions": "<int>",
+  "by_status": { "ASSIGNED": "<int>", "IN_PROGRESS": "<int>", "APPLIED": "<int>", "COMPLETED": "<int>" },
+  "by_outcome_status": { "PENDING_EVALUATION": "<int>", "IMPROVED": "<int>", "NO_CHANGE": "<int>", "DETERIORATED": "<int>" }
+}
+```
+
+- Counts every row in `intervention_logs`. Each assignment is one row that advances in place
+  (§5.6), so `by_status` is the current status of each assignment, not a history of moves.
+- `open` = rows whose status is not `COMPLETED`. Every status key is always present.
+
+**Errors:** 500.
+
+### 5.13 `GET /api/v1/stats/alerts`
+
+**Purpose:** how many students trigger each rule-based alert, for the "attendance alerts" KPI.
+
+**Request:** none.
+
+**Response `200`** (shape)
+
+```json
+{
+  "students_considered": "<int>",
+  "students_with_any_alert": "<int>",
+  "attendance_threshold": "<float>",
+  "alerts": [
+    { "code": "ATTENDANCE_BELOW_REQUIREMENT", "student_count": "<int>" },
+    { "code": "ACADEMIC_CRISIS_FLAG", "student_count": "<int>" }
+  ]
+}
+```
+
+- Applies the same rules as `rule_based_alerts` in `/students/{id}/interventions` (§5.5) to each
+  student's latest prediction snapshot: attendance below `attendance_threshold` or
+  `attendance_risk_flag` set; `academic_crisis_flag` set. A missing value never raises an alert.
+- `attendance_threshold` comes from the server configuration (`ml.config.ATTENDANCE_THRESHOLD`).
+  Show this value instead of typing the threshold into the UI.
+- Alerts are independent of the model's risk tier. A student can trigger both alerts; they are
+  counted once in `students_with_any_alert`.
+
+**Errors:** 500.
+
+### Aggregates and privacy
+
+`/stats/*` responses contain counts, bin edges and feature names only. No student identifiers,
+names or personal fields are returned, so they are safe for the Overview dashboard to cache.
+
 ---
 
 ## 6. Suggested UI flow

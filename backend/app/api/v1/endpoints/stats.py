@@ -1,22 +1,34 @@
 """
-Cohort summary statistics endpoint.
+Cohort statistics endpoints (read-only).
 
     GET /api/v1/stats/summary
+    GET /api/v1/stats/distribution
+    GET /api/v1/stats/drivers
+    GET /api/v1/stats/interventions
+    GET /api/v1/stats/alerts
 
 Computes cohort totals, risk tier distributions, and department breakdowns
 directly in PostgreSQL using indexed GROUP BY queries on latest_predictions.
 """
 
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.db.session import get_db
 from backend.app.models.latest_prediction import LatestPrediction
-from backend.app.schemas.stats import StatsSummaryResponse
+from backend.app.schemas.prediction import RiskTier
+from backend.app.schemas.stats import (
+    StatsAlertsResponse,
+    StatsDistributionResponse,
+    StatsDriversResponse,
+    StatsInterventionsResponse,
+    StatsSummaryResponse,
+)
+from backend.app.services import stats_service
 
 logger = logging.getLogger(__name__)
 
@@ -67,3 +79,46 @@ def get_stats_summary(db: Session = Depends(get_db)) -> StatsSummaryResponse:
         by_tier=by_tier,
         by_department=by_department,
     )
+
+
+@router.get(
+    "/distribution",
+    response_model=StatsDistributionResponse,
+    summary="Histogram of latest calibrated risk probabilities",
+)
+def get_risk_distribution(
+    bins: int = Query(10, ge=2, le=50, description="Number of equal-width bins over [0, 1]"),
+    db: Session = Depends(get_db),
+) -> StatsDistributionResponse:
+    return StatsDistributionResponse(**stats_service.risk_score_distribution(db, bins))
+
+
+@router.get(
+    "/drivers",
+    response_model=StatsDriversResponse,
+    summary="Most common risk-increasing drivers among students' latest predictions",
+)
+def get_top_drivers(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of drivers to return"),
+    risk_tier: Optional[RiskTier] = Query(None, description="Only count students in this tier"),
+    db: Session = Depends(get_db),
+) -> StatsDriversResponse:
+    return StatsDriversResponse(**stats_service.top_risk_drivers(db, limit, risk_tier))
+
+
+@router.get(
+    "/interventions",
+    response_model=StatsInterventionsResponse,
+    summary="Intervention log entries by lifecycle and outcome status",
+)
+def get_intervention_counts(db: Session = Depends(get_db)) -> StatsInterventionsResponse:
+    return StatsInterventionsResponse(**stats_service.intervention_counts(db))
+
+
+@router.get(
+    "/alerts",
+    response_model=StatsAlertsResponse,
+    summary="Students triggering each rule-based alert in their latest prediction",
+)
+def get_alert_counts(db: Session = Depends(get_db)) -> StatsAlertsResponse:
+    return StatsAlertsResponse(**stats_service.rule_based_alert_counts(db))
