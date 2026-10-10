@@ -88,61 +88,63 @@ const TierByDepartment = () => {
           </li>
         ))}
       </ul>
-      <div aria-hidden="true" style={{ height: rows.length * ROW_HEIGHT + 40 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-            <CartesianGrid horizontal={false} stroke={gridStroke} />
-            <XAxis type="number" allowDecimals={false} tick={axisTick} stroke={gridStroke} />
-            <YAxis
-              type="category"
-              dataKey="department"
-              width={130}
-              interval={0}
-              tickLine={false}
-              axisLine={false}
-              tick={<WrappedCategoryTick maxChars={16} />}
-            />
-            <Tooltip content={<DepartmentTooltip />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
-            {TIERS.map((tier) => (
-              <Bar
-                key={tier.api}
-                dataKey={tier.api}
-                stackId="tiers"
-                barSize={BAR_SIZE}
-                fill={tier.mark}
-                stroke="var(--paper)"
-                strokeWidth={2}
-                isAnimationActive={false}
+      <figure aria-label="Risk level by department">
+        <div aria-hidden="true" style={{ height: rows.length * ROW_HEIGHT + 40 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart accessibilityLayer={false} data={rows} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
+              <CartesianGrid horizontal={false} stroke={gridStroke} />
+              <XAxis type="number" allowDecimals={false} tick={axisTick} stroke={gridStroke} />
+              <YAxis
+                type="category"
+                dataKey="department"
+                width={130}
+                interval={0}
+                tickLine={false}
+                axisLine={false}
+                tick={<WrappedCategoryTick maxChars={16} />}
               />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="sr-only">
-        <table>
-          <caption>Students by risk level in each department</caption>
-          <thead>
-            <tr>
-              <th scope="col">Department</th>
+              <Tooltip content={<DepartmentTooltip />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
               {TIERS.map((tier) => (
-                <th key={tier.api} scope="col">
-                  {tier.label}
-                </th>
+                <Bar
+                  key={tier.api}
+                  dataKey={tier.api}
+                  stackId="tiers"
+                  barSize={BAR_SIZE}
+                  fill={tier.mark}
+                  stroke="var(--paper)"
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                />
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.department}>
-                <th scope="row">{row.department}</th>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="sr-only">
+          <table>
+            <caption>Students by risk level in each department</caption>
+            <thead>
+              <tr>
+                <th scope="col">Department</th>
                 {TIERS.map((tier) => (
-                  <td key={tier.api}>{formatCount(row[tier.api])}</td>
+                  <th key={tier.api} scope="col">
+                    {tier.label}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.department}>
+                  <th scope="row">{row.department}</th>
+                  {TIERS.map((tier) => (
+                    <td key={tier.api}>{formatCount(row[tier.api])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </figure>
     </OverviewCard>
   );
 };

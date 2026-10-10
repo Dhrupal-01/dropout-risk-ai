@@ -24,6 +24,24 @@ const OUTCOME_LABELS = { IMPROVED: 'Improved', NO_CHANGE: 'No change', DETERIORA
 // Drivers fetched for the chart: 5 shown by default, "Show more factors" reveals the rest.
 const EXPLANATION_TOP_K = 8;
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Keeps Tab and Shift+Tab inside `container`, wrapping from the last control to the first and back.
+const trapTab = (e, container) => {
+  const items = [...container.querySelectorAll(FOCUSABLE)].filter((el) => el.getClientRects().length > 0);
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || !container.contains(active))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (active === last || !container.contains(active))) {
+    e.preventDefault();
+    first.focus();
+  }
+};
+
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -60,6 +78,7 @@ const StudentDetail = () => {
   const [statusFloor, setStatusFloor] = useState('ASSIGNED');
   const openerRef = useRef(null);
   const firstFieldRef = useRef(null);
+  const drawerRef = useRef(null);
   const drawerTitleId = useId();
 
   const explanationQuery = useQuery({
@@ -119,12 +138,13 @@ const StudentDetail = () => {
     onSuccess: refreshAfterWrite,
   });
 
-  // Drawer: focus the first field on open; Escape closes it from anywhere.
+  // Drawer: focus the first field on open; Tab stays inside it; Escape closes it from anywhere.
   useEffect(() => {
     if (!isLogOpen) return undefined;
     firstFieldRef.current?.focus();
     const onKey = (e) => {
       if (e.key === 'Escape') closeDrawer();
+      else if (e.key === 'Tab' && drawerRef.current) trapTab(e, drawerRef.current);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -477,6 +497,7 @@ const StudentDetail = () => {
       {isLogOpen && selectedIntervention && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={closeDrawer}>
           <div
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={drawerTitleId}

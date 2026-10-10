@@ -37,39 +37,41 @@ const RiskHistogram = () => {
       emptyMessage="No risk estimates yet. Scores appear here once students are imported and scored."
       loadingClassName="h-60"
     >
-      <div aria-hidden="true" className="h-60">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={bins} margin={{ top: 8, right: 8, bottom: 0, left: -16 }} barCategoryGap={2}>
-            <CartesianGrid vertical={false} stroke={gridStroke} />
-            <XAxis dataKey="label" tick={axisTick} stroke={gridStroke} tickLine={false} />
-            <YAxis allowDecimals={false} tick={axisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<BinTooltip />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
-            <Bar dataKey="count" fill="var(--ink)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-2 text-13 text-slate">Estimated risk (calibrated probability), left to right.</p>
-      <div className="sr-only">
-        <table>
-          <caption>Students by estimated risk band</caption>
-          <thead>
-            <tr>
-              <th scope="col">Estimated risk</th>
-              <th scope="col">Students</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bins.map((bin) => (
-              <tr key={bin.lower}>
-                <th scope="row">
-                  {percent(bin.lower)} to {percent(bin.upper)}
-                </th>
-                <td>{formatCount(bin.count)}</td>
+      <figure aria-label="Spread of risk estimates">
+        <div aria-hidden="true" className="h-60">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart accessibilityLayer={false} data={bins} margin={{ top: 8, right: 8, bottom: 0, left: -16 }} barCategoryGap={2}>
+              <CartesianGrid vertical={false} stroke={gridStroke} />
+              <XAxis dataKey="label" tick={axisTick} stroke={gridStroke} tickLine={false} />
+              <YAxis allowDecimals={false} tick={axisTick} axisLine={false} tickLine={false} />
+              <Tooltip content={<BinTooltip />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
+              <Bar dataKey="count" fill="var(--ink)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="mt-2 text-13 text-slate">Estimated risk (calibrated probability), left to right.</p>
+        <div className="sr-only">
+          <table>
+            <caption>Students by estimated risk band</caption>
+            <thead>
+              <tr>
+                <th scope="col">Estimated risk</th>
+                <th scope="col">Students</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {bins.map((bin) => (
+                <tr key={bin.lower}>
+                  <th scope="row">
+                    {percent(bin.lower)} to {percent(bin.upper)}
+                  </th>
+                  <td>{formatCount(bin.count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </figure>
     </OverviewCard>
   );
 };

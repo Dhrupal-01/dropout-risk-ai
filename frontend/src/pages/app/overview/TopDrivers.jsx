@@ -67,48 +67,50 @@ const TopDrivers = ({ className = '' }) => {
       }
       loadingClassName="h-72"
     >
-      <div aria-hidden="true" style={{ height: (data?.drivers.length ?? 0) * ROW_HEIGHT + 8 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data?.drivers} layout="vertical" margin={{ top: 0, right: 48, bottom: 0, left: 0 }}>
-            <XAxis type="number" hide />
-            <YAxis
-              type="category"
-              dataKey="display_name"
-              width={170}
-              interval={0}
-              tickLine={false}
-              axisLine={false}
-              tick={<WrappedCategoryTick maxChars={22} />}
-            />
-            <Tooltip content={<DriverTooltip base={base} />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
-            <Bar dataKey="student_count" barSize={BAR_SIZE} radius={[0, 4, 4, 0]} fill="var(--ink)" isAnimationActive={false}>
-              <LabelList dataKey="student_count" position="right" formatter={formatCount} style={{ fill: 'var(--graphite)', fontSize: 13 }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-2 text-13 text-slate">
-        Out of {formatCount(base)} students with stored reasons{scope ? ' who need outreach' : ''}.
-      </p>
-      <div className="sr-only">
-        <table>
-          <caption>Most common reasons for a raised risk score</caption>
-          <thead>
-            <tr>
-              <th scope="col">Reason</th>
-              <th scope="col">Students</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.drivers.map((d) => (
-              <tr key={d.feature_name}>
-                <th scope="row">{d.display_name}</th>
-                <td>{formatCount(d.student_count)}</td>
+      <figure aria-label={`Most common reasons for a raised risk score: ${SCOPES.find((s) => s.value === scope).label.toLowerCase()}`}>
+        <div aria-hidden="true" style={{ height: (data?.drivers.length ?? 0) * ROW_HEIGHT + 8 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart accessibilityLayer={false} data={data?.drivers} layout="vertical" margin={{ top: 0, right: 48, bottom: 0, left: 0 }}>
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="display_name"
+                width={170}
+                interval={0}
+                tickLine={false}
+                axisLine={false}
+                tick={<WrappedCategoryTick maxChars={22} />}
+              />
+              <Tooltip content={<DriverTooltip base={base} />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
+              <Bar dataKey="student_count" barSize={BAR_SIZE} radius={[0, 4, 4, 0]} fill="var(--ink)" isAnimationActive={false}>
+                <LabelList dataKey="student_count" position="right" formatter={formatCount} style={{ fill: 'var(--graphite)', fontSize: 13 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="mt-2 text-13 text-slate">
+          Out of {formatCount(base)} students with stored reasons{scope ? ' who need outreach' : ''}.
+        </p>
+        <div className="sr-only">
+          <table>
+            <caption>Most common reasons for a raised risk score</caption>
+            <thead>
+              <tr>
+                <th scope="col">Reason</th>
+                <th scope="col">Students</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {data?.drivers.map((d) => (
+                <tr key={d.feature_name}>
+                  <th scope="row">{d.display_name}</th>
+                  <td>{formatCount(d.student_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </figure>
     </OverviewCard>
   );
 };

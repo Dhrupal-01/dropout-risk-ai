@@ -95,7 +95,7 @@ const ImportQueue = () => {
                 type="file"
                 accept=".csv"
                 onChange={(e) => chooseFile(e.target.files?.[0])}
-                className="sr-only"
+                className="peer sr-only"
               />
               <Upload className="w-7 h-7 text-slate" aria-hidden="true" />
               {file ? (
@@ -107,7 +107,11 @@ const ImportQueue = () => {
               ) : (
                 <p className="text-15 text-graphite">Drag a CSV file here, or</p>
               )}
-              <label htmlFor="csv-file" className="btn btn-secondary cursor-pointer">
+              {/* The input is visually hidden, so the label shows its keyboard focus (same ring as *:focus-visible). */}
+              <label
+                htmlFor="csv-file"
+                className="btn btn-secondary cursor-pointer peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
+              >
                 {file ? 'Choose a different file' : 'Choose a file'}
               </label>
             </div>

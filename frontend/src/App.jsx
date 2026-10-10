@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import SiteLayout from './layouts/SiteLayout';
 import PageLoading from './components/PageLoading';
+import RouteFocus from './components/RouteFocus';
 
 // Every route is code-split; public pages never load the app layout, TanStack Query or the API client.
 const AppLayout = lazy(() => import('./layouts/AppLayout'));
@@ -26,6 +27,7 @@ const LegacyStudentRedirect = () => {
 function App() {
   return (
     <BrowserRouter>
+      <RouteFocus />
       <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route element={<SiteLayout />}>

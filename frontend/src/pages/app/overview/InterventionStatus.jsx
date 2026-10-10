@@ -53,35 +53,37 @@ const InterventionStatus = () => {
       }
       loadingClassName="h-44"
     >
-      <div aria-hidden="true" style={{ height: rows.length * ROW_HEIGHT + 8 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 48, bottom: 0, left: 0 }}>
-            <XAxis type="number" hide />
-            <YAxis type="category" dataKey="label" width={96} tick={axisTick} tickLine={false} axisLine={false} />
-            <Tooltip content={<StageTooltip />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
-            <Bar dataKey="count" barSize={BAR_SIZE} radius={[0, 4, 4, 0]} fill="var(--ink)" isAnimationActive={false}>
-              <LabelList dataKey="count" position="right" formatter={formatCount} style={{ fill: 'var(--graphite)', fontSize: 13 }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-2 text-13 text-slate">
-        Outcomes so far:{' '}
-        {OUTCOMES.map((o) => `${formatCount(data?.by_outcome_status[o.status] ?? 0)} ${o.label}`).join(', ')}.
-      </p>
-      <div className="sr-only">
-        <table>
-          <caption>Interventions by stage</caption>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.status}>
-                <th scope="row">{row.label}</th>
-                <td>{formatCount(row.count)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <figure aria-label="Interventions by stage">
+        <div aria-hidden="true" style={{ height: rows.length * ROW_HEIGHT + 8 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart accessibilityLayer={false} data={rows} layout="vertical" margin={{ top: 0, right: 48, bottom: 0, left: 0 }}>
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="label" width={96} tick={axisTick} tickLine={false} axisLine={false} />
+              <Tooltip content={<StageTooltip />} cursor={{ fill: 'var(--ink-wash)' }} isAnimationActive={false} />
+              <Bar dataKey="count" barSize={BAR_SIZE} radius={[0, 4, 4, 0]} fill="var(--ink)" isAnimationActive={false}>
+                <LabelList dataKey="count" position="right" formatter={formatCount} style={{ fill: 'var(--graphite)', fontSize: 13 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="mt-2 text-13 text-slate">
+          Outcomes so far:{' '}
+          {OUTCOMES.map((o) => `${formatCount(data?.by_outcome_status[o.status] ?? 0)} ${o.label}`).join(', ')}.
+        </p>
+        <div className="sr-only">
+          <table>
+            <caption>Interventions by stage</caption>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.status}>
+                  <th scope="row">{row.label}</th>
+                  <td>{formatCount(row.count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </figure>
     </OverviewCard>
   );
 };
