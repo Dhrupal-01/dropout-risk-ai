@@ -11,7 +11,7 @@
       "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
       "year": 2025,
       "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
-      "verified": false
+      "verified": true
     },
     {
       "id": "oecd_bachelor_plus_one_year",
@@ -22,7 +22,7 @@
       "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
       "year": 2025,
       "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
-      "verified": false
+      "verified": true
     },
     {
       "id": "oecd_bachelor_plus_three_years",
@@ -33,7 +33,7 @@
       "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
       "year": 2025,
       "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
-      "verified": false
+      "verified": true
     },
     {
       "id": "oecd_plus_three_by_gender",
@@ -44,7 +44,7 @@
       "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
       "year": 2025,
       "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
-      "verified": false
+      "verified": true
     },
     {
       "id": "us_some_college_no_credential",
@@ -56,7 +56,7 @@
       "year": 2025,
       "url": "https://nscresearchcenter.org/some-college-no-credential/",
       "notes": "Check whether a 2026 edition has been published and update if so.",
-      "verified": false
+      "verified": true
     },
     {
       "id": "india_ger_2023_24",
@@ -68,7 +68,7 @@
       "year": 2026,
       "url": "https://ddnews.gov.in/en/higher-education-enrolment-rises-to-record-4-5-crore-in-2023-24-ger-touches-30-aishe-report/",
       "official_source_todo": "Replace with the AISHE 2023-24 report PDF from aishe.gov.in",
-      "verified": false
+      "verified": true
     },
     {
       "id": "india_enrolment_2023_24",
@@ -80,7 +80,7 @@
       "year": 2026,
       "url": "https://ddnews.gov.in/en/higher-education-enrolment-rises-to-record-4-5-crore-in-2023-24-ger-touches-30-aishe-report/",
       "official_source_todo": "Replace with the AISHE 2023-24 report PDF from aishe.gov.in",
-      "verified": false
+      "verified": true
     },
     {
       "id": "india_central_institution_exits_2019_2023",
@@ -102,7 +102,7 @@
       "year": 2023,
       "url": "https://news.careers360.com/98-student-suicide-33979-dropout-iit-iim-nit-iiser-iiit-sc-st-obc-central-university-education-ministry-lok-sabha-reply",
       "official_source_todo": "Link the official Rajya Sabha answer PDF (sansad.in / rsdoc.nic.in)",
-      "verified": false
+      "verified": true
     }
   ]
 }
