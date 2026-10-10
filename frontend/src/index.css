@@ -19,6 +19,11 @@
   --tier-low: #3D6BAA;      /* spec #3F6FB0 darkened for AA on --ink-wash */
   --tier-medium: #926019;   /* spec #B7791F darkened for AA on --paper and --ink-wash */
   --tier-high: #B4432F;
+  /* Chart fills only, where tiers sit next to each other (validated: adjacent ΔE 24.0 normal,
+     21.8 deuteranopia; all ≥3:1 on paper). Text and icons keep the --tier-* colours above. */
+  --tier-low-mark: #3D6BAA;
+  --tier-medium-mark: #B9851D;
+  --tier-high-mark: #8E2A1C;
 
   /* Roles derived from the palette */
   --ink-hover: color-mix(in srgb, var(--ink) 85%, var(--graphite));
@@ -60,6 +65,9 @@
   --tier-low: #7FA6DE;
   --tier-medium: #D9A441;
   --tier-high: #E07A62;
+  --tier-low-mark: #5D8ECE;    /* adjacent ΔE 20.0 normal, 16.4 deuteranopia */
+  --tier-medium-mark: #BD871C;
+  --tier-high-mark: #A8372E;
 
   --on-marigold: var(--paper);
   --marigold-wash: color-mix(in srgb, var(--marigold) 10%, var(--paper));

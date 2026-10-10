@@ -38,36 +38,38 @@ const AppLayout = () => (
       <SkipLink />
 
       {/* Left rail on desktop; a horizontal bar on small screens */}
-      <aside className="border-b md:border-b-0 md:border-r border-rule md:w-56 md:shrink-0 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
-        <div className="px-4 pt-4 md:pb-4 flex items-center justify-between gap-4">
-          <Link to="/app/overview" className="font-display font-medium text-24 tracking-display text-graphite">
-            DropoutGuard
-          </Link>
-          {/* Small screens: next to the brand, so the nav row never overflows */}
-          <Link to="/" className="md:hidden flex items-center gap-1.5 text-15 text-slate hover:text-graphite">
-            <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
-            Back to site
-          </Link>
-        </div>
-        <nav aria-label="App" className="px-2 pb-2 md:pb-4">
-          <ul className="flex md:flex-col gap-1">
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-              <li key={to}>
-                <NavLink to={to} className={navItemClass}>
-                  <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  {label}
-                </NavLink>
+      <aside className="border-b md:border-b-0 md:border-r border-rule md:w-56 md:shrink-0">
+        <div className="md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
+          <div className="px-4 pt-4 md:pb-4 flex items-center justify-between gap-4">
+            <Link to="/app/overview" className="font-display font-medium text-24 tracking-display text-graphite">
+              DropoutGuard
+            </Link>
+            {/* Small screens: next to the brand, so the nav row never overflows */}
+            <Link to="/" className="md:hidden flex items-center gap-1.5 text-15 text-slate hover:text-graphite">
+              <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+              Back to site
+            </Link>
+          </div>
+          <nav aria-label="App" className="px-2 pb-2 md:pb-4">
+            <ul className="flex md:flex-col gap-1">
+              {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+                <li key={to}>
+                  <NavLink to={to} className={navItemClass}>
+                    <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    {label}
+                  </NavLink>
+                </li>
+              ))}
+              <li role="separator" aria-hidden="true" className="hidden md:block border-t border-rule mx-3 my-2" />
+              <li className="hidden md:block">
+                <Link to="/" className="flex items-center gap-2 px-3 py-2 rounded-control text-15 whitespace-nowrap text-slate hover:bg-ink-wash hover:text-graphite transition-colors">
+                  <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  Back to site
+                </Link>
               </li>
-            ))}
-            <li role="separator" aria-hidden="true" className="hidden md:block border-t border-rule mx-3 my-2" />
-            <li className="hidden md:block">
-              <Link to="/" className="flex items-center gap-2 px-3 py-2 rounded-control text-15 whitespace-nowrap text-slate hover:bg-ink-wash hover:text-graphite transition-colors">
-                <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
-                Back to site
-              </Link>
-            </li>
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        </div>
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">

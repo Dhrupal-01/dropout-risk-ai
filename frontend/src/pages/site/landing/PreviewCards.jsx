@@ -6,9 +6,9 @@ import { AlertOctagon, AlertTriangle, CalendarX, CheckCircle2 } from 'lucide-rea
 // No statistic appears on these cards.
 
 const TIERS = [
-  { key: 'low', label: 'On track', icon: CheckCircle2, colorVar: '--tier-low' },
-  { key: 'medium', label: 'Monitor', icon: AlertTriangle, colorVar: '--tier-medium' },
-  { key: 'high', label: 'Needs outreach', icon: AlertOctagon, colorVar: '--tier-high' },
+  { key: 'low', label: 'On track', icon: CheckCircle2, colorVar: '--tier-low', markVar: '--tier-low-mark' },
+  { key: 'medium', label: 'Monitor', icon: AlertTriangle, colorVar: '--tier-medium', markVar: '--tier-medium-mark' },
+  { key: 'high', label: 'Needs outreach', icon: AlertOctagon, colorVar: '--tier-high', markVar: '--tier-high-mark' },
 ];
 
 // Illustrative segment sizes for the donut. Not data, and never shown as numbers.
@@ -61,7 +61,7 @@ const Donut = () => {
             r={r}
             fill="none"
             strokeWidth="12"
-            style={{ stroke: `var(${tier.colorVar})` }}
+            style={{ stroke: `var(${tier.markVar})` }}
             strokeDasharray={`${length - gap} ${circumference - length + gap}`}
             strokeDashoffset={-offsets[i]}
           />
