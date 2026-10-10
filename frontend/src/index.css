@@ -90,6 +90,78 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Motion (spec Revision 2): hero cards enter once, charts reveal once, the register animates once.
+   Everything is inside no-preference, so with prefers-reduced-motion: reduce the final state shows at once.
+   Transforms and opacity only: nothing changes layout. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-card {
+    animation: dg-rise 500ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(150ms + var(--i, 0) * 120ms);
+  }
+
+  .reveal:not([data-revealed]) {
+    opacity: 0;
+  }
+  .reveal[data-revealed] {
+    animation: dg-rise 500ms ease-out both;
+  }
+
+  /* Register (spec 4.2): week columns fill left to right, then the flagged row's band, the margin
+     note and the flag panel. --col is the week index; --weeks the number of weeks. */
+  .register:not([data-revealed]) :is(.register-mark, .register-note, .register-panel) {
+    opacity: 0;
+  }
+  .register:not([data-revealed]) .register-band {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  .register[data-revealed] .register-mark {
+    animation: dg-settle 300ms ease-out both;
+    animation-delay: calc(var(--col) * 150ms);
+  }
+  .register[data-revealed] .register-band {
+    animation: dg-band 300ms ease-out both;
+    animation-delay: calc(var(--weeks) * 150ms);
+  }
+  .register[data-revealed] .register-note {
+    animation: dg-fade 300ms ease-out both;
+    animation-delay: calc(var(--weeks) * 150ms + 300ms);
+  }
+  .register[data-revealed] .register-panel {
+    animation: dg-slide-in 250ms ease-out both;
+    animation-delay: calc(var(--weeks) * 150ms + 600ms);
+  }
+
+  /* Responds to the user pressing a toggle, so it is allowed. */
+  .unit-dot {
+    transition: fill 200ms ease, stroke 200ms ease;
+  }
+}
+
+@keyframes dg-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dg-settle {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dg-band {
+  from { background-color: transparent; box-shadow: inset 0 0 0 transparent; }
+}
+@keyframes dg-fade {
+  from { opacity: 0; }
+}
+@keyframes dg-slide-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.register-band {
+  background-color: var(--marigold-wash);
+  box-shadow: inset 4px 0 0 var(--marigold);
+}
+
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 py-2 text-15 font-medium transition-colors;

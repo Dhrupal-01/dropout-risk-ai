@@ -1,6 +1,7 @@
 import React, { lazy, useState } from 'react';
 import Citation from '../../../components/Citation';
 import LoadWhenNear from '../../../components/LoadWhenNear';
+import Reveal from '../../../components/Reveal';
 import { formatFactValue, formatNumber, getFact } from '../../../content';
 
 const IndiaExitsChart = lazy(() => import('./IndiaExitsChart'));
@@ -22,6 +23,7 @@ const UnitChart = ({ filled, label }) => (
       return (
         <circle
           key={i}
+          className="unit-dot"
           cx={(i % GRID) * 12 + 6}
           cy={Math.floor(i / GRID) * 12 + 6}
           r="4.5"
@@ -58,7 +60,9 @@ const OecdCompletion = () => {
         ))}
       </div>
       <div className="mt-6 grid gap-6 sm:grid-cols-[16rem_1fr] sm:items-center">
-        <UnitChart filled={graduated} label={sentence} />
+        <Reveal>
+          <UnitChart filled={graduated} label={sentence} />
+        </Reveal>
         <div>
           <p className="text-17 text-graphite" aria-live="polite">
             Of every {UNIT} students who start a bachelor's degree,{' '}
@@ -103,9 +107,11 @@ const IndiaExits = () => {
           {formatFactValue(exits)} {exits.label}
           <Citation factId={exits.id} />
         </figcaption>
-        <LoadWhenNear minHeight="20rem">
-          <IndiaExitsChart breakdown={exits.breakdown} label={`${formatFactValue(exits)} ${exits.label}`} />
-        </LoadWhenNear>
+        <Reveal>
+          <LoadWhenNear minHeight="20rem">
+            <IndiaExitsChart breakdown={exits.breakdown} label={`${formatFactValue(exits)} ${exits.label}`} />
+          </LoadWhenNear>
+        </Reveal>
         <p className="mt-3 text-13 text-slate max-w-measure">{exits.context}</p>
       </figure>
     </div>

@@ -111,13 +111,13 @@ const PreviewCards = () => (
       aria-label="Illustrative preview of the mentor dashboard: a student flagged for outreach with top reasons, the cohort by risk level, and an attendance alert"
       role="img"
     >
-      <div className="sm:col-start-2 sm:row-start-1 sm:row-span-2">
+      <div className="motion-card sm:col-start-2 sm:row-start-1 sm:row-span-2" style={{ '--i': 0 }}>
         <RiskCard />
       </div>
-      <div className="sm:col-start-1 sm:row-start-2 sm:row-span-2 sm:self-center">
+      <div className="motion-card sm:col-start-1 sm:row-start-2 sm:row-span-2 sm:self-center" style={{ '--i': 1 }}>
         <TierCard />
       </div>
-      <div className="sm:col-start-2 sm:row-start-3">
+      <div className="motion-card sm:col-start-2 sm:row-start-3" style={{ '--i': 2 }}>
         <AlertCard />
       </div>
     </div>

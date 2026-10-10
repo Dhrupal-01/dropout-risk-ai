@@ -16,6 +16,7 @@ import {
 import { formatNumber } from '../../../content';
 import { evidenceProvenance, findResult, findResults, formatScore } from '../../../content/evidence';
 import { BENCHMARKS_DOC_URL } from '../../../content/site';
+import Reveal from '../../../components/Reveal';
 
 // Lazy chunk: evidence.json and recharts load only when the Evidence section nears the screen.
 // Splits match the README: UCI repeated stratified CV, OULAD temporal holdout (predefined_split).
@@ -59,7 +60,7 @@ const uciRows = (featureSet) =>
 const UciPanel = ({ featureSet }) => {
   const rows = uciRows(featureSet.key);
   return (
-    <div>
+    <Reveal>
       <h4 className="text-15 font-semibold text-graphite">{featureSet.label}</h4>
       <div aria-hidden="true" className="h-52">
         <ResponsiveContainer width="100%" height="100%">
@@ -102,7 +103,7 @@ const UciPanel = ({ featureSet }) => {
           </tbody>
         </table>
       </div>
-    </div>
+    </Reveal>
   );
 };
 
@@ -114,7 +115,7 @@ const OuladChart = ({ rows }) => {
   // Ticks every 0.1 across the domain, so the axis labels are exact (auto ticks rounded to one decimal repeat).
   const yTicks = Array.from({ length: Math.round((domain[1] - domain[0]) * 10) + 1 }, (_, i) => Math.round((domain[0] + i / 10) * 10) / 10);
   return (
-    <div>
+    <Reveal>
       <div aria-hidden="true" className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 16, right: 16, bottom: 24, left: 0 }}>
@@ -165,7 +166,7 @@ const OuladChart = ({ rows }) => {
           </tbody>
         </table>
       </div>
-    </div>
+    </Reveal>
   );
 };
 
