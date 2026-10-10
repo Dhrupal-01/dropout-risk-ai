@@ -5,8 +5,14 @@ import SkipLink from '../components/SkipLink';
 import PageLoading from '../components/PageLoading';
 import { REPO_URL, isDemoMode } from '../content/site';
 
-// Public site: top nav + footer. Section anchor links (#problem, #how-it-works, #evidence,
-// #responsible-ai) are added to the nav as each landing section is built.
+const SECTION_LINKS = [
+  { href: '/#problem', label: 'The problem' },
+  { href: '/#how-it-works', label: 'How it works' },
+  { href: '/#evidence', label: 'Evidence' },
+  { href: '/#responsible-ai', label: 'Responsible AI' },
+];
+
+// Public site: top nav (section anchors, theme toggle, Open dashboard) + footer.
 const SiteLayout = () => (
   <div className="min-h-screen flex flex-col bg-paper text-graphite">
     <SkipLink />
@@ -17,10 +23,17 @@ const SiteLayout = () => (
           DropoutGuard
         </Link>
         <nav aria-label="Site" className="flex items-center gap-2 sm:gap-3">
-          {/* Plain anchors: from other pages they load the landing page at the section */}
-          <a href="/#problem" className="hidden sm:inline-block px-2 py-1 text-15 text-graphite hover:text-ink">
-            The problem
-          </a>
+          {/* Plain anchors: from other pages they load the landing page at the section.
+              Hidden below lg to keep the header on one line; the page is a single scroll. */}
+          <ul className="hidden lg:flex items-center gap-1">
+            {SECTION_LINKS.map(({ href, label }) => (
+              <li key={href}>
+                <a href={href} className="px-2 py-1 text-15 text-graphite hover:text-ink">
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
           <ThemeToggle />
           <Link to="/app/overview" className="btn btn-primary">
             Open dashboard

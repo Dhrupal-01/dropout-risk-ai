@@ -3,14 +3,27 @@ import Sources from '../../components/Sources';
 import Hero from './landing/Hero';
 import ProblemNumbers from './landing/ProblemNumbers';
 import ProblemCharts from './landing/ProblemCharts';
+import Register from './landing/Register';
+import Features from './landing/Features';
+import HowItWorks from './landing/HowItWorks';
+import Evidence from './landing/Evidence';
+import ResponsibleAI from './landing/ResponsibleAI';
+import Faq from './landing/Faq';
+import FinalCta from './landing/FinalCta';
 
-// Landing page, Revision 2 order. Built so far: a (hero), b (problem in numbers), c (problem charts)
-// and the Sources section; d–j follow in phase 4, motion in phase 5.
+// Landing page in Revision 2 order (a–k). Motion arrives in phase 5.
 const Home = () => (
   <>
     <Hero />
     <ProblemNumbers />
     <ProblemCharts />
+    <Register />
+    <Features />
+    <HowItWorks />
+    <Evidence />
+    <ResponsibleAI />
+    <Faq />
+    <FinalCta />
     <Sources />
   </>
 );

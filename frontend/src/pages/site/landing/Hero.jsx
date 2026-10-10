@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PreviewCards from './PreviewCards';
 
-// "See how it works" joins the buttons when the #how-it-works section exists (phase 4).
 const Hero = () => (
   <section className="max-w-page mx-auto px-4 sm:px-6 py-16 md:py-24 grid gap-12 lg:grid-cols-12 lg:items-center">
     <div className="lg:col-span-6">
@@ -18,6 +17,9 @@ const Hero = () => (
         <Link to="/app/overview" className="btn btn-primary">
           Open dashboard
         </Link>
+        <a href="#how-it-works" className="btn btn-secondary">
+          See how it works
+        </a>
       </div>
     </div>
     <div className="lg:col-span-6">

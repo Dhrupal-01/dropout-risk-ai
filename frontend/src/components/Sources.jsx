@@ -1,13 +1,8 @@
 import React from 'react';
 import { getSources } from '../content';
 
-// Faint ruled paper (spec section 3): a --rule line every 32px, only behind this section and the hero register.
-const ruledPaper = {
-  backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule) 31px, var(--rule) 32px)',
-};
-
 const Sources = () => (
-  <section id="sources" aria-labelledby="sources-heading" className="border-t border-rule" style={ruledPaper}>
+  <section id="sources" aria-labelledby="sources-heading" className="border-t border-rule ruled-paper">
     <div className="max-w-page mx-auto px-4 sm:px-6 py-16">
       <h2 id="sources-heading" className="font-display font-medium text-32 leading-[4rem] tracking-display text-graphite">
         Sources

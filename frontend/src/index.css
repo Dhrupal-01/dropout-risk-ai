@@ -24,6 +24,8 @@
   --ink-hover: color-mix(in srgb, var(--ink) 85%, var(--graphite));
   --on-ink: var(--paper);            /* text on --ink buttons, both themes */
   --on-marigold: var(--graphite);    /* text on the marigold highlight row */
+  /* Tinted register highlight row: margin-red A marks stay AA (4.53 light, 4.53 dark) */
+  --marigold-wash: color-mix(in srgb, var(--marigold) 20%, var(--paper));
   --control-border: var(--slate);    /* form controls need 3:1; --rule is for dividers only */
 
   /* Legacy names still used by the current app pages until their restyle */
@@ -60,6 +62,7 @@
   --tier-high: #E07A62;
 
   --on-marigold: var(--paper);
+  --marigold-wash: color-mix(in srgb, var(--marigold) 10%, var(--paper));
 }
 
 body {
@@ -76,6 +79,11 @@ body {
 *:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
+}
+
+/* Faint ruled paper: a --rule line every 32px. Only behind the register and the Sources section. */
+.ruled-paper {
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule) 31px, var(--rule) 32px);
 }
 
 .tabular-nums {
