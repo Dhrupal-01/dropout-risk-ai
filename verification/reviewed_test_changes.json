@@ -264,5 +264,19 @@
     "line": "for i in np.nonzero(np.diff(p) > 0)[0]:",
     "decision": "REPLACE",
     "reason": "exact float equality is the wrong test for float32 output; tolerance is set at float32 precision and still catches any real violation."
+  },
+  {
+    "file": "verification/test_v3_phase0b.py",
+    "sign": "-",
+    "line": "assert \"VITE_DEMO_MODE\" in app_src, \"VITE_DEMO_MODE check missing from App.jsx\"",
+    "decision": "REPLACE",
+    "reason": "banner moved to layouts in the redesign; check now targets where it lives"
+  },
+  {
+    "file": "verification/test_v3_phase0b.py",
+    "sign": "-",
+    "line": "assert \"Demo environment\" in app_src or \"demo\" in app_src.lower()",
+    "decision": "REPLACE",
+    "reason": "banner moved to layouts in the redesign; check now targets where it lives"
   }
 ]
