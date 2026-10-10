@@ -4,6 +4,7 @@ Prediction endpoints.
     POST /api/v1/predict             score one student
     POST /api/v1/predict/batch       score a JSON list in one vectorised call
     POST /api/v1/predict/batch/csv   score a multipart CSV upload
+    POST /api/v1/students/{student_id}/rescore   re-score from the student's stored inputs
 
 Risk tiers always come from `ml.models.calibrate.predict_student_risk`, which delegates
 to `ml.config.get_risk_tier`. The API never derives Low/Medium/High itself.
@@ -18,7 +19,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
-from backend.app.core.errors import FeatureContractError, UploadTooLargeError
+from backend.app.core.errors import FeatureContractError, StudentNotFoundError, UploadTooLargeError
 from backend.app.db.session import get_db
 from backend.app.schemas.prediction import (
     MAX_BATCH_SIZE,
@@ -28,12 +29,13 @@ from backend.app.schemas.prediction import (
     PredictionResponse,
 )
 from backend.app.schemas.student import StudentFeatureInput
-from backend.app.services import prediction_service
+from backend.app.services import prediction_service, student_service
 from backend.app.services.ml_service import RAW_FEATURE_COLUMNS
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predict")
+students_router = APIRouter(prefix="/students")
 
 
 @router.post(
@@ -170,6 +172,32 @@ def predict_batch_csv(
         persist_top_drivers=include_explanations,
     )
     return _build_batch_response(results, sort_by_risk_desc=sort_by_risk_desc)
+
+
+@students_router.post(
+    "/{student_id}/rescore",
+    response_model=PredictionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Re-score a student from the inputs already stored on the server",
+)
+def rescore(student_id: str, db: Session = Depends(get_db)) -> PredictionResponse:
+    """
+    Takes no body: the model input is the student's stored raw record (`students.features`), so a
+    score can never be built from values typed into the client. Same path as `/predict`: one new
+    prediction row is appended and the latest prediction and its top drivers are updated.
+    """
+    student = student_service.get_by_student_id(db, student_id)
+    if student is None:
+        raise StudentNotFoundError(student_id)
+    features = prediction_service.stored_feature_input(student)
+    if features is None:
+        raise FeatureContractError(
+            f"Student '{student_id}' has no stored input features that meet the current feature contract, "
+            "so there is nothing to re-score. Import their records (POST /api/v1/predict/batch/csv) first."
+        )
+    return prediction_service.score_and_persist(
+        db, [PredictionRequest(student_id=student_id, features=features)]
+    )[0]
 
 
 def _duplicate_ids(student_ids: List[str]) -> List[str]:

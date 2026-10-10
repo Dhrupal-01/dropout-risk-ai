@@ -17,6 +17,10 @@ class StatsSummaryResponse(BaseModel):
         default_factory=dict,
         description="Count of students by department",
     )
+    by_department_tier: Dict[str, Dict[str, int]] = Field(
+        default_factory=dict,
+        description="Count of students by department and risk tier; every department has High, Medium and Low",
+    )
 
 
 # ---------------------------------------------------------------------------------------------

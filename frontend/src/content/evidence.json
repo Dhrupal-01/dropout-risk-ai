@@ -3,6 +3,7 @@
   "options": {
     "include_oulad": true
   },
+  "ci_level_pct": 95,
   "provenance": {
     "run_id": "20261008T191504Z-81f1229-d22162",
     "git_commit": "81f1229c01096ce795a4871d9ef6852babc2366a",

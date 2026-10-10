@@ -14,7 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatNumber } from '../../../content';
-import { evidenceProvenance, findResult, findResults, formatScore } from '../../../content/evidence';
+import { ciLevelPct, evidenceProvenance, findResult, findResults, formatScore } from '../../../content/evidence';
 import { BENCHMARKS_DOC_URL } from '../../../content/site';
 import Reveal from '../../../components/Reveal';
 
@@ -37,7 +37,7 @@ const CHANCE = 0.5;
 const UCI_DOMAIN = [0.4, 1];
 
 const axisTick = { fill: 'var(--slate)', fontSize: 13 };
-const ciText = (m) => `${formatScore(m.point)} (95% CI ${formatScore(m.ci_lower)}–${formatScore(m.ci_upper)})`;
+const ciText = (m) => `${formatScore(m.point)} (${ciLevelPct}% CI ${formatScore(m.ci_lower)}–${formatScore(m.ci_upper)})`;
 
 const ScoreTooltip = ({ active, payload, labelFor }) => {
   if (!active || !payload?.length) return null;
@@ -86,11 +86,11 @@ const UciPanel = ({ featureSet }) => {
       </div>
       <div className="sr-only">
         <table>
-          <caption>ROC-AUC with 95% confidence interval, {featureSet.label.toLowerCase()}</caption>
+          <caption>ROC-AUC with {ciLevelPct}% confidence interval, {featureSet.label.toLowerCase()}</caption>
           <thead>
             <tr>
               <th scope="col">Model</th>
-              <th scope="col">ROC-AUC (95% CI)</th>
+              <th scope="col">ROC-AUC ({ciLevelPct}% CI)</th>
             </tr>
           </thead>
           <tbody>
@@ -147,12 +147,12 @@ const OuladChart = ({ rows }) => {
       </div>
       <div className="sr-only">
         <table>
-          <caption>XGBoost ROC-AUC with 95% confidence interval by day of the course, OULAD</caption>
+          <caption>XGBoost ROC-AUC with {ciLevelPct}% confidence interval by day of the course, OULAD</caption>
           <thead>
             <tr>
               <th scope="col">Day</th>
               <th scope="col">Students evaluated</th>
-              <th scope="col">ROC-AUC (95% CI)</th>
+              <th scope="col">ROC-AUC ({ciLevelPct}% CI)</th>
             </tr>
           </thead>
           <tbody>
@@ -203,7 +203,7 @@ const EvidenceContent = () => {
 
       <figure className="mt-12">
         <figcaption>
-          <h3 className="text-20 font-semibold text-graphite">UCI 697: ROC-AUC with 95% confidence intervals</h3>
+          <h3 className="text-20 font-semibold text-graphite">UCI 697: ROC-AUC with {ciLevelPct}% confidence intervals</h3>
           <p className="mt-1 text-15 text-slate max-w-measure">
             With only what is known at enrolment, the same model reaches {formatScore(atEnrolment.metrics.roc_auc.point)}.
             A majority-class baseline sits at the coin-flip line.
@@ -222,7 +222,7 @@ const EvidenceContent = () => {
           <p className="mt-1 text-15 text-slate max-w-measure">
             UK distance-learning records, trained on earlier course presentations and tested on a later year.
             XGBoost ROC-AUC is {formatScore(first.point)} at day {first.day} and {formatScore(last.point)} by day{' '}
-            {last.day}: early signals are weaker, but better than chance. The band is the 95% confidence interval.
+            {last.day}: early signals are weaker, but better than chance. The band is the {ciLevelPct}% confidence interval.
           </p>
         </figcaption>
         <div className="mt-6">

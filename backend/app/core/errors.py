@@ -41,8 +41,11 @@ class StudentNotFoundError(Exception):
 class NoPredictionError(Exception):
     """Raised when a student exists but has never been scored."""
 
-    def __init__(self, student_id: str) -> None:
+    def __init__(self, student_id: str, has_stored_features: Optional[bool] = None) -> None:
         self.student_id = student_id
+        # Set where the caller can act on it (the explanation endpoint): whether
+        # POST /students/{id}/rescore has stored inputs to score from. None leaves it out of the body.
+        self.has_stored_features = has_stored_features
         super().__init__(f"Student '{student_id}' has no prediction history")
 
 
@@ -94,6 +97,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "no_prediction_history",
                 f"{exc} — score the student via POST /api/v1/predict first.",
                 student_id=exc.student_id,
+                has_stored_features=exc.has_stored_features,
             ),
         )
 

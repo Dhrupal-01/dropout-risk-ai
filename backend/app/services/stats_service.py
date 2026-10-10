@@ -27,6 +27,25 @@ ACADEMIC_CRISIS_ALERT_CODE = "ACADEMIC_CRISIS_FLAG"
 RISK_INCREASING = "RISK_INCREASING"
 
 
+def department_tier_counts(db: Session) -> Dict[str, Dict[str, int]]:
+    """
+    Students per department and risk tier, in one GROUP BY. Same population as the summary's
+    `by_department` (a latest prediction and a non-empty department). Every department gets all three
+    tier keys; departments are sorted by name.
+    """
+    rows = db.execute(
+        select(LatestPrediction.department, LatestPrediction.risk_tier, func.count())
+        .where(LatestPrediction.department.isnot(None), LatestPrediction.department != "")
+        .group_by(LatestPrediction.department, LatestPrediction.risk_tier)
+        .order_by(LatestPrediction.department.asc())
+    ).all()
+
+    breakdown: Dict[str, Dict[str, int]] = {}
+    for department, tier, count in rows:
+        breakdown.setdefault(department, {"High": 0, "Medium": 0, "Low": 0})[tier] = count
+    return breakdown
+
+
 def risk_score_distribution(db: Session, bin_count: int) -> Dict:
     """Equal-width histogram of the latest calibrated risk probability over [0, 1]."""
     probability = LatestPrediction.calibrated_risk_probability

@@ -22,6 +22,7 @@ from backend.app.api.v1.endpoints import (
 api_router = APIRouter(dependencies=[Depends(authorize)])
 
 api_router.include_router(predict.router, tags=["predictions"])
+api_router.include_router(predict.students_router, tags=["predictions"])
 api_router.include_router(explain.router, tags=["explanations"])
 api_router.include_router(interventions.student_router, tags=["interventions"])
 api_router.include_router(interventions.router, tags=["interventions"])

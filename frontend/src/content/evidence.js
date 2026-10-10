@@ -4,6 +4,8 @@ import evidenceData from './evidence.json';
 // scripts/export_site_evidence.py and is large, so only lazily loaded chunks import this module.
 
 export const evidenceProvenance = evidenceData.provenance;
+// Confidence level (%) of every ci_lower/ci_upper, exported from the evaluation harness setting.
+export const ciLevelPct = evidenceData.ci_level_pct;
 
 // Exactly one result row must match; anything else throws in development (a typo or a stale export).
 export const findResult = (criteria) => {

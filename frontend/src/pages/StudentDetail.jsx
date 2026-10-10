@@ -10,7 +10,7 @@ import {
   getStudentInterventions,
   getStudentInterventionsHistory,
   logIntervention,
-  predictStudent,
+  rescoreStudent,
 } from '../api/endpoints';
 import { tierFor } from '../app/tiers';
 import { formatPercent } from '../app/format';
@@ -126,15 +126,10 @@ const StudentDetail = () => {
     },
   });
 
-  // "Score now" for a student who exists but was never scored (behaviour kept from the original page).
+  // "Score now" for a student who exists but was never scored. The server scores the inputs it
+  // already holds for the student; nothing typed in the browser reaches the model.
   const reScoreMutation = useMutation({
-    mutationFn: (featuresPayload) =>
-      predictStudent({
-        student_id: studentId,
-        name: identity?.name,
-        department: identity?.department,
-        features: featuresPayload,
-      }),
+    mutationFn: () => rescoreStudent(studentId),
     onSuccess: refreshAfterWrite,
   });
 
@@ -185,37 +180,31 @@ const StudentDetail = () => {
             {identity?.name || studentId} is in the database but has no risk estimate yet. Scoring runs the model
             and stores the reasons behind the estimate.
           </p>
-          <div className="mt-4 space-y-3">
-            <AdminTokenNotice />
-            {reScoreMutation.isError && (
-              <p className="text-15 text-graphite">Scoring failed. {reScoreMutation.error?.message}</p>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                // Trigger dummy initial predict payload matching features schema
-                const dummyFeatures = {
-                  commute_distance_km: 10.0, income_slab_idx: 1,
-                  is_first_generation: 0, has_scholarship: 0, fee_payment_delay_days: 0,
-                  hostel_status: "Day Scholar",
-                  att_core1: 75.0, att_core2: 75.0, att_lab: 80.0, att_elective: 80.0,
-                  attendance_month_1: 78.0, attendance_month_2: 76.0, attendance_month_3: 75.0,
-                  attendance_percentage: 76.5, consecutive_absences: 2,
-                  prev_sem_cgpa: 7.0, current_cgpa: 6.8, backlog_count: 0,
-                  internal_exam_score_pct: 65.0, stem_core_fail_flag: 0,
-                  lms_logins_per_week: 5.0, assignment_submission_lag_days: 0.5,
-                  resource_access_count: 150, days_since_last_lms_activity: 3,
-                  forum_participation_count: 2
-                };
-                reScoreMutation.mutate(dummyFeatures);
-              }}
-              disabled={reScoreMutation.isPending}
-              className="btn btn-primary disabled:opacity-60"
-            >
-              {reScoreMutation.isPending && <RefreshCw className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
-              Score now
-            </button>
-          </div>
+          {activeError.has_stored_features === false ? (
+            <p className="mt-4 text-15 text-graphite">
+              There are no stored records for this student to score from, so scoring is not available here.{' '}
+              <Link to="/app/import" className="text-ink underline underline-offset-4 hover:no-underline">
+                Import their records
+              </Link>{' '}
+              to score them.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <AdminTokenNotice />
+              {reScoreMutation.isError && (
+                <p className="text-15 text-graphite">Scoring failed. {reScoreMutation.error?.message}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => reScoreMutation.mutate()}
+                disabled={reScoreMutation.isPending}
+                className="btn btn-primary disabled:opacity-60"
+              >
+                {reScoreMutation.isPending && <RefreshCw className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
+                Score now
+              </button>
+            </div>
+          )}
         </Panel>
       </div>
     );

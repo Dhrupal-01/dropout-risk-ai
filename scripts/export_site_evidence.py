@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+from ml.evaluation.harness import CI_LEVEL_PCT
 from ml.provenance import ProvenanceError, assert_consistent_provenance, load_labelled_json
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -103,6 +104,8 @@ def build_evidence(benchmark_dir: Path = BENCHMARK_DIR, include_oulad: bool = Fa
     return {
         "_readme": README_TEXT,
         "options": {"include_oulad": include_oulad},
+        # Confidence level (%) of every ci_lower/ci_upper below, from the evaluation harness setting.
+        "ci_level_pct": CI_LEVEL_PCT,
         "provenance": {
             "run_id": first["run_id"],
             "git_commit": first["git_commit"],

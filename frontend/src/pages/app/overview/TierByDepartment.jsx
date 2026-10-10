@@ -1,7 +1,7 @@
 import React from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { getMentorQueue, getStatsSummary } from '../../../api/endpoints';
+import { getStatsSummary } from '../../../api/endpoints';
 import { TIERS } from '../../../app/tiers';
 import { formatCount } from '../../../app/format';
 import { axisTick, BAR_SIZE, gridStroke } from '../../../components/charts/chartTheme';
@@ -12,32 +12,16 @@ import OverviewCard from './OverviewCard';
 
 const ROW_HEIGHT = 48;
 
-// Counts per department and tier come from the queue's pre-pagination `total` (limit=1), one
-// request per pair, so no new endpoint is needed.
+// Counts per department and tier come from the summary's by_department_tier (one SQL GROUP BY).
 const useTierByDepartment = () => {
   const summary = useQuery({ queryKey: ['stats', 'summary'], queryFn: getStatsSummary });
-  const departments = Object.keys(summary.data?.by_department ?? {});
-  const pairs = departments.flatMap((department) => TIERS.map((tier) => ({ department, tier: tier.api })));
+  const breakdown = summary.data?.by_department_tier ?? {};
 
-  const counts = useQueries({
-    queries: pairs.map(({ department, tier }) => ({
-      queryKey: ['queue-count', department, tier],
-      queryFn: () => getMentorQueue({ department, risk_tier: tier, limit: 1 }).then((page) => page.total),
-    })),
-    combine: (results) => ({
-      status: results.some((r) => r.status === 'error') ? 'error' : results.some((r) => r.status === 'pending') ? 'pending' : 'success',
-      error: results.find((r) => r.error)?.error,
-      values: results.map((r) => r.data),
-      refetch: () => results.forEach((r) => r.refetch()),
-    }),
-  });
-
-  const status = summary.status !== 'success' ? summary.status : counts.status;
-  const rows = departments
-    .map((department) => {
+  const rows = Object.entries(breakdown)
+    .map(([department, counts]) => {
       const row = { department };
       TIERS.forEach((tier) => {
-        row[tier.api] = counts.values[pairs.findIndex((p) => p.department === department && p.tier === tier.api)] ?? 0;
+        row[tier.api] = counts[tier.api] ?? 0;
       });
       row.total = TIERS.reduce((sum, tier) => sum + row[tier.api], 0);
       return row;
@@ -45,9 +29,9 @@ const useTierByDepartment = () => {
     .sort((a, b) => b.High - a.High || a.department.localeCompare(b.department));
 
   return {
-    status,
-    error: summary.error || counts.error,
-    refetch: () => (summary.status === 'error' ? summary.refetch() : counts.refetch()),
+    status: summary.status,
+    error: summary.error,
+    refetch: () => summary.refetch(),
     rows,
   };
 };

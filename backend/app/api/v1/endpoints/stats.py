@@ -46,6 +46,7 @@ def get_stats_summary(db: Session = Depends(get_db)) -> StatsSummaryResponse:
       - total: overall active student count
       - by_tier: count broken down by High / Medium / Low risk
       - by_department: count broken down by academic department
+      - by_department_tier: count by department and risk tier (one GROUP BY)
     """
     # 1. Tier counts via SQL GROUP BY
     tier_rows = db.execute(
@@ -78,6 +79,7 @@ def get_stats_summary(db: Session = Depends(get_db)) -> StatsSummaryResponse:
         total=total,
         by_tier=by_tier,
         by_department=by_department,
+        by_department_tier=stats_service.department_tier_counts(db),
     )
 
 

@@ -40,6 +40,13 @@ def test_evidence_json_matches_fresh_export():
 
 
 @pytest.mark.artifacts
+def test_ci_level_comes_from_the_harness_setting():
+    from ml.evaluation.harness import CI_LEVEL_PCT
+
+    assert _committed_evidence()["ci_level_pct"] == CI_LEVEL_PCT
+
+
+@pytest.mark.artifacts
 def test_every_exported_value_matches_its_source_artifact():
     committed = _committed_evidence()
     names = UCI_FILES + (OULAD_FILES if committed["options"]["include_oulad"] else [])

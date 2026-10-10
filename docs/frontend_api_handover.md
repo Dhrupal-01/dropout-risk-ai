@@ -23,7 +23,8 @@
 ### Authentication (first stage)
 
 Every `/api/v1` write (`POST /api/v1/predict`, `POST /api/v1/predict/batch`,
-`POST /api/v1/predict/batch/csv`, `POST /api/v1/interventions/log`) needs the shared admin token:
+`POST /api/v1/predict/batch/csv`, `POST /api/v1/students/{student_id}/rescore`,
+`POST /api/v1/interventions/log`) needs the shared admin token:
 
 ```
 Authorization: Bearer <API_ADMIN_TOKEN>
@@ -166,10 +167,10 @@ Every error shares one envelope. **Tracebacks are never returned.**
 |---|---|---|
 | 401 | `unauthorized` | Missing or wrong admin token on a write (or on a read when `PUBLIC_READ_ONLY=false`), or no token configured on the server; sends `WWW-Authenticate: Bearer`. See §1 Authentication |
 | 404 | `student_not_found` | Unknown `student_id` |
-| 404 | `no_prediction_history` | Student exists but was never scored — call `/predict` first |
+| 404 | `no_prediction_history` | Student exists but was never scored. From `/students/{id}/explanation` it also carries `has_stored_features` (see §5.4) |
 | 409 | `invalid_lifecycle_transition` | Backward status move; includes `current_status` and `requested_status` |
 | 422 | `validation_error` | Schema/range failure; includes a `details[]` array of `{field, type, message}` |
-| 422 | `invalid_feature_payload` | Contract violation (label sent, unknown intervention id, bad CSV) |
+| 422 | `invalid_feature_payload` | Contract violation (label sent, unknown intervention id, bad CSV), or a rescore with no usable stored inputs |
 | 422 | `invalid_cursor` | `GET /api/v1/mentors/queue` received a `cursor` it cannot decode; request the first page without a cursor |
 | 503 | `model_unavailable` | ML artifacts not loaded — check `/health`; sends `Retry-After: 30` |
 | 500 | `internal_error` | Unexpected fault; includes an `incident_id` to quote to the backend team |
@@ -283,6 +284,31 @@ Duplicate `student_id`s in one batch are rejected (422). One invalid row fails t
 
 ---
 
+### 5.3a `POST /api/v1/students/{student_id}/rescore`
+
+**Purpose:** score a student again from the inputs the server already holds, for example a student
+who was imported but never scored. Use this instead of building a `/predict` body in the client:
+nothing typed in the browser reaches the model.
+
+**Body:** none.
+
+**Input:** the student's stored raw record (`students.features`: the 27 raw features plus residency,
+as last sent to `/predict` or a batch route). Keys that are no longer model inputs (e.g. `age` in
+records written before it was removed) are ignored, never scored.
+
+**Response `201`:** the same shape as `/predict` (§5.2). Like `/predict`, it appends a new prediction
+(history is never overwritten), stores its top SHAP drivers, and updates the student's latest
+prediction. `name`, `department` and `assigned_mentor_id` are left unchanged.
+
+**Errors:**
+- 401 `unauthorized`: missing or wrong admin token (this is a write).
+- 404 `student_not_found`: unknown `student_id`.
+- 422 `invalid_feature_payload`: the student has no stored inputs, or the stored record does not
+  meet the current feature contract (§3). Nothing is written. Import the student's records first.
+- 503 · 500.
+
+---
+
 ### 5.4 `GET /api/v1/students/{student_id}/explanation`
 
 **Purpose:** the top SHAP drivers behind the student's **latest** prediction.
@@ -315,6 +341,18 @@ Explanations come from the immutable snapshot that produced the stored score, so
 **Rendering:** `impact_direction` is `RISK_INCREASING` (positive `shap_value`) or `RISK_DECREASING`. Colour by direction; size bars by `|risk_delta_percentage_points|`. `plain_language_explanation` is counselor-ready — display it verbatim.
 
 **Errors:** 404 (`student_not_found`, `no_prediction_history`) · 422 (bad `top_k`) · 503 · 500.
+
+For a student who exists but was never scored, the 404 body says whether `POST /students/{id}/rescore`
+(§5.3a) has stored inputs to score from. Offer "Score now" only when it is `true`:
+
+```json
+{
+  "error": "no_prediction_history",
+  "message": "Student 'IND_2026_0042' has no prediction history — score the student via POST /api/v1/predict first.",
+  "student_id": "IND_2026_0042",
+  "has_stored_features": true
+}
+```
 
 ---
 
@@ -543,7 +581,8 @@ Either list may be empty.
 {
   "total": "<int>",
   "by_tier": { "High": "<int>", "Medium": "<int>", "Low": "<int>" },
-  "by_department": { "<department>": "<int>" }
+  "by_department": { "<department>": "<int>" },
+  "by_department_tier": { "<department>": { "High": "<int>", "Medium": "<int>", "Low": "<int>" } }
 }
 ```
 
@@ -553,6 +592,10 @@ Either list may be empty.
 - `total` is the sum of `by_tier`.
 - `by_department` leaves out students with no department, so its values can sum to less than `total`.
   Keys are sorted by department name.
+- `by_department_tier` covers the same students as `by_department`, split by risk tier, from one SQL
+  `GROUP BY`. Every department has all three tier keys, and each department's three counts sum to its
+  `by_department` value. Keys are sorted by department name. Use it for a department × tier chart
+  instead of one `/mentors/queue` request per pair.
 
 **Errors:** 500.
 
@@ -682,7 +725,7 @@ names or personal fields are returned, so they are safe for the Overview dashboa
 2. **Student detail** → `GET /students/{id}/explanation` (why) + `GET /students/{id}/interventions` (what to do).
 3. **Mentor acts** → `POST /interventions/log` with `status: "ASSIGNED"`.
 4. **Follow-up** → `POST /interventions/log` again with `IN_PROGRESS` / `APPLIED` / `COMPLETED`, adding `post_intervention_risk_probability` once re-scored to populate `outcome_status`.
-5. **Re-score** → `POST /predict` appends new history; the queue and explanation follow the latest automatically.
+5. **Re-score** → `POST /predict` with new inputs, or `POST /students/{id}/rescore` to score the stored inputs again; both append new history, and the queue and explanation follow the latest automatically.
 
 **Bulk import** → `POST /predict/batch/csv`.
 

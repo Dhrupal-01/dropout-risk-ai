@@ -130,6 +130,15 @@ export const predictStudent = (payload) => {
 };
 
 /**
+ * Re-score a student from the inputs already stored on the server (no body is sent)
+ * @param {string} studentId - Student ID
+ * @returns {Promise<Object>} Calibrated risk and tier
+ */
+export const rescoreStudent = (studentId) => {
+  return withAdminToken(() => client.post(`/api/v1/students/${encodeURIComponent(studentId)}/rescore`));
+};
+
+/**
  * Batch score students using a CSV file upload
  * @param {File} file - CSV File object containing student rows matching feature headers
  * @param {boolean} sortByRiskDesc - Whether to sort returned rows by highest risk (default true)
