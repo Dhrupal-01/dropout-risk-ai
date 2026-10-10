@@ -17,6 +17,10 @@ const SiteLayout = () => (
           DropoutGuard
         </Link>
         <nav aria-label="Site" className="flex items-center gap-2 sm:gap-3">
+          {/* Plain anchors: from other pages they load the landing page at the section */}
+          <a href="/#problem" className="hidden sm:inline-block px-2 py-1 text-15 text-graphite hover:text-ink">
+            The problem
+          </a>
           <ThemeToggle />
           <Link to="/app/overview" className="btn btn-primary">
             Open dashboard

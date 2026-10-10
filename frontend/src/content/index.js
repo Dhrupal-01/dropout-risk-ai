@@ -40,3 +40,23 @@ export const getSourceNumber = (factId) => {
   const fact = getFact(factId);
   return fact ? sourceNumberByUrl.get(fact.url) : undefined;
 };
+
+export const formatNumber = (value) => value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+// Display string for a fact's value in its own unit, e.g. "43%", "43.1 million", "4.5 crore", "33,979".
+const UNIT_FORMATS = {
+  percent: (v) => `${formatNumber(v)}%`,
+  'million people': (v) => `${formatNumber(v)} million`,
+  'crore students': (v) => `${formatNumber(v)} crore`,
+  students: (v) => formatNumber(v),
+  ratio: (v) => formatNumber(v),
+};
+
+export const formatFactValue = (fact) => {
+  const format = UNIT_FORMATS[fact.unit];
+  if (!format) {
+    if (import.meta.env.DEV) throw new Error(`No display format for unit "${fact.unit}" (fact "${fact.id}").`);
+    return formatNumber(fact.value);
+  }
+  return format(fact.value);
+};
