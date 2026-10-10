@@ -152,7 +152,7 @@ const Dashboard = () => {
           </p>
         </div>
         <Link 
-          to="/import"
+          to="/app/import"
           className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-md border border-accent text-accent hover:bg-accent/10 focus:ring-2 focus:ring-accent transition-colors"
         >
           Bulk CSV Import
@@ -289,7 +289,7 @@ const Dashboard = () => {
             </p>
             <button
               onClick={() => refetch()}
-              className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors"
+              className="px-4 py-2 bg-accent text-on-ink text-xs font-semibold rounded hover:bg-accent-hover transition-colors"
             >
               Retry Connection
             </button>
@@ -304,7 +304,7 @@ const Dashboard = () => {
             </p>
             <button
               onClick={clearFilters}
-              className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors"
+              className="px-4 py-2 bg-accent text-on-ink text-xs font-semibold rounded hover:bg-accent-hover transition-colors"
             >
               Clear Filters
             </button>
@@ -334,7 +334,7 @@ const Dashboard = () => {
                   
                   // Keyboard row navigation helper
                   const handleRowClick = () => {
-                    navigate(`/students/${student.student_id}`);
+                    navigate(`/app/students/${student.student_id}`);
                   };
 
                   return (
@@ -433,7 +433,7 @@ const Dashboard = () => {
                       {/* Clickable Action View Link */}
                       <td className="p-4 text-right">
                         <Link
-                          to={`/students/${student.student_id}`}
+                          to={`/app/students/${student.student_id}`}
                           onClick={(e) => e.stopPropagation()} // stop duplicate navigation triggers
                           className="inline-flex items-center text-xs font-bold text-accent hover:text-accent-hover transition-colors focus:ring-2 focus:ring-accent px-2.5 py-1.5 rounded hover:bg-hover border border-border"
                           title={`View explanation details for ${student.name}`}

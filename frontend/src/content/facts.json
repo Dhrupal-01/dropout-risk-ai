@@ -1,0 +1,108 @@
+{
+  "_readme": "Every statistic shown on the public site. Numbers are never typed into JSX. Set verified=true only after the owner has opened the URL and checked the value. Prefer replacing news URLs with the official report URL listed in 'official_source_todo'.",
+  "retrieved": "2026-09-29",
+  "facts": [
+    {
+      "id": "oecd_bachelor_on_time",
+      "value": 43,
+      "unit": "percent",
+      "label": "of new bachelor's students graduate within the programme's expected duration (average across 32 OECD and partner countries)",
+      "publisher": "OECD",
+      "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
+      "year": 2025,
+      "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
+      "verified": false
+    },
+    {
+      "id": "oecd_bachelor_plus_one_year",
+      "value": 59,
+      "unit": "percent",
+      "label": "have graduated one year after the expected end",
+      "publisher": "OECD",
+      "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
+      "year": 2025,
+      "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
+      "verified": false
+    },
+    {
+      "id": "oecd_bachelor_plus_three_years",
+      "value": 70,
+      "unit": "percent",
+      "label": "have graduated three years after the expected end",
+      "publisher": "OECD",
+      "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
+      "year": 2025,
+      "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
+      "verified": false
+    },
+    {
+      "id": "oecd_plus_three_by_gender",
+      "value": { "men": 63, "women": 75 },
+      "unit": "percent",
+      "label": "completion three years after the expected end, men vs women",
+      "publisher": "OECD",
+      "source": "Education at a Glance 2025, Indicator B5 (2023 data)",
+      "year": 2025,
+      "url": "https://www.oecd.org/en/publications/education-at-a-glance-2025_1c0d9c79-en.html",
+      "verified": false
+    },
+    {
+      "id": "us_some_college_no_credential",
+      "value": 43.1,
+      "unit": "million people",
+      "label": "Americans who started college, left without a credential, and are not enrolled (as of the start of the 2023-24 academic year); 37.6 million of them are under 65",
+      "publisher": "National Student Clearinghouse Research Center",
+      "source": "Some College, No Credential annual report (2025 edition)",
+      "year": 2025,
+      "url": "https://nscresearchcenter.org/some-college-no-credential/",
+      "notes": "Check whether a 2026 edition has been published and update if so.",
+      "verified": false
+    },
+    {
+      "id": "india_ger_2023_24",
+      "value": 30.0,
+      "unit": "ratio",
+      "label": "India's gross enrolment ratio in higher education, 2023-24 (enrolment of all ages as a share of the 18-23 population)",
+      "publisher": "Ministry of Education, Government of India",
+      "source": "All India Survey on Higher Education (AISHE) 2023-24, released 8 July 2026, as reported by DD News",
+      "year": 2026,
+      "url": "https://ddnews.gov.in/en/higher-education-enrolment-rises-to-record-4-5-crore-in-2023-24-ger-touches-30-aishe-report/",
+      "official_source_todo": "Replace with the AISHE 2023-24 report PDF from aishe.gov.in",
+      "verified": false
+    },
+    {
+      "id": "india_enrolment_2023_24",
+      "value": 4.50,
+      "unit": "crore students",
+      "label": "students enrolled in higher education in India, 2023-24",
+      "publisher": "Ministry of Education, Government of India",
+      "source": "All India Survey on Higher Education (AISHE) 2023-24, as reported by DD News",
+      "year": 2026,
+      "url": "https://ddnews.gov.in/en/higher-education-enrolment-rises-to-record-4-5-crore-in-2023-24-ger-touches-30-aishe-report/",
+      "official_source_todo": "Replace with the AISHE 2023-24 report PDF from aishe.gov.in",
+      "verified": false
+    },
+    {
+      "id": "india_central_institution_exits_2019_2023",
+      "value": 33979,
+      "unit": "students",
+      "label": "students who left centrally funded institutions before completing, 2019-2023",
+      "breakdown": [
+        { "institution": "Central universities", "count": 17454 },
+        { "institution": "IITs", "count": 8139 },
+        { "institution": "NITs", "count": 5623 },
+        { "institution": "IISERs", "count": 1046 },
+        { "institution": "IIMs", "count": 858 },
+        { "institution": "IIITs", "count": 803 },
+        { "institution": "Schools of Planning and Architecture", "count": 56 }
+      ],
+      "context": "The ministry said most exits were from postgraduate and PhD programmes, often for jobs or places elsewhere; undergraduate exits were attributed to wrong course choices, poor performance, and personal or medical reasons.",
+      "publisher": "Ministry of Education, Government of India",
+      "source": "Written reply in the Rajya Sabha, July 2023, as reported by Careers360",
+      "year": 2023,
+      "url": "https://news.careers360.com/98-student-suicide-33979-dropout-iit-iim-nit-iiser-iiit-sc-st-obc-central-university-education-ministry-lok-sabha-reply",
+      "official_source_todo": "Link the official Rajya Sabha answer PDF (sansad.in / rsdoc.nic.in)",
+      "verified": false
+    }
+  ]
+}

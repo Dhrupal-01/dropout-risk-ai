@@ -85,7 +85,7 @@ const ImportQueue = () => {
       {/* Back to Worklist */}
       <div>
         <Link 
-          to="/" 
+          to="/app/students" 
           className="inline-flex items-center text-xs font-semibold text-secondary hover:text-primary transition-colors focus:ring-2 focus:ring-accent"
         >
           <ArrowLeft className="w-4 h-4 mr-1.5" />
@@ -149,7 +149,7 @@ const ImportQueue = () => {
             <button
               type="submit"
               disabled={!file || uploadMutation.isLoading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-md shadow-xs transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-on-ink text-xs font-semibold rounded-md shadow-xs transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center"
             >
               {uploadMutation.isLoading && <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
               Execute Batch scoring Run
@@ -243,8 +243,8 @@ const ImportQueue = () => {
                 Score Another File
               </button>
               <button
-                onClick={() => navigate('/')}
-                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-md shadow-xs transition-colors focus:ring-2 focus:ring-accent text-center"
+                onClick={() => navigate('/app/students')}
+                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-on-ink text-xs font-semibold rounded-md shadow-xs transition-colors focus:ring-2 focus:ring-accent text-center"
               >
                 View Prioritised Queue
               </button>

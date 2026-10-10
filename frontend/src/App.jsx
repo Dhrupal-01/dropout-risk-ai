@@ -1,59 +1,53 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
-import StudentDetail from './pages/StudentDetail';
-import ImportQueue from './pages/ImportQueue';
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import SiteLayout from './layouts/SiteLayout';
+import PageLoading from './components/PageLoading';
 
-// Initialize the query client with robust default retry and caching configurations
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 60000, // 60s cache validity
-    },
-  },
-});
+// Every route is code-split; public pages never load the app layout, TanStack Query or the API client.
+const AppLayout = lazy(() => import('./layouts/AppLayout'));
+const Home = lazy(() => import('./pages/site/Home'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const Overview = lazy(() => import('./pages/app/Overview'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const StudentDetail = lazy(() => import('./pages/StudentDetail'));
+const ImportQueue = lazy(() => import('./pages/ImportQueue'));
 
-const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+// Redirects keep the query string and hash (worklist filters live in the query string).
+const RedirectTo = ({ to }) => {
+  const { search, hash } = useLocation();
+  return <Navigate replace to={{ pathname: to, search, hash }} />;
+};
+
+const LegacyStudentRedirect = () => {
+  const { studentId } = useParams();
+  return <RedirectTo to={`/app/students/${encodeURIComponent(studentId)}`} />;
+};
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div className="min-h-screen flex flex-col bg-page text-primary transition-colors">
-          {/* Demo Mode Persistent Banner */}
-          {isDemoMode && (
-            <div className="bg-amber-500/10 dark:bg-amber-500/20 border-b border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs py-1.5 px-4 text-center font-medium select-none">
-              Demo environment — all student records are simulated.
-            </div>
-          )}
+    <BrowserRouter>
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
+          <Route element={<SiteLayout />}>
+            <Route index element={<Home />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
 
-          {/* Global Header */}
-          <Header />
+          <Route path="/app" element={<AppLayout />}>
+            <Route index element={<RedirectTo to="/app/overview" />} />
+            <Route path="overview" element={<Overview />} />
+            <Route path="students" element={<Dashboard />} />
+            <Route path="students/:studentId" element={<StudentDetail />} />
+            <Route path="import" element={<ImportQueue />} />
+            <Route path="worklist" element={<RedirectTo to="/app/students" />} />
+          </Route>
 
-          {/* Main Content Area */}
-          <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/students/:studentId" element={<StudentDetail />} />
-              <Route path="/import" element={<ImportQueue />} />
-              {/* Fallback path redirects to dashboard */}
-              <Route path="*" element={<Dashboard />} />
-            </Routes>
-          </main>
-
-          {/* Global Footer (Restrained / Professional) */}
-          <footer className="py-6 border-t border-border bg-card text-center select-none text-[11px] text-muted">
-            <div className="container mx-auto px-6">
-              © {new Date().getFullYear()} DropoutGuard Systems · AI-Powered Academic Early-Warning &amp; Intervention · DropoutGuard
-            </div>
-          </footer>
-        </div>
-      </BrowserRouter>
-    </QueryClientProvider>
+          {/* URLs from before the redesign */}
+          <Route path="/students/:studentId" element={<LegacyStudentRedirect />} />
+          <Route path="/import" element={<RedirectTo to="/app/import" />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
   );
 }
 

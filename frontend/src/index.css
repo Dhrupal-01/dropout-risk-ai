@@ -2,59 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
+/* "The register" palette. Components use these through Tailwind keys, never raw hex. */
 :root {
-  --surface-page: #f7f7f5;
-  --surface-card: #ffffff;
-  --surface-subtle: #f0efec;
-  --surface-hover: #eef2f6;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #82817c;
-  --border: #e5e4e0;
-  --accent: #2a78d6;
-  --accent-hover: #1f5fac;
-  --accent-soft: #eff6ff;
+  color-scheme: light;
 
-  --shap-increase: #e34948;
-  --shap-decrease: #2a78d6;
-  --shap-neutral: #f0efec;
+  --paper: #FAFBFD;
+  --rule: #D9E2F0;
+  --ink: #1D3A8A;
+  --ink-wash: #E8EEFA;
+  --graphite: #23272F;
+  --slate: #5B6472;
+  --margin-red: #C0392B;
+  --marigold: #E3A23A;
+
+  /* Risk tiers: reserved for tiers, always with an icon and a text label */
+  --tier-low: #3D6BAA;      /* spec #3F6FB0 darkened for AA on --ink-wash */
+  --tier-medium: #926019;   /* spec #B7791F darkened for AA on --paper and --ink-wash */
+  --tier-high: #B4432F;
+
+  /* Roles derived from the palette */
+  --ink-hover: color-mix(in srgb, var(--ink) 85%, var(--graphite));
+  --on-ink: var(--paper);            /* text on --ink buttons, both themes */
+  --on-marigold: var(--graphite);    /* text on the marigold highlight row */
+  --control-border: var(--slate);    /* form controls need 3:1; --rule is for dividers only */
+
+  /* Legacy names still used by the current app pages until their restyle */
+  --surface-page: var(--paper);
+  --surface-card: var(--paper);
+  --surface-subtle: var(--ink-wash);
+  --surface-hover: var(--ink-wash);
+  --text-primary: var(--graphite);
+  --text-secondary: var(--slate);
+  --text-muted: var(--slate);
+  --border: var(--rule);
+  --accent: var(--ink);
+  --accent-hover: var(--ink-hover);
+  --accent-soft: var(--ink-wash);
+  --shap-increase: var(--tier-high);
+  --shap-decrease: var(--ink);
+  --shap-neutral: var(--ink-wash);
 }
 
 :root[data-theme="dark"] {
-  --surface-page: #1a1a19;
-  --surface-card: #232322;
-  --surface-subtle: #2c2c2a;
-  --surface-hover: #30353b;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #8f8e88;
-  --border: #38383a;
-  --accent: #3987e5;
-  --accent-hover: #5b9ded;
-  --accent-soft: #172554;
+  color-scheme: dark;
 
-  --shap-increase: #e66767;
-  --shap-decrease: #3987e5;
-  --shap-neutral: #383835;
+  --paper: #10151F;
+  --rule: #26324A;
+  --ink: #8FB0FF;
+  --ink-wash: #1A2440;
+  --graphite: #E7EBF3;
+  --slate: #A3ADBD;
+  --margin-red: #E0665A;
+  --marigold: #E8B45C;
+
+  --tier-low: #7FA6DE;
+  --tier-medium: #D9A441;
+  --tier-high: #E07A62;
+
+  --on-marigold: var(--paper);
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--surface-page);
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
+  font-family: 'Mukta', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  background-color: var(--paper);
+  color: var(--graphite);
   margin: 0;
   padding: 0;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Custom focus ring styling for accessibility */
 *:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 
-/* Tabular columns for number-dense tables */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 py-2 text-15 font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply bg-ink text-on-ink hover:bg-ink-hover;
+  }
+  .btn-secondary {
+    @apply border border-control text-ink hover:bg-ink-wash;
+  }
 }
