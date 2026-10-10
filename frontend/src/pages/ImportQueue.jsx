@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Upload, FileText, CheckCircle2, AlertOctagon, AlertTriangle, 
-  ArrowLeft, RefreshCw, BarChart2, ShieldAlert
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, FileText, RefreshCw, Upload } from 'lucide-react';
 import { uploadBatchCsv } from '../api/endpoints';
+import { TIERS } from '../app/tiers';
+import { formatCount } from '../app/format';
 import AdminTokenNotice from '../components/AdminTokenNotice';
+import TierLabel from '../components/TierLabel';
+
+const RESULT_COUNT_FIELD = { High: 'high_risk_count', Medium: 'medium_risk_count', Low: 'low_risk_count' };
 
 const ImportQueue = () => {
   const navigate = useNavigate();
@@ -15,243 +17,166 @@ const ImportQueue = () => {
 
   const [file, setFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [fileError, setFileError] = useState('');
 
-  // Batch CSV prediction upload mutation
+  // Batch CSV scoring; afterwards every cached list and count is stale.
   const uploadMutation = useMutation({
     mutationFn: (uploadFile) => uploadBatchCsv(uploadFile, true),
-    onSuccess: () => {
-      // Refresh worklist queries
-      queryClient.invalidateQueries(['queue']);
-      queryClient.invalidateQueries(['kpi-high']);
-      queryClient.invalidateQueries(['kpi-medium']);
-      queryClient.invalidateQueries(['kpi-low']);
-      queryClient.invalidateQueries(['kpi-total']);
-    },
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 
-  // Handle file select change
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const chooseFile = (candidate) => {
+    if (!candidate) return;
+    if (!candidate.name.toLowerCase().endsWith('.csv')) {
+      setFileError('Please choose a .csv file.');
+      return;
     }
+    setFileError('');
+    setFile(candidate);
   };
 
-  // Drag-and-drop events
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.name.endsWith('.csv')) {
-        setFile(droppedFile);
-      } else {
-        alert("Please upload a valid CSV file.");
-      }
-    }
-  };
-
-  const onButtonClick = () => {
-    fileInputRef.current.click();
+    chooseFile(e.dataTransfer.files?.[0]);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!file) return;
-    uploadMutation.mutate(file);
+    if (file) uploadMutation.mutate(file);
   };
 
-  const triggerReset = () => {
+  const reset = () => {
     setFile(null);
+    setFileError('');
     uploadMutation.reset();
   };
 
   const result = uploadMutation.data;
-  const isError = uploadMutation.isError;
-  const error = uploadMutation.error;
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-2xl space-y-6">
-      {/* Back to Worklist */}
+    <div className="px-4 sm:px-6 py-8 max-w-2xl space-y-6">
+      <Link to="/app/students" className="inline-flex items-center gap-1.5 text-15 text-ink hover:underline">
+        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+        All students
+      </Link>
+
       <div>
-        <Link 
-          to="/app/students" 
-          className="inline-flex items-center text-xs font-semibold text-secondary hover:text-primary transition-colors focus:ring-2 focus:ring-accent"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1.5" />
-          Back to Triage Worklist
-        </Link>
+        <h1 className="font-display font-medium text-32 tracking-display text-graphite">Import students</h1>
+        <p className="mt-2 max-w-measure text-15 text-slate">
+          Upload a CSV of the records the college already keeps. Every row is scored, and the student list and
+          overview update straight away.
+        </p>
       </div>
 
-      <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-primary">Bulk Student Prediction scoring</h1>
-          <p className="text-xs text-secondary mt-0.5">
-            Ingest and run batch predictive scoring on student cohorts by uploading a CSV data file.
-          </p>
-        </div>
-
+      <section className="rounded-panel border border-rule bg-paper p-4 sm:p-5 space-y-4">
         {!result && (
-          /* CSV UPLOAD DRAG BOX */
           <form onSubmit={handleSubmit} className="space-y-4">
             <div
               onDragEnter={handleDrag}
               onDragOver={handleDrag}
               onDragLeave={handleDrag}
               onDrop={handleDrop}
-              onClick={onButtonClick}
-              className={`border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                dragActive 
-                  ? 'border-accent bg-accent-soft/20' 
-                  : 'border-border bg-subtle/20 hover:border-accent/40'
+              className={`flex flex-col items-center justify-center gap-3 rounded-panel border-2 border-dashed p-8 text-center transition-colors ${
+                dragActive ? 'border-ink bg-ink-wash' : 'border-control'
               }`}
             >
               <input
                 ref={fileInputRef}
+                id="csv-file"
                 type="file"
                 accept=".csv"
-                onChange={handleFileChange}
-                className="hidden"
+                onChange={(e) => chooseFile(e.target.files?.[0])}
+                className="sr-only"
               />
-              
-              <Upload className="w-8 h-8 text-muted mb-3" />
-              
+              <Upload className="w-7 h-7 text-slate" aria-hidden="true" />
               {file ? (
-                <div className="flex items-center space-x-2 bg-card border border-border p-2 rounded shadow-xs select-all">
-                  <FileText className="w-4 h-4 text-accent shrink-0" />
-                  <span className="text-xs font-semibold text-primary truncate max-w-xs">{file.name}</span>
-                  <span className="text-[10px] text-muted">({(file.size / 1024).toFixed(1)} KB)</span>
-                </div>
+                <p className="flex items-center gap-2 text-15 text-graphite">
+                  <FileText className="w-4 h-4 shrink-0 text-ink" aria-hidden="true" />
+                  <span className="truncate max-w-[16rem]">{file.name}</span>
+                  <span className="text-13 tabular-nums text-slate">({(file.size / 1024).toFixed(1)} KB)</span>
+                </p>
               ) : (
-                <div className="text-center space-y-1 select-none">
-                  <p className="text-xs font-bold text-primary">Drag and drop student CSV file here</p>
-                  <p className="text-[10px] text-muted">or click to browse local files (CSV only)</p>
-                </div>
+                <p className="text-15 text-graphite">Drag a CSV file here, or</p>
               )}
+              <label htmlFor="csv-file" className="btn btn-secondary cursor-pointer">
+                {file ? 'Choose a different file' : 'Choose a file'}
+              </label>
             </div>
 
-            <div className="text-[10px] text-muted leading-relaxed select-none">
-              * The CSV file must contain a <code className="font-mono bg-subtle px-1 py-0.5 border border-border rounded text-primary">student_id</code> column and raw features matching the ML pipeline contract (e.g. attendance metrics, CGPA details, delay days). Engineered terms and labels are ignored.
-            </div>
+            {fileError && (
+              <p role="alert" className="text-15 text-graphite">
+                {fileError}
+              </p>
+            )}
+
+            <p className="text-13 text-slate">
+              The file needs a <code className="rounded-[4px] bg-ink-wash px-1 text-graphite">student_id</code> column and the
+              raw columns of the feature contract (attendance, marks, learning-platform activity, fees). Label, engineered
+              and protected columns are ignored, never scored.
+            </p>
 
             <AdminTokenNotice />
 
-            <button
-              type="submit"
-              disabled={!file || uploadMutation.isLoading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-on-ink text-xs font-semibold rounded-md shadow-xs transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center"
-            >
-              {uploadMutation.isLoading && <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-              Execute Batch scoring Run
+            <button type="submit" disabled={!file || uploadMutation.isPending} className="btn btn-primary w-full disabled:opacity-50">
+              {uploadMutation.isPending && <RefreshCw className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
+              {uploadMutation.isPending ? 'Scoring…' : 'Score students'}
             </button>
           </form>
         )}
 
-        {/* ERROR STATE */}
-        {isError && (
-          <div className="p-4 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 space-y-4">
-            <div className="flex items-start">
-              <ShieldAlert className="w-5 h-5 text-risk-high mr-3 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold text-red-800 dark:text-red-300">Scoring run failed</h4>
-                <p className="text-xs text-red-700 dark:text-red-400 mt-1 select-text">
-                  {error?.message || 'Schema parsing error. Please check feature columns and ranges.'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={triggerReset}
-              className="w-full py-2 border border-red-300 dark:border-red-900 rounded bg-card hover:bg-hover text-xs font-semibold text-secondary transition-colors"
-            >
-              Try Uploading Again
+        {uploadMutation.isError && (
+          <div role="alert" className="space-y-3 rounded-control border border-rule p-4">
+            <p className="flex items-start gap-2 text-15 text-graphite">
+              <AlertCircle className="mt-0.5 w-4 h-4 shrink-0 text-slate" aria-hidden="true" />
+              <span>
+                <span className="font-semibold">The file could not be scored.</span>{' '}
+                {uploadMutation.error?.message || 'Check the column names and value ranges.'}
+              </span>
+            </p>
+            <button type="button" onClick={reset} className="btn btn-secondary">
+              Try another file
             </button>
           </div>
         )}
 
-        {/* SUCCESS SUMMARY RESULTS */}
         {result && (
-          <div className="space-y-6 pt-2">
-            <div className="flex items-center justify-center space-x-2 text-risk-low bg-green-50 dark:bg-green-950/10 border border-green-200 dark:border-green-900/30 p-3 rounded-lg select-none">
-              <CheckCircle2 className="w-5 h-5 text-risk-low shrink-0" />
-              <span className="text-xs font-semibold">Cohort Scored Successfully!</span>
-            </div>
+          <div className="space-y-5">
+            <p className="flex items-center gap-2 text-17 font-semibold text-graphite">
+              <CheckCircle2 className="w-5 h-5 text-ink" aria-hidden="true" />
+              {formatCount(result.total_students_evaluated ?? result.results?.length ?? 0)} students scored
+            </p>
 
-            {/* Metric results counts */}
-            <div className="grid grid-cols-2 gap-4 border border-border p-4 rounded-lg bg-subtle/20">
-              <div className="text-center">
-                <span className="text-[10px] text-secondary uppercase font-semibold">Total Evaluated</span>
-                <div className="text-2xl font-black text-primary font-mono mt-1">
-                  {result.total_students_evaluated || result.results?.length || 0}
-                </div>
-              </div>
-              <div className="text-center">
-                <span className="text-[10px] text-secondary uppercase font-semibold">Model Version</span>
-                <div className="text-xs font-mono text-secondary mt-2.5 truncate max-w-[180px] mx-auto bg-card border border-border p-1 rounded">
-                  {result.model_version}
-                </div>
-              </div>
-            </div>
+            <ul className="divide-y divide-rule rounded-control border border-rule">
+              {TIERS.map((tier) => (
+                <li key={tier.api} className="flex items-center justify-between px-4 py-2.5 text-15">
+                  <TierLabel tier={tier.api} />
+                  <span className="tabular-nums text-graphite">{formatCount(result[RESULT_COUNT_FIELD[tier.api]] ?? 0)}</span>
+                </li>
+              ))}
+            </ul>
 
-            {/* Distribution metrics */}
-            <div className="space-y-3">
-              <span className="text-xs font-semibold text-secondary flex items-center gap-1.5 select-none">
-                <BarChart2 className="w-4 h-4 text-accent" />
-                Risk Tier Distribution
-              </span>
-              
-              <div className="space-y-2">
-                {/* High Risk */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center font-medium text-secondary">
-                    <AlertOctagon className="w-3.5 h-3.5 mr-1.5 text-risk-high" /> High Risk
-                  </span>
-                  <span className="font-bold text-primary font-mono">{result.high_risk_count ?? 0}</span>
-                </div>
-                {/* Medium Risk */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center font-medium text-secondary">
-                    <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-risk-medium" /> Medium Risk
-                  </span>
-                  <span className="font-bold text-primary font-mono">{result.medium_risk_count ?? 0}</span>
-                </div>
-                {/* Low Risk */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center font-medium text-secondary">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-risk-low" /> Low Risk
-                  </span>
-                  <span className="font-bold text-primary font-mono">{result.low_risk_count ?? 0}</span>
-                </div>
-              </div>
-            </div>
+            {result.model_version && <p className="text-13 text-slate">Model {result.model_version}</p>}
 
-            {/* CTA action buttons */}
-            <div className="flex items-center space-x-3 pt-2">
-              <button
-                onClick={triggerReset}
-                className="flex-1 py-2.5 border border-border rounded-md hover:bg-hover text-xs font-semibold text-secondary hover:text-primary transition-colors focus:ring-2 focus:ring-accent"
-              >
-                Score Another File
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={reset} className="btn btn-secondary flex-1">
+                Import another file
               </button>
-              <button
-                onClick={() => navigate('/app/students')}
-                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-on-ink text-xs font-semibold rounded-md shadow-xs transition-colors focus:ring-2 focus:ring-accent text-center"
-              >
-                View Prioritised Queue
+              <button type="button" onClick={() => navigate('/app/students')} className="btn btn-primary flex-1">
+                Open the student list
               </button>
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 };

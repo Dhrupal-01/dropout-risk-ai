@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Search, FilterX, Users, AlertOctagon, AlertTriangle, CheckCircle, 
-  ChevronLeft, ChevronRight, Eye, AlertCircle
-} from 'lucide-react';
-import { getMentorQueue, getMentorFilters, getStatsSummary } from '../api/endpoints';
+import { AlertCircle, CalendarX, ChevronLeft, ChevronRight, FilterX, Search, Upload, Users } from 'lucide-react';
+import { getMentorQueue, getMentorFilters, getStatsAlerts, getStatsSummary } from '../api/endpoints';
+import { TIERS } from '../app/tiers';
+import { formatCount, formatPercent } from '../app/format';
 import RiskTierChip from '../components/RiskTierChip';
+
+// Student worklist: every scored student, ordered by who to contact first. Filters live in the URL.
+
+const PAGE_SIZE = 25;
+const STATUS_LABELS = { ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', APPLIED: 'Applied', COMPLETED: 'Completed' };
 
 // Helper hook to debounce input search queries
 function useDebounce(value, delay) {
@@ -22,6 +26,18 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
+const controlClass =
+  'w-full rounded-control border border-control bg-paper px-3 py-2 text-15 text-graphite disabled:opacity-50';
+
+const FilterSelect = ({ label, value, onChange, disabled, children }) => (
+  <label className="flex min-w-0 flex-col gap-1 text-13 text-slate">
+    {label}
+    <select value={value} onChange={onChange} disabled={disabled} className={controlClass}>
+      {children}
+    </select>
+  </label>
+);
+
 const Dashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -35,7 +51,7 @@ const Dashboard = () => {
   const department = searchParams.get('department') || '';
   const riskTier = searchParams.get('risk_tier') || '';
   const assignedMentorId = searchParams.get('assigned_mentor_id') || '';
-  const limit = parseInt(searchParams.get('limit') || '25', 10);
+  const limit = parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10);
   const offset = parseInt(searchParams.get('offset') || '0', 10);
 
   // Synchronise debounced search back to searchParams, resetting offset to 0
@@ -72,11 +88,11 @@ const Dashboard = () => {
   // Reset all filters in URL
   const clearFilters = () => {
     setSearchInput('');
-    setSearchParams({ limit: '25', offset: '0' });
+    setSearchParams({ limit: String(PAGE_SIZE), offset: '0' });
   };
 
   // Main worklist query
-  const { data: queueData, isLoading, isError, error, refetch } = useQuery({
+  const { data: queueData, isPending, isError, error, refetch } = useQuery({
     queryKey: ['queue', { department, riskTier, assignedMentorId, limit, offset, debouncedSearch }],
     queryFn: () => getMentorQueue({
       department,
@@ -86,17 +102,18 @@ const Dashboard = () => {
       limit,
       offset,
     }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
-  // Single SQL GROUP BY query for cohort stats summary
-  const { data: statsData } = useQuery({
-    queryKey: ['stats-summary'],
-    queryFn: getStatsSummary,
-  });
+  // Cohort counts (shared cache with the Overview page)
+  const { data: statsData } = useQuery({ queryKey: ['stats', 'summary'], queryFn: getStatsSummary });
+
+  // Attendance threshold for the rule-based alert, from server configuration
+  const { data: alertsData } = useQuery({ queryKey: ['stats', 'alerts'], queryFn: getStatsAlerts });
+  const attendanceThreshold = alertsData?.attendance_threshold;
 
   // Dynamic departments and mentors list from backend filters endpoint
-  const { data: filtersData, isLoading: isFiltersLoading } = useQuery({
+  const { data: filtersData, isPending: isFiltersLoading } = useQuery({
     queryKey: ['mentor-filters'],
     queryFn: getMentorFilters,
   });
@@ -108,339 +125,228 @@ const Dashboard = () => {
   const currentPage = Math.floor(offset / limit) + 1;
   const totalPages = Math.ceil(totalItems / limit) || 1;
 
-  const handlePrevPage = () => {
-    if (offset > 0) {
-      const params = new URLSearchParams(searchParams);
-      params.set('offset', String(Math.max(0, offset - limit)));
-      setSearchParams(params);
-    }
+  const goToOffset = (nextOffset) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('offset', String(nextOffset));
+    setSearchParams(params);
   };
+  const handlePrevPage = () => offset > 0 && goToOffset(Math.max(0, offset - limit));
+  const handleNextPage = () => offset + limit < totalItems && goToOffset(offset + limit);
 
-  const handleNextPage = () => {
-    if (offset + limit < totalItems) {
-      const params = new URLSearchParams(searchParams);
-      params.set('offset', String(offset + limit));
-      setSearchParams(params);
-    }
-  };
-
-  // Render KPI Card
-  const renderKpiCard = (title, count, icon, colorClass, borderStyle) => {
-    return (
-      <div className={`bg-card p-5 rounded-lg border ${borderStyle} shadow-sm flex items-center justify-between`}>
-        <div>
-          <span className="text-xs uppercase tracking-wider text-secondary font-semibold">{title}</span>
-          <h2 className="text-3xl font-bold text-primary mt-1 select-all font-mono">
-            {count !== undefined ? count.toLocaleString() : '...'}
-          </h2>
-        </div>
-        <div className={`p-3 rounded-full ${colorClass}`}>
-          {icon}
-        </div>
-      </div>
-    );
-  };
+  const hasFilters = Boolean(department || riskTier || assignedMentorId || searchInput);
+  const isBelowThreshold = (attendance) =>
+    attendance != null && attendanceThreshold != null && attendance < attendanceThreshold;
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-7xl space-y-8">
-      {/* Triage Welcome Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="px-4 sm:px-6 py-8 max-w-[1400px] space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Student Triage Worklist</h1>
-          <p className="text-sm text-secondary mt-1">
-            Prioritized outreach list generated from calibrated model risk estimates.
+          <h1 className="font-display font-medium text-32 tracking-display text-graphite">Students</h1>
+          <p className="mt-2 max-w-measure text-15 text-slate">
+            Everyone with a current risk estimate, ordered by whom to contact first.
           </p>
         </div>
-        <Link 
-          to="/app/import"
-          className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-md border border-accent text-accent hover:bg-accent/10 focus:ring-2 focus:ring-accent transition-colors"
-        >
-          Bulk CSV Import
+        <Link to="/app/import" className="btn btn-secondary">
+          <Upload className="w-4 h-4" aria-hidden="true" />
+          Import CSV
         </Link>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {renderKpiCard(
-          'High Risk outreach', 
-          statsData?.by_tier?.High, 
-          <AlertOctagon className="w-5 h-5 text-risk-high" />, 
-          'bg-red-50 dark:bg-red-950/20', 
-          'border-red-200 dark:border-red-900/40'
-        )}
-        {renderKpiCard(
-          'Medium Risk watchlist', 
-          statsData?.by_tier?.Medium, 
-          <AlertTriangle className="w-5 h-5 text-risk-medium" />, 
-          'bg-amber-50 dark:bg-amber-950/20', 
-          'border-amber-200 dark:border-amber-900/40'
-        )}
-        {renderKpiCard(
-          'Low Risk monitor', 
-          statsData?.by_tier?.Low, 
-          <CheckCircle className="w-5 h-5 text-risk-low" />, 
-          'bg-green-50 dark:bg-green-950/20', 
-          'border-green-200 dark:border-green-900/40'
-        )}
-        {renderKpiCard(
-          'Total Students scored', 
-          statsData?.total, 
-          <Users className="w-5 h-5 text-accent" />, 
-          'bg-blue-50 dark:bg-blue-950/20', 
-          'border-blue-200 dark:border-blue-900/40'
-        )}
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-card p-4 rounded-lg border border-border shadow-sm space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Department Filter */}
-            <select
-              value={department}
-              onChange={(e) => handleFilterChange('department', e.target.value)}
-              disabled={isFiltersLoading}
-              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors disabled:opacity-50"
-              aria-label="Filter by department"
-            >
-              <option value="">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-
-            {/* Risk Tier Filter */}
-            <select
-              value={riskTier}
-              onChange={(e) => handleFilterChange('risk_tier', e.target.value)}
-              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
-              aria-label="Filter by risk tier"
-            >
-              <option value="">All Risk Levels</option>
-              <option value="High">High Risk</option>
-              <option value="Medium">Medium Risk</option>
-              <option value="Low">Low Risk</option>
-            </select>
-
-            {/* Assigned Mentor Filter */}
-            <select
-              value={assignedMentorId}
-              onChange={(e) => handleFilterChange('assigned_mentor_id', e.target.value)}
-              disabled={isFiltersLoading}
-              className="text-xs border border-border rounded-md px-3 py-2 bg-card text-primary font-medium hover:border-accent focus:ring-2 focus:ring-accent transition-colors disabled:opacity-50"
-              aria-label="Filter by assigned mentor"
-            >
-              <option value="">All Mentors</option>
-              {mentorIds.map(mId => (
-                <option key={mId} value={mId}>{mId}</option>
-              ))}
-            </select>
-
-            {/* Clear Filters action */}
-            {(department || riskTier || assignedMentorId || searchInput) && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center text-xs font-semibold text-accent hover:text-accent-hover transition-colors px-2 py-1.5 rounded hover:bg-hover"
-                title="Clear all active worklist filters"
-              >
-                <FilterX className="w-3.5 h-3.5 mr-1" />
-                Clear Filters
-              </button>
-            )}
+      {/* Cohort counts */}
+      <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[...TIERS.map((t) => ({ key: t.api, tier: t.api, value: statsData?.by_tier?.[t.api] })),
+          { key: 'total', value: statsData?.total }].map(({ key, tier, value }) => (
+          <div key={key} className="min-w-0 rounded-panel border border-rule bg-paper p-4">
+            <dt className="text-15 text-slate">
+              {tier ? (
+                <RiskTierChip tier={tier} className="border-0 px-0 py-0" />
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="w-4 h-4" aria-hidden="true" />
+                  All scored students
+                </span>
+              )}
+            </dt>
+            <dd className="mt-1 text-32 font-semibold leading-tight text-graphite">
+              {value === undefined ? '…' : formatCount(value)}
+            </dd>
           </div>
+        ))}
+      </dl>
 
-          {/* Search bar */}
-          <div className="relative w-full sm:w-64 select-none">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted" />
-            <input
-              type="text"
-              placeholder="Search student ID or Name..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="text-xs border border-border rounded-md pl-9 pr-4 py-2 w-full bg-card text-primary hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
-              aria-label="Search student database"
-            />
-          </div>
+      {/* Filters and search */}
+      <div className="rounded-panel border border-rule bg-paper p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,12rem))_minmax(0,1fr)] lg:items-end">
+          <FilterSelect
+            label="Department"
+            value={department}
+            onChange={(e) => handleFilterChange('department', e.target.value)}
+            disabled={isFiltersLoading}
+          >
+            <option value="">All departments</option>
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect label="Risk level" value={riskTier} onChange={(e) => handleFilterChange('risk_tier', e.target.value)}>
+            <option value="">All risk levels</option>
+            {TIERS.map((t) => (
+              <option key={t.api} value={t.api}>{t.label}</option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Mentor"
+            value={assignedMentorId}
+            onChange={(e) => handleFilterChange('assigned_mentor_id', e.target.value)}
+            disabled={isFiltersLoading}
+          >
+            <option value="">All mentors</option>
+            {mentorIds.map((mId) => (
+              <option key={mId} value={mId}>{mId}</option>
+            ))}
+          </FilterSelect>
+
+          <label className="flex min-w-0 flex-col gap-1 text-13 text-slate sm:col-span-2 lg:col-span-1">
+            Search
+            <span className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Student ID or name"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className={`${controlClass} pl-9`}
+              />
+            </span>
+          </label>
         </div>
+        {hasFilters && (
+          <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 text-15 text-ink hover:underline">
+            <FilterX className="w-4 h-4" aria-hidden="true" />
+            Clear filters
+          </button>
+        )}
       </div>
 
-      {/* Main Mentor Triage Table */}
-      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-        {isLoading ? (
-          /* Table Skeletons for Loading State */
-          <div className="p-6 space-y-4 animate-pulse select-none">
-            <div className="h-6 bg-subtle rounded w-full" />
+      {/* Worklist table */}
+      <div className="rounded-panel border border-rule bg-paper">
+        {isPending ? (
+          <div role="status" aria-label="Loading students" className="space-y-3 p-4">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex space-x-3 items-center">
-                <div className="h-4 bg-subtle rounded flex-1" />
-                <div className="h-4 bg-subtle rounded w-16" />
-                <div className="h-4 bg-subtle rounded w-24" />
-                <div className="h-4 bg-subtle rounded w-12" />
-              </div>
+              <div key={i} className="h-9 rounded-control bg-ink-wash motion-safe:animate-pulse" />
             ))}
           </div>
         ) : isError ? (
-          /* Error State */
-          <div className="p-8 text-center space-y-4">
-            <AlertCircle className="w-8 h-8 text-risk-high mx-auto animate-bounce" />
-            <h3 className="text-md font-semibold text-primary">Failed to load worklist</h3>
-            <p className="text-xs text-secondary max-w-md mx-auto">
-              {error?.message || 'A server connection issue occurred. Please check network settings.'}
+          <div className="space-y-3 p-6">
+            <p className="flex items-start gap-2 text-15 text-graphite">
+              <AlertCircle className="mt-0.5 w-4 h-4 shrink-0 text-slate" aria-hidden="true" />
+              Couldn't load the student list. {error?.message || 'Check the backend status in the top bar.'}
             </p>
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 bg-accent text-on-ink text-xs font-semibold rounded hover:bg-accent-hover transition-colors"
-            >
-              Retry Connection
+            <button type="button" onClick={() => refetch()} className="btn btn-secondary">
+              Try again
             </button>
           </div>
         ) : !queueData || queueData.items.length === 0 ? (
-          /* Empty State */
-          <div className="p-12 text-center space-y-3">
-            <Users className="w-8 h-8 text-muted mx-auto" />
-            <h3 className="text-md font-semibold text-primary">No students match these filters</h3>
-            <p className="text-xs text-secondary max-w-sm mx-auto">
-              Try adjusting your department, risk level, search parameters or clear the filters.
+          <div className="space-y-3 p-6">
+            <p className="text-15 text-graphite">
+              {hasFilters ? 'No students match these filters.' : 'No students have been scored yet.'}
             </p>
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 bg-accent text-on-ink text-xs font-semibold rounded hover:bg-accent-hover transition-colors"
-            >
-              Clear Filters
-            </button>
+            {hasFilters ? (
+              <button type="button" onClick={clearFilters} className="btn btn-secondary">
+                Clear filters
+              </button>
+            ) : (
+              <Link to="/app/import" className="btn btn-primary">
+                Import a CSV
+              </Link>
+            )}
           </div>
         ) : (
-          /* Data Success State */
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs text-primary">
+          <div className="relative overflow-x-auto">
+            <table className="w-full border-collapse text-left text-15 tabular-nums">
               <thead>
-                <tr className="bg-subtle text-secondary font-semibold border-b border-border select-none">
-                  <th className="p-4 w-12">Priority</th>
-                  <th className="p-4">Student</th>
-                  <th className="p-4">Department</th>
-                  <th className="p-4">Risk Probability</th>
-                  <th className="p-4">Tier</th>
-                  <th className="p-4 text-center">Att %</th>
-                  <th className="p-4 text-center">CGPA</th>
-                  <th className="p-4 text-center">Backlogs</th>
-                  <th className="p-4 text-center">Fee Delay</th>
-                  <th className="p-4">Active Intervention</th>
-                  <th className="p-4 text-right">Action</th>
+                <tr className="border-b border-rule text-13 text-slate">
+                  <th scope="col" className="px-4 py-3 font-medium">#</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Student</th>
+                  <th scope="col" className="hidden md:table-cell px-4 py-3 font-medium">Department</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Estimated risk</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Risk level</th>
+                  <th scope="col" className="hidden sm:table-cell px-4 py-3 text-right font-medium">Attendance</th>
+                  <th scope="col" className="hidden lg:table-cell px-4 py-3 text-right font-medium">CGPA</th>
+                  <th scope="col" className="hidden lg:table-cell px-4 py-3 text-right font-medium">Backlogs</th>
+                  <th scope="col" className="hidden lg:table-cell px-4 py-3 text-right font-medium">Fee delay</th>
+                  <th scope="col" className="hidden xl:table-cell px-4 py-3 font-medium">Intervention</th>
+                  <th scope="col" className="px-4 py-3"><span className="sr-only">Open</span></th>
                 </tr>
               </thead>
               <tbody>
                 {queueData.items.map((student) => {
-                  const hasHistory = student.intervention_status !== null;
-                  
-                  // Keyboard row navigation helper
-                  const handleRowClick = () => {
-                    navigate(`/app/students/${student.student_id}`);
-                  };
-
+                  const openStudent = () => navigate(`/app/students/${encodeURIComponent(student.student_id)}`);
+                  const lowAttendance = isBelowThreshold(student.attendance);
                   return (
-                    <tr 
+                    <tr
                       key={student.student_id}
-                      onClick={handleRowClick}
-                      className="border-b border-border last:border-0 hover:bg-hover/40 cursor-pointer transition-colors group"
-                      tabIndex={0}
+                      onClick={openStudent}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRowClick();
+                        if (e.key === 'Enter') openStudent();
                       }}
+                      tabIndex={0}
+                      className="cursor-pointer border-b border-rule last:border-0 hover:bg-ink-wash focus-visible:bg-ink-wash"
                     >
-                      {/* Priority Rank column */}
-                      <td className="p-4 font-mono font-semibold text-secondary tabular-nums">
-                        #{student.priority_rank}
+                      <td className="px-4 py-3 text-slate">{student.priority_rank}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-graphite">{student.name || student.student_id}</div>
+                        {student.name && <div className="text-13 text-slate">{student.student_id}</div>}
                       </td>
-
-                      {/* Name / ID column */}
-                      <td className="p-4 font-semibold text-primary">
-                        <div className="flex flex-col">
-                          <span>{student.name || 'Anonymous Student'}</span>
-                          <span className="text-[10px] text-muted font-mono mt-0.5">{student.student_id}</span>
-                        </div>
+                      <td className="hidden md:table-cell px-4 py-3 text-graphite">{student.department || '—'}</td>
+                      <td className="px-4 py-3 text-right text-graphite">{formatPercent(student.risk_score_percentage)}</td>
+                      <td className="px-4 py-3">
+                        <RiskTierChip tier={student.risk_tier} className="border-0 px-0 py-0" />
                       </td>
-
-                      {/* Department column */}
-                      <td className="p-4 text-secondary">{student.department || '-'}</td>
-
-                      {/* Risk Probability bar column */}
-                      <td className="p-4 tabular-nums">
-                        <div className="flex items-center space-x-2.5">
-                          <span className="font-bold text-primary">
-                            {student.risk_score_percentage.toFixed(1)}%
-                          </span>
-                          <div className="w-16 h-1.5 bg-subtle rounded-full overflow-hidden hidden sm:block border border-border/20">
-                            <div 
-                              className={`h-full ${
-                                student.risk_tier === 'High' ? 'bg-risk-high' :
-                                student.risk_tier === 'Medium' ? 'bg-risk-medium' : 'bg-risk-low'
-                              }`}
-                              style={{ width: `${student.risk_score_percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Tier Chip column */}
-                      <td className="p-4">
-                        <RiskTierChip tier={student.risk_tier} />
-                      </td>
-
-                      {/* Attendance column */}
-                      <td className={`p-4 text-center font-semibold tabular-nums ${
-                        student.attendance !== null && student.attendance < 75 
-                          ? 'text-risk-high' 
-                          : 'text-secondary'
-                      }`}>
-                        {student.attendance !== null ? `${student.attendance.toFixed(1)}%` : '-'}
-                      </td>
-
-                      {/* CGPA column */}
-                      <td className="p-4 text-center text-secondary tabular-nums">
-                        {student.cgpa !== null ? student.cgpa.toFixed(2) : '-'}
-                      </td>
-
-                      {/* Backlog column */}
-                      <td className={`p-4 text-center font-semibold tabular-nums ${
-                        student.backlogs > 0 ? 'text-risk-medium' : 'text-secondary'
-                      }`}>
-                        {student.backlogs !== null ? student.backlogs : '-'}
-                      </td>
-
-                      {/* Fee Delay column */}
-                      <td className={`p-4 text-center font-semibold tabular-nums ${
-                        student.fee_delay_days > 30 ? 'text-risk-high' : 'text-secondary'
-                      }`}>
-                        {student.fee_delay_days !== null ? `${student.fee_delay_days}d` : '-'}
-                      </td>
-
-                      {/* Intervention status column */}
-                      <td className="p-4">
-                        {hasHistory ? (
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-secondary text-[11px] truncate max-w-[120px]">
-                              {student.primary_intervention}
-                            </span>
-                            <span className="text-[10px] text-accent font-semibold mt-0.5">
-                              {student.intervention_status}
-                            </span>
-                          </div>
+                      <td className="hidden sm:table-cell px-4 py-3 text-right">
+                        {student.attendance == null ? (
+                          '—'
                         ) : (
-                          <span className="text-muted font-normal text-[11px] italic">None Logged</span>
+                          <span
+                            className={`inline-flex items-center gap-1 ${lowAttendance ? 'font-semibold text-graphite' : 'text-graphite'}`}
+                            title={lowAttendance ? `Below the ${attendanceThreshold}% attendance requirement` : undefined}
+                          >
+                            {lowAttendance && <CalendarX className="w-3.5 h-3.5 text-slate" aria-hidden="true" />}
+                            {formatPercent(student.attendance)}
+                            {lowAttendance && <span className="sr-only"> (below the requirement)</span>}
+                          </span>
                         )}
                       </td>
-
-                      {/* Clickable Action View Link */}
-                      <td className="p-4 text-right">
+                      <td className="hidden lg:table-cell px-4 py-3 text-right text-graphite">
+                        {student.cgpa == null ? '—' : student.cgpa.toFixed(2)}
+                      </td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-right text-graphite">
+                        {student.backlogs == null ? '—' : student.backlogs}
+                      </td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-right text-graphite">
+                        {student.fee_delay_days == null ? '—' : `${student.fee_delay_days} days`}
+                      </td>
+                      <td className="hidden xl:table-cell px-4 py-3">
+                        {student.intervention_status ? (
+                          <>
+                            <div className="text-graphite">{student.primary_intervention}</div>
+                            <div className="text-13 text-slate">{STATUS_LABELS[student.intervention_status] || student.intervention_status}</div>
+                          </>
+                        ) : (
+                          <span className="whitespace-nowrap text-slate">None logged</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
                         <Link
-                          to={`/app/students/${student.student_id}`}
-                          onClick={(e) => e.stopPropagation()} // stop duplicate navigation triggers
-                          className="inline-flex items-center text-xs font-bold text-accent hover:text-accent-hover transition-colors focus:ring-2 focus:ring-accent px-2.5 py-1.5 rounded hover:bg-hover border border-border"
-                          title={`View explanation details for ${student.name}`}
-                          tabIndex={-1} // handled by row navigation
+                          to={`/app/students/${encodeURIComponent(student.student_id)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          tabIndex={-1}
+                          className="text-ink underline-offset-4 hover:underline"
+                          aria-label={`Open ${student.name || student.student_id}`}
                         >
-                          <Eye className="w-3.5 h-3.5 mr-1" />
-                          View
+                          Open
                         </Link>
                       </td>
                     </tr>
@@ -452,50 +358,31 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Pagination Controls */}
-      {!isLoading && !isError && totalItems > 0 && (
-        <div className="flex items-center justify-between bg-card px-4 py-3.5 border border-border rounded-lg shadow-sm text-xs font-semibold text-secondary select-none">
-          <div>
-            Showing <span className="text-primary tabular-nums">{offset + 1}</span>–
-            <span className="text-primary tabular-nums">
-              {Math.min(offset + limit, totalItems)}
-            </span> of <span className="text-primary tabular-nums">{totalItems}</span> students
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handlePrevPage}
-              disabled={offset === 0}
-              className="flex items-center px-3 py-1.5 border border-border rounded-md hover:bg-hover text-secondary hover:text-primary transition-colors disabled:opacity-50 disabled:pointer-events-none focus:ring-2 focus:ring-accent"
-              aria-label="Previous Page"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
+      {/* Pagination */}
+      {!isPending && !isError && totalItems > 0 && (
+        <nav aria-label="Pages" className="flex flex-wrap items-center justify-between gap-3 text-15 text-slate">
+          <p>
+            Showing <span className="tabular-nums text-graphite">{formatCount(offset + 1)}</span>–
+            <span className="tabular-nums text-graphite">{formatCount(Math.min(offset + limit, totalItems))}</span> of{' '}
+            <span className="tabular-nums text-graphite">{formatCount(totalItems)}</span> students
+          </p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={handlePrevPage} disabled={offset === 0} className="btn btn-secondary disabled:opacity-50" aria-label="Previous page">
+              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
               Previous
             </button>
-            
-            <div className="px-3 py-1 border border-border bg-subtle rounded-md text-primary font-bold">
+            <span className="px-2 tabular-nums text-graphite">
               Page {currentPage} of {totalPages}
-            </div>
-
-            <button
-              onClick={handleNextPage}
-              disabled={offset + limit >= totalItems}
-              className="flex items-center px-3 py-1.5 border border-border rounded-md hover:bg-hover text-secondary hover:text-primary transition-colors disabled:opacity-50 disabled:pointer-events-none focus:ring-2 focus:ring-accent"
-              aria-label="Next Page"
-            >
+            </span>
+            <button type="button" onClick={handleNextPage} disabled={offset + limit >= totalItems} className="btn btn-secondary disabled:opacity-50" aria-label="Next page">
               Next
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
-        </div>
+        </nav>
       )}
 
-      {/* Queue Triage Simulation Disclaimer */}
-      {queueData?.disclaimer && (
-        <div className="text-[10px] text-muted bg-card border border-border rounded p-3 text-center italic leading-relaxed">
-          {queueData.disclaimer}
-        </div>
-      )}
+      {queueData?.disclaimer && <p className="max-w-measure text-13 text-slate">{queueData.disclaimer}</p>}
     </div>
   );
 };

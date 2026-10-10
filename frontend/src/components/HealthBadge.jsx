@@ -1,9 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCw, WifiOff } from 'lucide-react';
 import { checkHealth } from '../api/endpoints';
 
-// Backend health indicator for the app top bar (moved unchanged from the old Header).
+// Backend health indicator for the app top bar; polls /health.
 const HealthBadge = () => {
   // Health check query (polls every 30 seconds)
   const { data: health, status: healthQueryStatus } = useQuery({
@@ -14,50 +14,29 @@ const HealthBadge = () => {
     refetchOnWindowFocus: true,
   });
 
+  // Identity by icon + text (status colours stay neutral; tier colours are reserved for risk tiers).
+  const badge = (Icon, label, title, extra = '') => (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-control border border-rule px-2 py-0.5 text-13 font-medium text-graphite select-none ${extra}`}
+      title={title}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      {label}
+    </span>
+  );
+
   const getHealthBadge = () => {
     if (healthQueryStatus === 'pending') {
-      return (
-        <span className="inline-flex items-center text-xs text-muted select-none">
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-          Checking status...
-        </span>
-      );
+      return badge(RefreshCw, 'Checking…', 'Checking the backend', 'text-slate');
     }
-
     if (healthQueryStatus === 'error' || !health) {
-      return (
-        <span
-          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 select-none animate-pulse"
-          title="FastAPI server is unreachable. Check local console or network connections."
-        >
-          <span className="w-2 h-2 rounded-full bg-red-600 dark:bg-red-400 mr-1.5" />
-          Offline
-        </span>
-      );
+      return badge(WifiOff, 'Offline', 'The API server cannot be reached. Check that it is running.');
     }
-
     if (health.status === 'healthy' && health.model_loaded) {
-      return (
-        <span
-          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900 select-none"
-          title={`Model Version: ${health.model_version || 'unknown'}`}
-        >
-          <span className="w-2 h-2 rounded-full bg-risk-low mr-1.5" />
-          ● Ready
-        </span>
-      );
+      return badge(CheckCircle2, 'Ready', `Model version: ${health.model_version || 'unknown'}`);
     }
-
-    // Degraded or model failed loading
-    return (
-      <span
-        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 select-none"
-        title={health.detail || 'Database degraded or model artifacts missing.'}
-      >
-        <span className="w-2 h-2 rounded-full bg-risk-medium mr-1.5" />
-        Scoring Unavailable
-      </span>
-    );
+    // Degraded or model failed loading: reads still work, scoring does not.
+    return badge(AlertTriangle, 'Scoring unavailable', health.detail || 'Database degraded or model artifacts missing.');
   };
 
   return getHealthBadge();

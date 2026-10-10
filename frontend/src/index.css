@@ -45,8 +45,9 @@
   --accent: var(--ink);
   --accent-hover: var(--ink-hover);
   --accent-soft: var(--ink-wash);
-  --shap-increase: var(--tier-high);
-  --shap-decrease: var(--ink);
+  /* SHAP drivers: a validated diverging pair, separate from the reserved tier colours */
+  --shap-increase: #e34948;
+  --shap-decrease: #2a78d6;
   --shap-neutral: var(--ink-wash);
 }
 
@@ -71,6 +72,8 @@
 
   --on-marigold: var(--paper);
   --marigold-wash: color-mix(in srgb, var(--marigold) 10%, var(--paper));
+  --shap-increase: #e66767;
+  --shap-decrease: #3987e5;
 }
 
 body {

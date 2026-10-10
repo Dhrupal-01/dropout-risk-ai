@@ -1,193 +1,220 @@
-import React, { useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  ArrowLeft, Calendar, ShieldAlert, TrendingDown, 
-  Play, CheckCircle2, User, AlertCircle, 
-  HelpCircle, CheckSquare, ListPlus, RefreshCw
+import {
+  AlertCircle, ArrowLeft, Calendar, CalendarX, CheckCircle2, CircleDot, ClipboardList, Info, RefreshCw, X,
 } from 'lucide-react';
-import { 
-  getStudentExplanation, 
-  getStudentInterventions, 
-  getStudentInterventionsHistory, 
+import {
+  getMentorQueue,
+  getStudentExplanation,
+  getStudentInterventions,
+  getStudentInterventionsHistory,
   logIntervention,
-  predictStudent
+  predictStudent,
 } from '../api/endpoints';
+import { tierFor } from '../app/tiers';
+import { formatPercent } from '../app/format';
 import RiskTierChip from '../components/RiskTierChip';
 import ShapChart from '../components/ShapChart';
 import AdminTokenNotice from '../components/AdminTokenNotice';
+
+const STATUS_ORDER = ['ASSIGNED', 'IN_PROGRESS', 'APPLIED', 'COMPLETED'];
+const STATUS_LABELS = { ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', APPLIED: 'Applied', COMPLETED: 'Completed' };
+const OUTCOME_LABELS = { IMPROVED: 'Improved', NO_CHANGE: 'No change', DETERIORATED: 'Deteriorated', PENDING_EVALUATION: 'Awaiting evaluation' };
+// Drivers fetched for the chart: 5 shown by default, "Show more factors" reveals the rest.
+const EXPLANATION_TOP_K = 8;
+
+const formatDate = (value) =>
+  new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const Panel = ({ title, description, children, className = '' }) => {
+  const headingId = useId();
+  return (
+    <section aria-labelledby={title ? headingId : undefined} className={`min-w-0 rounded-panel border border-rule bg-paper p-4 sm:p-5 ${className}`}>
+      {title && (
+        <div className="mb-4">
+          <h2 id={headingId} className="text-17 font-semibold text-graphite">{title}</h2>
+          {description && <p className="mt-0.5 text-13 text-slate">{description}</p>}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+};
+
+const fieldClass = 'w-full rounded-control border border-control bg-paper px-3 py-2 text-15 text-graphite';
+const labelClass = 'block text-13 font-medium text-graphite';
 
 const StudentDetail = () => {
   const { studentId } = useParams();
   const queryClient = useQueryClient();
 
-  // Modal log state
+  // Log drawer state
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [selectedIntervention, setSelectedIntervention] = useState(null);
-  
-  // Form input state
   const [assignedFaculty, setAssignedFaculty] = useState('');
   const [notes, setNotes] = useState('');
   const [followupDate, setFollowupDate] = useState('');
   const [postRiskPct, setPostRiskPct] = useState('');
   const [logStatus, setLogStatus] = useState('ASSIGNED');
+  const [statusFloor, setStatusFloor] = useState('ASSIGNED');
+  const openerRef = useRef(null);
+  const firstFieldRef = useRef(null);
+  const drawerTitleId = useId();
 
-  // 1. Fetch explanation data in parallel
-  const { 
-    data: explanation, 
-    isLoading: isExplLoading, 
-    isError: isExplError,
-    error: explError
-  } = useQuery({
+  const explanationQuery = useQuery({
     queryKey: ['explanation', studentId],
-    queryFn: () => getStudentExplanation(studentId, 5),
+    queryFn: () => getStudentExplanation(studentId, EXPLANATION_TOP_K),
     retry: 1,
   });
-
-  // 2. Fetch interventions and projected counterfactual recourse data
-  const { 
-    data: recoData, 
-    isLoading: isRecoLoading, 
-    isError: isRecoError,
-    error: recoError
-  } = useQuery({
+  const interventionsQuery = useQuery({
     queryKey: ['interventions', studentId],
     queryFn: () => getStudentInterventions(studentId),
     retry: 1,
   });
-
-  // 3. Fetch logged intervention history for student
-  const { 
-    data: historyLogs
-  } = useQuery({
+  const { data: historyLogs } = useQuery({
     queryKey: ['history', studentId],
     queryFn: () => getStudentInterventionsHistory(studentId),
   });
+  // Name, department and mentor are not part of the explanation; read them from the queue entry.
+  const { data: identity } = useQuery({
+    queryKey: ['student-identity', studentId],
+    queryFn: () =>
+      getMentorQueue({ search: studentId, limit: 5 }).then((page) => page.items.find((s) => s.student_id === studentId) ?? null),
+  });
 
+  const explanation = explanationQuery.data;
+  const recoData = interventionsQuery.data;
 
+  // Any write changes the queue, the overview and this student's panels.
+  const refreshAfterWrite = () => queryClient.invalidateQueries();
 
-  // Log mutation to update/assign intervention logs
+  const closeDrawer = () => {
+    setIsLogOpen(false);
+    openerRef.current?.focus();
+  };
+
   const logMutation = useMutation({
     mutationFn: logIntervention,
     onSuccess: () => {
-      // Invalidate queries to trigger re-fetches
-      queryClient.invalidateQueries(['interventions', studentId]);
-      queryClient.invalidateQueries(['explanation', studentId]);
-      queryClient.invalidateQueries(['history', studentId]);
-      queryClient.invalidateQueries(['queue']);
-      
-      // Close modal and reset fields
-      setIsLogOpen(false);
+      refreshAfterWrite();
       setSelectedIntervention(null);
       setAssignedFaculty('');
       setNotes('');
       setFollowupDate('');
       setPostRiskPct('');
+      closeDrawer();
     },
-    onError: (err) => {
-      alert(err.message || 'Failed to update intervention log.');
-    }
   });
 
-  // Re-score mutation to trigger model predict endpoint
+  // "Score now" for a student who exists but was never scored (behaviour kept from the original page).
   const reScoreMutation = useMutation({
-    mutationFn: (featuresPayload) => predictStudent({
-      student_id: studentId,
-      name: explanation?.name,
-      department: explanation?.department,
-      features: featuresPayload
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['interventions', studentId]);
-      queryClient.invalidateQueries(['explanation', studentId]);
-      queryClient.invalidateQueries(['history', studentId]);
-      queryClient.invalidateQueries(['queue']);
-    },
-    onError: (err) => {
-      alert(err.message || 'Manual scoring run failed.');
-    }
+    mutationFn: (featuresPayload) =>
+      predictStudent({
+        student_id: studentId,
+        name: identity?.name,
+        department: identity?.department,
+        features: featuresPayload,
+      }),
+    onSuccess: refreshAfterWrite,
   });
 
-  const isLoading = isExplLoading || isRecoLoading;
-  const isError = isExplError || isRecoError;
-  const activeError = explError || recoError;
+  // Drawer: focus the first field on open; Escape closes it from anywhere.
+  useEffect(() => {
+    if (!isLogOpen) return undefined;
+    firstFieldRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDrawer();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isLogOpen]);
 
-  if (isLoading) {
+  const isPending = explanationQuery.isPending || interventionsQuery.isPending;
+  const isError = explanationQuery.isError || interventionsQuery.isError;
+  const activeError = explanationQuery.error || interventionsQuery.error;
+
+  if (isPending) {
     return (
-      <div className="container mx-auto px-6 py-8 max-w-7xl space-y-6 animate-pulse select-none">
-        <div className="h-6 w-24 bg-subtle rounded" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            <div className="h-40 bg-subtle rounded-lg" />
-            <div className="h-64 bg-subtle rounded-lg" />
-          </div>
-          <div className="space-y-6">
-            <div className="h-80 bg-subtle rounded-lg" />
-            <div className="h-48 bg-subtle rounded-lg" />
-          </div>
+      <div role="status" aria-label="Loading student" className="px-4 sm:px-6 py-8 max-w-[1400px] space-y-4">
+        <div className="h-5 w-32 rounded-control bg-ink-wash motion-safe:animate-pulse" />
+        <div className="h-28 rounded-panel bg-ink-wash motion-safe:animate-pulse" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-80 rounded-panel bg-ink-wash motion-safe:animate-pulse" />
+          <div className="h-80 rounded-panel bg-ink-wash motion-safe:animate-pulse" />
         </div>
       </div>
     );
   }
 
-  // Map 404 "no_prediction_history" error to counselor view
+  const backLink = (
+    <Link to="/app/students" className="inline-flex items-center gap-1.5 text-15 text-ink hover:underline">
+      <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+      All students
+    </Link>
+  );
+
+  // The student exists but was never scored: a normal state, not an error.
   if (isError && activeError?.code === 'no_prediction_history') {
     return (
-      <div className="container mx-auto px-6 py-12 max-w-lg text-center space-y-6">
-        <AlertCircle className="w-12 h-12 text-risk-medium mx-auto animate-pulse" />
-        <h2 className="text-xl font-bold text-primary">Student Not Scored Yet</h2>
-        <p className="text-xs text-secondary leading-relaxed">
-          This student exists in the database but has no predictive scoring records. 
-          Run a manual scoring evaluation now to generate the risk calibration and TreeSHAP attribution profiles.
-        </p>
-        <div className="max-w-md mx-auto mb-3">
-          <AdminTokenNotice />
-        </div>
-        <button
-          onClick={() => {
-            // Trigger dummy initial predict payload matching features schema
-            const dummyFeatures = {
-              commute_distance_km: 10.0, income_slab_idx: 1,
-              is_first_generation: 0, has_scholarship: 0, fee_payment_delay_days: 0,
-              hostel_status: "Day Scholar",
-              att_core1: 75.0, att_core2: 75.0, att_lab: 80.0, att_elective: 80.0,
-              attendance_month_1: 78.0, attendance_month_2: 76.0, attendance_month_3: 75.0,
-              attendance_percentage: 76.5, consecutive_absences: 2,
-              prev_sem_cgpa: 7.0, current_cgpa: 6.8, backlog_count: 0,
-              internal_exam_score_pct: 65.0, stem_core_fail_flag: 0,
-              lms_logins_per_week: 5.0, assignment_submission_lag_days: 0.5,
-              resource_access_count: 150, days_since_last_lms_activity: 3,
-              forum_participation_count: 2
-            };
-            reScoreMutation.mutate(dummyFeatures);
-          }}
-          disabled={reScoreMutation.isLoading}
-          className="px-4 py-2 bg-accent text-on-ink text-xs font-semibold rounded hover:bg-accent-hover transition-colors inline-flex items-center space-x-2"
-        >
-          {reScoreMutation.isLoading && <RefreshCw className="w-3 h-3 animate-spin mr-1.5" />}
-          Score Now
-        </button>
+      <div className="px-4 sm:px-6 py-8 max-w-2xl space-y-6">
+        {backLink}
+        <Panel>
+          <h1 className="font-display font-medium text-32 tracking-display text-graphite">Not yet scored</h1>
+          <p className="mt-2 text-15 text-slate">
+            {identity?.name || studentId} is in the database but has no risk estimate yet. Scoring runs the model
+            and stores the reasons behind the estimate.
+          </p>
+          <div className="mt-4 space-y-3">
+            <AdminTokenNotice />
+            {reScoreMutation.isError && (
+              <p className="text-15 text-graphite">Scoring failed. {reScoreMutation.error?.message}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                // Trigger dummy initial predict payload matching features schema
+                const dummyFeatures = {
+                  commute_distance_km: 10.0, income_slab_idx: 1,
+                  is_first_generation: 0, has_scholarship: 0, fee_payment_delay_days: 0,
+                  hostel_status: "Day Scholar",
+                  att_core1: 75.0, att_core2: 75.0, att_lab: 80.0, att_elective: 80.0,
+                  attendance_month_1: 78.0, attendance_month_2: 76.0, attendance_month_3: 75.0,
+                  attendance_percentage: 76.5, consecutive_absences: 2,
+                  prev_sem_cgpa: 7.0, current_cgpa: 6.8, backlog_count: 0,
+                  internal_exam_score_pct: 65.0, stem_core_fail_flag: 0,
+                  lms_logins_per_week: 5.0, assignment_submission_lag_days: 0.5,
+                  resource_access_count: 150, days_since_last_lms_activity: 3,
+                  forum_participation_count: 2
+                };
+                reScoreMutation.mutate(dummyFeatures);
+              }}
+              disabled={reScoreMutation.isPending}
+              className="btn btn-primary disabled:opacity-60"
+            >
+              {reScoreMutation.isPending && <RefreshCw className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
+              Score now
+            </button>
+          </div>
+        </Panel>
       </div>
     );
   }
 
   if (isError || !explanation) {
     return (
-      <div className="container mx-auto px-6 py-12 max-w-lg text-center space-y-4">
-        <ShieldAlert className="w-12 h-12 text-risk-high mx-auto" />
-        <h2 className="text-xl font-bold text-primary">Student Not Found</h2>
-        <p className="text-xs text-secondary">
-          {activeError?.message || 'The requested student record could not be loaded.'}
-        </p>
-        <Link to="/app/students" className="inline-flex items-center text-xs font-semibold text-accent hover:underline">
-          <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-          Back to Triage Queue
-        </Link>
+      <div className="px-4 sm:px-6 py-8 max-w-2xl space-y-6">
+        {backLink}
+        <Panel>
+          <h1 className="font-display font-medium text-32 tracking-display text-graphite">Student not found</h1>
+          <p className="mt-2 text-15 text-slate">
+            {activeError?.message || 'The requested student record could not be loaded.'}
+          </p>
+        </Panel>
       </div>
     );
   }
 
-  // Extract variables from data
   const riskPct = explanation.risk_probability * 100;
   const riskTier = explanation.risk_tier;
   const drivers = explanation.top_drivers || [];
@@ -195,36 +222,37 @@ const StudentDetail = () => {
   const counterfactual = recoData?.counterfactual_recourse;
   const alerts = counterfactual?.rule_based_alerts || [];
   const reasonsUnavailable = counterfactual?.drivers_available === false;
+  const driverName = (feature) => drivers.find((d) => d.feature_name === feature)?.display_name || feature;
 
-  const openLogModal = (intervention) => {
-    // Check if there is an active log for this intervention already in history
+  const openLogModal = (intervention, opener) => {
+    openerRef.current = opener;
+    // An open log for this intervention is advanced in place; otherwise this is a new assignment.
     const existingActiveLog = historyLogs?.find(
       (log) => log.intervention_id === intervention.intervention_id && log.status !== 'COMPLETED'
     );
-
     setSelectedIntervention(intervention);
+    logMutation.reset();
     if (existingActiveLog) {
-      // Prepopulate fields to advance status in place
       setAssignedFaculty(existingActiveLog.assigned_faculty_id || '');
       setLogStatus(existingActiveLog.status);
+      setStatusFloor(existingActiveLog.status);
       setFollowupDate(existingActiveLog.scheduled_followup_date || '');
-      setNotes(''); // Clear notes so user only types fresh appends
+      setNotes(''); // notes are appended, so start empty
     } else {
-      // Set default values for fresh assignment
-      setAssignedFaculty(recoData?.assigned_mentor_id || '');
+      setAssignedFaculty(identity?.assigned_mentor_id || '');
       setLogStatus('ASSIGNED');
+      setStatusFloor('ASSIGNED');
       setFollowupDate('');
       setNotes('');
     }
-    
+    setPostRiskPct('');
     setIsLogOpen(true);
   };
 
   const handleLogSubmit = (e) => {
     e.preventDefault();
     if (!selectedIntervention) return;
-
-    const payload = {
+    logMutation.mutate({
       student_id: studentId,
       intervention_id: selectedIntervention.intervention_id,
       assigned_faculty_id: assignedFaculty || undefined,
@@ -233,512 +261,320 @@ const StudentDetail = () => {
       scheduled_followup_date: followupDate || undefined,
       baseline_risk_probability: explanation.risk_probability,
       post_intervention_risk_probability: postRiskPct ? parseFloat(postRiskPct) / 100 : null,
-    };
-
-    logMutation.mutate(payload);
+    });
   };
 
-  // Helper function to render status transition lists
-  const renderStatusOption = (statusValue, currentStatus) => {
-    const statusOrder = ['ASSIGNED', 'IN_PROGRESS', 'APPLIED', 'COMPLETED'];
-    const currentIndex = statusOrder.indexOf(currentStatus);
-    const targetIndex = statusOrder.indexOf(statusValue);
-    
-    // Disable backward transitions
-    const isDisabled = targetIndex < currentIndex;
-
-    return (
-      <option key={statusValue} value={statusValue} disabled={isDisabled}>
-        {statusValue.replace('_', ' ')} {isDisabled ? '(Passed)' : ''}
-      </option>
-    );
-  };
+  const tier = tierFor(riskTier);
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-7xl space-y-6">
-      {/* Back button */}
-      <div>
-        <Link 
-          to="/app/students" 
-          className="inline-flex items-center text-xs font-semibold text-secondary hover:text-primary transition-colors focus:ring-2 focus:ring-accent"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1.5" />
-          Back to Triage Worklist
-        </Link>
-      </div>
+    <div className="px-4 sm:px-6 py-8 max-w-[1400px] space-y-6">
+      {backLink}
 
-      {/* Main Student Header Info */}
-      <div className="bg-card border border-border p-6 rounded-lg shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-start space-x-3.5">
-          <div className="p-3 bg-subtle rounded-full text-secondary">
-            <User className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-primary">
-              {explanation.name || 'Anonymous Student'}
-            </h1>
-            <p className="text-xs text-secondary mt-0.5 flex flex-wrap items-center gap-2">
-              <span className="font-mono bg-subtle border border-border px-1.5 py-0.5 rounded">{studentId}</span>
-              <span>•</span>
-              <span>{explanation.department || 'General Science'}</span>
-              {recoData?.assigned_mentor_id && (
-                <>
-                  <span>•</span>
-                  <span>Mentor: <strong className="font-semibold">{recoData.assigned_mentor_id}</strong></span>
-                </>
-              )}
-            </p>
-          </div>
+      {/* Who */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display font-medium text-32 tracking-display text-graphite">
+            {identity?.name || studentId}
+          </h1>
+          <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-15 text-slate">
+            {identity?.name && <span className="tabular-nums">{studentId}</span>}
+            {identity?.department && <span>{identity.department}</span>}
+            {identity?.assigned_mentor_id && <span>Mentor {identity.assigned_mentor_id}</span>}
+          </p>
         </div>
-      </div>
+        {recoData?.evaluated_at && (
+          <p className="text-13 text-slate" title={recoData.model_version ? `Model ${recoData.model_version}` : undefined}>
+            Scored {formatDate(recoData.evaluated_at)}
+          </p>
+        )}
+      </header>
 
-      {/* Rule-based alerts: shown for every risk tier, separate from the model estimate */}
+      {/* Rule-based alerts: for every tier, separate from the model estimate */}
       {alerts.length > 0 && (
-        <div
-          role="alert"
-          className="bg-risk-medium/10 border border-risk-medium/40 p-4 rounded-lg space-y-2"
-        >
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-risk-medium shrink-0" />
-            Rule-based alerts (independent of the model risk tier)
+        <section aria-labelledby="alerts-heading" className="rounded-panel border border-rule bg-ink-wash p-4">
+          <h2 id="alerts-heading" className="flex items-center gap-2 text-15 font-semibold text-graphite">
+            <CalendarX className="w-4 h-4 shrink-0 text-ink" aria-hidden="true" />
+            Rule-based alerts
+            <span className="font-normal text-slate">(separate from the model's estimate)</span>
           </h2>
-          <ul className="space-y-1.5">
+          <ul className="mt-2 space-y-1.5 text-15 text-graphite">
             {alerts.map((alert) => (
-              <li key={alert.code} className="text-xs text-secondary leading-relaxed">
-                <span className="text-primary font-semibold">
-                  {alert.message.charAt(0).toUpperCase() + alert.message.slice(1)}.
-                </span>
+              <li key={alert.code}>
+                <span className="font-medium">{alert.message.charAt(0).toUpperCase() + alert.message.slice(1)}.</span>
                 {alert.recommended_intervention_title && (
-                  <span> Recommended: {alert.recommended_intervention_title}.</span>
+                  <span className="text-slate"> Suggested: {alert.recommended_intervention_title}.</span>
                 )}
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
 
-      {/* 2 Column Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {/* LEFT COLUMN: Risk Hero & SHAP Explainability */}
-        <div className="space-y-6">
-          {/* Risk Hero Card */}
-          <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-secondary">
-              Current Estimated Risk Status
-            </h3>
-            
-            <div className="flex items-baseline space-x-4">
-              {/* Tabular numbers for clean digit rendering */}
-              <span 
-                className="text-5xl font-black tracking-tight text-primary font-mono select-all"
-                aria-live="polite"
-              >
-                {riskPct.toFixed(1)}%
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="min-w-0 space-y-4">
+          {/* Estimated risk */}
+          <Panel>
+            <h2 className="text-15 text-slate">Estimated risk</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="text-[3rem] font-semibold leading-none text-graphite" aria-live="polite">
+                {formatPercent(riskPct)}
               </span>
-              <RiskTierChip tier={riskTier} className="scale-110" />
+              <RiskTierChip tier={riskTier} />
             </div>
-
-            {/* Flat Probability Bar (replacing gauge speedometers) */}
-            <div className="space-y-1">
-              <div className="w-full h-2.5 bg-subtle rounded-full overflow-hidden border border-border/25">
-                <div 
-                  className={`h-full transition-all duration-700 ease-out ${
-                    riskTier === 'High' ? 'bg-risk-high' :
-                    riskTier === 'Medium' ? 'bg-risk-medium' : 'bg-risk-low'
-                  }`}
-                  style={{ width: `${riskPct}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-muted font-mono select-none">
-                <span>0% Low</span>
-                <span>33% Med</span>
-                <span>66% High</span>
-                <span>100%</span>
-              </div>
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-ink-wash" aria-hidden="true">
+              <div className="h-full rounded-full" style={{ width: `${riskPct}%`, background: tier?.mark }} />
             </div>
-
-            {/* Responsible AI Disclaimer rendered visibly */}
             {recoData?.disclaimer && (
-              <div className="text-[10px] text-muted bg-subtle/50 p-3 rounded leading-relaxed border border-border/10 flex items-start">
-                <HelpCircle className="w-3.5 h-3.5 mr-2 shrink-0 text-muted mt-0.5" />
-                <p className="italic">{recoData.disclaimer}</p>
-              </div>
-            )}
-          </div>
-
-          {/* SHAP Chart panel */}
-          <div className="bg-card border border-border p-6 rounded-lg shadow-sm">
-            <ShapChart drivers={drivers} />
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: Recommended Support & Scenario Simulations */}
-        <div className="space-y-6">
-          {/* Recommended support package */}
-          <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4">
-            <div className="border-b border-border pb-2.5">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-secondary">
-                Recommended Support Interventions
-              </h3>
-            </div>
-
-            {reasonsUnavailable && (
-              <p className="text-xs text-secondary bg-subtle/50 border border-border/40 rounded p-2.5">
-                Reasons unavailable: the risk drivers for this student could not be computed, so
-                recommendations are not matched to drivers.
+              <p className="mt-4 flex items-start gap-2 text-13 text-slate">
+                <Info className="mt-0.5 w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                {recoData.disclaimer}
               </p>
             )}
+          </Panel>
 
+          {/* Reasons */}
+          <Panel>
+            <ShapChart drivers={drivers} />
+          </Panel>
+        </div>
+
+        <div className="min-w-0 space-y-4">
+          {/* Recommended support */}
+          <Panel title="Suggested support" description="Matched to this student's reasons from the intervention catalogue.">
+            {reasonsUnavailable && (
+              <p className="mb-3 rounded-control border border-rule p-3 text-15 text-slate">
+                Reasons are unavailable for this estimate, so suggestions are not matched to them.
+              </p>
+            )}
             {recommendations.length === 0 ? (
-              <p className="text-xs text-muted italic">No specific interventions recommended by the system.</p>
+              <p className="text-15 text-slate">No specific interventions are suggested for this student.</p>
             ) : (
-              <div className="space-y-4">
+              <ul className="space-y-3">
                 {recommendations.map((rec) => {
-                  const isActive = historyLogs?.some(
-                    (log) => log.intervention_id === rec.intervention_id && log.status !== 'COMPLETED'
-                  );
-                  const isCompleted = historyLogs?.some(
-                    (log) => log.intervention_id === rec.intervention_id && log.status === 'COMPLETED'
-                  );
-
+                  const openLog = historyLogs?.find((l) => l.intervention_id === rec.intervention_id && l.status !== 'COMPLETED');
+                  const isActive = Boolean(openLog);
+                  const isCompleted = historyLogs?.some((l) => l.intervention_id === rec.intervention_id && l.status === 'COMPLETED');
                   return (
-                    <div 
-                      key={rec.intervention_id}
-                      className="border border-border rounded-lg p-4 bg-subtle/20 space-y-3 flex flex-col justify-between hover:border-accent/40 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap select-none">
-                            {/* Urgency tag */}
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                              rec.urgency === 'HIGH' 
-                                ? 'bg-red-50 dark:bg-red-950/20 text-risk-high border-red-200 dark:border-red-900/40' 
-                                : 'bg-blue-50 dark:bg-blue-950/20 text-accent border-blue-200 dark:border-blue-900/40'
-                            }`}>
-                              {rec.urgency}
-                            </span>
-                            {/* Pillar */}
-                            <span className="text-[10px] font-semibold uppercase text-secondary tracking-wider font-mono">
-                              {rec.pillar}
-                            </span>
-                          </div>
-                          <h4 className="text-xs font-bold text-primary pt-0.5">{rec.title}</h4>
+                    <li key={rec.intervention_id} className="rounded-control border border-rule p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-13 text-slate">
+                            <span className="capitalize">{rec.pillar}</span>
+                            {rec.urgency && <span>, {rec.urgency.toLowerCase()} urgency</span>}
+                          </p>
+                          <h3 className="mt-0.5 text-15 font-semibold text-graphite">{rec.title}</h3>
                         </div>
-                        
-                        {/* Status indicators */}
                         {isActive && (
-                          <span className="text-[10px] font-bold text-accent px-1.5 py-0.5 rounded border border-accent/20 bg-accent-soft">
-                            Active
+                          <span className="inline-flex items-center gap-1 rounded-control border border-rule px-2 py-0.5 text-13 text-ink">
+                            <CircleDot className="w-3.5 h-3.5" aria-hidden="true" /> {STATUS_LABELS[openLog.status] || openLog.status}
                           </span>
                         )}
-                        {isCompleted && (
-                          <span className="text-[10px] font-bold text-risk-low px-1.5 py-0.5 rounded border border-risk-low/20 bg-green-50 dark:bg-green-950/20">
-                            Completed
+                        {!isActive && isCompleted && (
+                          <span className="inline-flex items-center gap-1 rounded-control border border-rule px-2 py-0.5 text-13 text-graphite">
+                            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Completed
                           </span>
                         )}
                       </div>
-
-                      <p className="text-xs text-secondary leading-relaxed">{rec.description}</p>
-
-                      <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] text-muted border-t border-border/50 pt-2 font-medium">
-                        <span>Matched Driver: <strong className="text-secondary font-semibold font-mono">{rec.matched_driver_feature || 'General'}</strong></span>
-                        <span>Duration: <strong className="text-secondary font-semibold">{rec.suggested_duration_days} days</strong></span>
-                      </div>
-
-                      <div className="pt-1 text-right">
+                      <p className="mt-2 text-15 text-slate">{rec.description}</p>
+                      <p className="mt-2 text-13 text-slate">
+                        Matched reason: <span className="text-graphite">{rec.matched_driver_feature ? driverName(rec.matched_driver_feature) : 'General'}</span>
+                        {rec.suggested_duration_days != null && (
+                          <>
+                            {'. '}Suggested duration: <span className="tabular-nums text-graphite">{rec.suggested_duration_days} days</span>
+                          </>
+                        )}
+                      </p>
+                      <div className="mt-3">
                         <button
-                          onClick={() => openLogModal(rec)}
-                          className={`inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-md transition-colors border ${
-                            isActive 
-                              ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent/20' 
-                              : 'bg-card border-border text-primary hover:bg-hover'
-                          } focus:ring-2 focus:ring-accent`}
+                          type="button"
+                          onClick={(e) => openLogModal(rec, e.currentTarget)}
+                          className={`btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
                         >
-                          <ListPlus className="w-3.5 h-3.5 mr-1" />
-                          {isActive ? 'Update Status' : 'Assign outreach'}
+                          <ClipboardList className="w-4 h-4" aria-hidden="true" />
+                          {isActive ? 'Update status' : 'Assign outreach'}
                         </button>
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
-          </div>
+          </Panel>
 
-          {/* Scenario prediction Recourse panel */}
+          {/* Projected scenario: a simulation, never an outcome */}
           {counterfactual && (
-            <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4">
-              <div className="border-b border-border pb-2.5">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-secondary">
-                  Projected Scenario
-                </h3>
-              </div>
-
-              {/* Recourse delta calculations */}
-              <div className="flex items-center justify-between p-4 rounded-lg bg-accent-soft/40 border border-accent/10">
-                <div className="text-center flex-1">
-                  <span className="text-[10px] text-secondary uppercase font-semibold">Current Risk</span>
-                  <div className="text-lg font-bold text-primary font-mono mt-1">
-                    {(counterfactual.current_risk_prob * 100).toFixed(1)}%
-                  </div>
+            <Panel title="Projected scenario" description="What the model projects if the suggested changes happened. A simulation, not a promise.">
+              <dl className="grid grid-cols-3 gap-3 rounded-control border border-rule p-3 text-center">
+                <div>
+                  <dt className="text-13 text-slate">Current</dt>
+                  <dd className="mt-1 text-20 font-semibold tabular-nums text-graphite">{formatPercent(counterfactual.current_risk_prob * 100)}</dd>
                 </div>
-                <div className="text-muted shrink-0 px-2 font-mono font-black select-none">→</div>
-                <div className="text-center flex-1">
-                  <span className="text-[10px] text-secondary uppercase font-semibold">Projected Risk</span>
-                  <div className="text-lg font-bold text-risk-low font-mono mt-1">
-                    {(counterfactual.projected_risk_prob * 100).toFixed(1)}%
-                  </div>
+                <div>
+                  <dt className="text-13 text-slate">Projected</dt>
+                  <dd className="mt-1 text-20 font-semibold tabular-nums text-graphite">{formatPercent(counterfactual.projected_risk_prob * 100)}</dd>
                 </div>
-                <div className="text-center flex-1 border-l border-border/80 pl-3">
-                  <span className="text-[10px] text-secondary uppercase font-semibold">Risk Reduction</span>
-                  <div className="text-lg font-bold text-accent font-mono mt-1 flex items-center justify-center gap-0.5">
-                    <TrendingDown className="w-4 h-4 text-accent" />
-                    -{counterfactual.risk_reduction_pct.toFixed(0)}%
-                  </div>
+                <div>
+                  <dt className="text-13 text-slate">Relative change</dt>
+                  <dd className="mt-1 text-20 font-semibold tabular-nums text-graphite">−{formatPercent(counterfactual.risk_reduction_pct, 0)}</dd>
                 </div>
-              </div>
-
-              {/* Target Actions list */}
-              <div className="space-y-3 pt-1">
-                <span className="text-xs font-semibold text-secondary">Target Recourse Requirements:</span>
-                <ul className="space-y-2 select-all">
-                  {counterfactual.required_actions?.map((action, i) => (
-                    <li 
-                      key={i} 
-                      className="text-xs text-secondary pl-6 relative leading-relaxed"
-                    >
-                      <CheckSquare className="w-3.5 h-3.5 text-accent absolute left-0.5 top-0.5 shrink-0" />
-                      {action.plain_language_action}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Simulation Disclaimer rendered visibly */}
-              {counterfactual.disclaimer && (
-                <div className="text-[10px] text-muted bg-subtle/50 p-3 rounded leading-relaxed border border-border/10">
-                  <strong className="text-secondary select-none font-bold">Simulation Disclaimer:</strong> {counterfactual.disclaimer}
-                </div>
+              </dl>
+              {counterfactual.required_actions?.length > 0 && (
+                <>
+                  <h3 className="mt-4 text-13 font-medium text-graphite">Changes in the projection</h3>
+                  <ul className="mt-2 space-y-1.5 text-15 text-slate">
+                    {counterfactual.required_actions.map((action) => (
+                      <li key={action.feature_name || action.plain_language_action} className="flex gap-2">
+                        <span aria-hidden="true" className="text-ink">–</span>
+                        {action.plain_language_action}
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
-            </div>
+              {counterfactual.disclaimer && <p className="mt-4 text-13 text-slate">{counterfactual.disclaimer}</p>}
+            </Panel>
           )}
 
-          {/* Intervention Tracking Logs Timeline */}
-          <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-secondary border-b border-border pb-2.5">
-              Outreach Logs &amp; Progress History
-            </h3>
-
-            {(!historyLogs || historyLogs.length === 0) ? (
-              <p className="text-xs text-muted italic">No intervention history logged yet for this student.</p>
+          {/* History */}
+          <Panel title="Outreach history">
+            {!historyLogs || historyLogs.length === 0 ? (
+              <p className="text-15 text-slate">Nothing logged for this student yet.</p>
             ) : (
-              <div className="relative pl-6 border-l border-border/80 space-y-6 pt-2">
+              <ol className="relative space-y-5 border-l border-rule pl-5">
                 {historyLogs.map((log) => {
-                  const isCompleted = log.status === 'COMPLETED';
-                  const dateString = new Date(log.created_at).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  });
-
+                  const completed = log.status === 'COMPLETED';
                   return (
-                    <div key={log.id} className="relative select-text">
-                      {/* Timeline dot */}
-                      <span className={`absolute -left-[31px] top-1 p-1 rounded-full border bg-card ${
-                        isCompleted 
-                          ? 'border-risk-low text-risk-low' 
-                          : 'border-accent text-accent'
-                      }`}>
-                        {isCompleted ? <CheckCircle2 className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    <li key={log.id} className="relative">
+                      <span className="absolute -left-[1.6rem] top-0.5 rounded-full bg-paper p-0.5 text-ink" aria-hidden="true">
+                        {completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CircleDot className="w-3.5 h-3.5" />}
                       </span>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <h4 className="text-xs font-bold text-primary">{log.title || log.intervention_id}</h4>
-                          <span className="text-[10px] text-muted font-mono">{dateString}</span>
-                        </div>
-
-                        <div className="flex items-center space-x-3 text-[10px] font-semibold text-secondary select-none">
-                          <span className="text-accent uppercase font-mono">{log.status}</span>
-                          <span>•</span>
-                          <span className="font-mono">Faculty: {log.assigned_faculty_id || 'unassigned'}</span>
-                          {log.outcome_status !== 'PENDING_EVALUATION' && (
-                            <>
-                              <span>•</span>
-                              <span className={
-                                log.outcome_status === 'IMPROVED' ? 'text-risk-low' : 'text-risk-medium'
-                              }>
-                                {log.outcome_status}
-                              </span>
-                            </>
-                          )}
-                        </div>
-
-                        {log.notes && (
-                          <p className="text-xs text-secondary bg-subtle/30 p-2.5 rounded border border-border/15 font-serif italic mt-1 leading-relaxed">
-                            "{log.notes}"
-                          </p>
-                        )}
-
-                        {log.scheduled_followup_date && (
-                          <div className="flex items-center space-x-1.5 text-[10px] text-muted select-none">
-                            <Calendar className="w-3 h-3" />
-                            <span>Follow-up scheduled: {log.scheduled_followup_date}</span>
-                          </div>
-                        )}
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="text-15 font-semibold text-graphite">{log.title || log.intervention_id}</h3>
+                        <span className="text-13 tabular-nums text-slate">{formatDate(log.created_at)}</span>
                       </div>
-                    </div>
+                      <p className="mt-0.5 text-13 text-slate">
+                        {STATUS_LABELS[log.status] || log.status}
+                        {log.assigned_faculty_id && `, assigned to ${log.assigned_faculty_id}`}
+                        {log.outcome_status && log.outcome_status !== 'PENDING_EVALUATION' && `, outcome: ${(OUTCOME_LABELS[log.outcome_status] || log.outcome_status).toLowerCase()}`}
+                      </p>
+                      {log.notes && <p className="mt-1.5 rounded-control bg-ink-wash p-2.5 text-15 text-graphite whitespace-pre-line">{log.notes}</p>}
+                      {log.scheduled_followup_date && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-13 text-slate">
+                          <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
+                          Follow-up {formatDate(log.scheduled_followup_date)}
+                        </p>
+                      )}
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
             )}
-          </div>
+          </Panel>
         </div>
       </div>
 
-      {/* INTERVENTION LOGGER MODAL DRAWER */}
+      {/* Log drawer */}
       {isLogOpen && selectedIntervention && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40 backdrop-blur-xs select-none">
-          <div 
-            className="w-full max-w-lg h-full bg-card border-l border-border shadow-2xl p-6 flex flex-col justify-between select-text"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setIsLogOpen(false);
-            }}
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={closeDrawer}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={drawerTitleId}
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-full w-full max-w-lg flex-col border-l border-rule bg-paper"
           >
-            <div className="space-y-6 overflow-y-auto pr-1">
-              {/* Modal header */}
-              <div className="flex items-center justify-between border-b border-border pb-4">
-                <div>
-                  <h2 className="text-md font-bold text-primary">Log Support Outreach</h2>
-                  <p className="text-xs text-secondary mt-0.5">Assign or update progress trackers</p>
-                </div>
-                <button
-                  onClick={() => setIsLogOpen(false)}
-                  className="text-secondary hover:text-primary p-1 rounded hover:bg-hover transition-colors"
-                  aria-label="Close modal"
-                >
-                  <ArrowLeft className="w-4 h-4 rotate-180" />
-                </button>
+            <div className="flex items-start justify-between gap-3 border-b border-rule p-5">
+              <div>
+                <h2 id={drawerTitleId} className="text-20 font-semibold text-graphite">Log outreach</h2>
+                <p className="mt-0.5 text-15 text-slate">{selectedIntervention.title}</p>
               </div>
-
-              {/* Modal Form */}
-              <form onSubmit={handleLogSubmit} id="log-form" className="space-y-4">
-                {/* Intervention Title display */}
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-muted tracking-wider">Support Intervention</span>
-                  <div className="text-xs font-bold text-primary p-3 bg-subtle/40 border border-border rounded-md">
-                    {selectedIntervention.title}
-                  </div>
-                </div>
-
-                {/* Assigned Faculty Input */}
-                <div className="space-y-1.5">
-                  <label htmlFor="assigned_faculty" className="text-[10px] uppercase font-bold text-secondary tracking-wider">
-                    Assigned Faculty
-                  </label>
-                  <input
-                    type="text"
-                    id="assigned_faculty"
-                    value={assignedFaculty}
-                    onChange={(e) => setAssignedFaculty(e.target.value)}
-                    placeholder="e.g. FAC_007"
-                    className="text-xs border border-border bg-card text-primary rounded-md p-2.5 w-full hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
-                    required
-                  />
-                </div>
-
-                {/* Status Dropdown */}
-                <div className="space-y-1.5">
-                  <label htmlFor="status" className="text-[10px] uppercase font-bold text-secondary tracking-wider">
-                    Outreach Status
-                  </label>
-                  <select
-                    id="status"
-                    value={logStatus}
-                    onChange={(e) => setLogStatus(e.target.value)}
-                    className="text-xs border border-border bg-card text-primary rounded-md p-2.5 w-full hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
-                  >
-                    {/* Render status options, enforcing forward-only rules */}
-                    {['ASSIGNED', 'IN_PROGRESS', 'APPLIED', 'COMPLETED'].map((opt) => 
-                      renderStatusOption(opt, logStatus)
-                    )}
-                  </select>
-                  <span className="text-[10px] text-muted leading-relaxed block">
-                    * Status flows forward only: ASSIGNED → IN_PROGRESS → APPLIED → COMPLETED. Backward moves are disabled.
-                  </span>
-                </div>
-
-                {/* Notes Input */}
-                <div className="space-y-1.5">
-                  <label htmlFor="notes" className="text-[10px] uppercase font-bold text-secondary tracking-wider">
-                    Outreach Notes / Updates
-                  </label>
-                  <textarea
-                    id="notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Provide details about mentor call meetings, resolved delays, or recommendations..."
-                    rows={4}
-                    className="text-xs border border-border bg-card text-primary rounded-md p-2.5 w-full hover:border-accent focus:ring-2 focus:ring-accent transition-colors font-serif resize-none"
-                  />
-                </div>
-
-                {/* Follow-up Date Input */}
-                <div className="space-y-1.5">
-                  <label htmlFor="followup" className="text-[10px] uppercase font-bold text-secondary tracking-wider">
-                    Scheduled Follow-up Date (Optional)
-                  </label>
-                  <input
-                    type="date"
-                    id="followup"
-                    value={followupDate}
-                    onChange={(e) => setFollowupDate(e.target.value)}
-                    className="text-xs border border-border bg-card text-primary rounded-md p-2.5 w-full hover:border-accent focus:ring-2 focus:ring-accent transition-colors"
-                  />
-                </div>
-
-                {/* Optional Post-intervention Risk Score (recomputes outcome status) */}
-                <div className="space-y-1.5 border-t border-border/80 pt-4">
-                  <label htmlFor="post_risk" className="text-[10px] uppercase font-bold text-secondary tracking-wider block">
-                    Post-Intervention Risk Probability % (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    id="post_risk"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={postRiskPct}
-                    onChange={(e) => setPostRiskPct(e.target.value)}
-                    placeholder="e.g. 31.00"
-                    className="text-xs border border-border bg-card text-primary rounded-md p-2.5 w-full hover:border-accent focus:ring-2 focus:ring-accent transition-colors font-mono"
-                  />
-                  <span className="text-[10px] text-muted leading-relaxed block">
-                    * If provided, this value is compared against baseline risk ({riskPct.toFixed(1)}%) to compute outcome improvement indicators.
-                  </span>
-                </div>
-              </form>
+              <button type="button" onClick={closeDrawer} className="rounded-control p-1.5 text-slate hover:bg-ink-wash" aria-label="Close">
+                <X className="w-5 h-5" aria-hidden="true" />
+              </button>
             </div>
 
-            {/* Modal footer actions */}
-            <AdminTokenNotice />
-            <div className="flex items-center space-x-3 border-t border-border pt-4 select-none">
-              <button
-                type="button"
-                onClick={() => setIsLogOpen(false)}
-                className="flex-1 px-4 py-2 border border-border rounded-md hover:bg-hover text-xs font-semibold text-secondary hover:text-primary transition-colors focus:ring-2 focus:ring-accent"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="log-form"
-                disabled={logMutation.isLoading}
-                className="flex-1 px-4 py-2 bg-accent text-on-ink text-xs font-semibold rounded-md hover:bg-accent-hover focus:ring-2 focus:ring-accent transition-colors inline-flex items-center justify-center"
-              >
-                {logMutation.isLoading && <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-                Log Status Change
-              </button>
+            <form onSubmit={handleLogSubmit} id="log-form" className="flex-1 space-y-4 overflow-y-auto p-5">
+              <div className="space-y-1.5">
+                <label htmlFor="assigned_faculty" className={labelClass}>Assigned faculty</label>
+                <input
+                  ref={firstFieldRef}
+                  type="text"
+                  id="assigned_faculty"
+                  value={assignedFaculty}
+                  onChange={(e) => setAssignedFaculty(e.target.value)}
+                  placeholder="e.g. FAC_007"
+                  className={fieldClass}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="status" className={labelClass}>Status</label>
+                <select id="status" value={logStatus} onChange={(e) => setLogStatus(e.target.value)} className={fieldClass}>
+                  {STATUS_ORDER.map((status) => {
+                    const passed = STATUS_ORDER.indexOf(status) < STATUS_ORDER.indexOf(statusFloor);
+                    return (
+                      <option key={status} value={status} disabled={passed}>
+                        {STATUS_LABELS[status]}{passed ? ' (already passed)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="text-13 text-slate">Status only moves forward: assigned, in progress, applied, completed.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="notes" className={labelClass}>Notes</label>
+                <textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="What happened in the call or meeting, what was agreed"
+                  rows={4}
+                  className={`${fieldClass} resize-y`}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="followup" className={labelClass}>Follow-up date (optional)</label>
+                <input type="date" id="followup" value={followupDate} onChange={(e) => setFollowupDate(e.target.value)} className={fieldClass} />
+              </div>
+
+              <div className="space-y-1.5 border-t border-rule pt-4">
+                <label htmlFor="post_risk" className={labelClass}>Estimated risk after re-scoring, % (optional)</label>
+                <input
+                  type="number"
+                  id="post_risk"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={postRiskPct}
+                  onChange={(e) => setPostRiskPct(e.target.value)}
+                  className={`${fieldClass} tabular-nums`}
+                />
+                <p className="text-13 text-slate">
+                  Compared with the current estimate ({formatPercent(riskPct)}) to record whether the outcome improved.
+                </p>
+              </div>
+            </form>
+
+            <div className="space-y-3 border-t border-rule p-5">
+              <AdminTokenNotice />
+              {logMutation.isError && (
+                <p role="alert" className="flex items-start gap-2 text-15 text-graphite">
+                  <AlertCircle className="mt-0.5 w-4 h-4 shrink-0 text-slate" aria-hidden="true" />
+                  {logMutation.error?.message || 'The log could not be saved.'}
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button type="button" onClick={closeDrawer} className="btn btn-secondary flex-1">
+                  Cancel
+                </button>
+                <button type="submit" form="log-form" disabled={logMutation.isPending} className="btn btn-primary flex-1 disabled:opacity-60">
+                  {logMutation.isPending && <RefreshCw className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         </div>

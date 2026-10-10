@@ -6,6 +6,7 @@ import AdminTokenField from '../components/AdminTokenField';
 import HealthBadge from '../components/HealthBadge';
 import ThemeToggle from '../components/ThemeToggle';
 import SkipLink from '../components/SkipLink';
+import StudentSearch from '../components/StudentSearch';
 import PageLoading from '../components/PageLoading';
 import { isDemoMode } from '../content/site';
 
@@ -80,6 +81,9 @@ const AppLayout = () => (
         )}
 
         <header className="sticky top-0 z-40 bg-paper border-b border-rule px-4 sm:px-6 py-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+          <div className="mr-auto min-w-0">
+            <StudentSearch />
+          </div>
           <AdminTokenField />
           <div className="flex items-center gap-2 text-13 text-slate">
             <span className="hidden sm:inline">Backend:</span>
