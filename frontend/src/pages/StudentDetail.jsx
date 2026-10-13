@@ -42,6 +42,23 @@ const trapTab = (e, container) => {
   }
 };
 
+// One natural sentence per outreach entry, e.g. "Assigned to FAC_007." or
+// "Completed by FAC_007. Outcome: improved."
+const STATUS_WITH_FACULTY = {
+  ASSIGNED: (faculty) => `Assigned to ${faculty}`,
+  IN_PROGRESS: (faculty) => `In progress with ${faculty}`,
+  APPLIED: (faculty) => `Applied by ${faculty}`,
+  COMPLETED: (faculty) => `Completed by ${faculty}`,
+};
+
+const historySummary = (log) => {
+  const withFaculty = log.assigned_faculty_id && STATUS_WITH_FACULTY[log.status];
+  const status = withFaculty ? withFaculty(log.assigned_faculty_id) : STATUS_LABELS[log.status] || log.status;
+  const hasOutcome = log.outcome_status && log.outcome_status !== 'PENDING_EVALUATION';
+  const outcome = hasOutcome ? ` Outcome: ${(OUTCOME_LABELS[log.outcome_status] || log.outcome_status).toLowerCase()}.` : '';
+  return `${status}.${outcome}`;
+};
+
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -461,11 +478,7 @@ const StudentDetail = () => {
                         <h3 className="text-15 font-semibold text-graphite">{log.title || log.intervention_id}</h3>
                         <span className="text-13 tabular-nums text-slate">{formatDate(log.created_at)}</span>
                       </div>
-                      <p className="mt-0.5 text-13 text-slate">
-                        {STATUS_LABELS[log.status] || log.status}
-                        {log.assigned_faculty_id && `, assigned to ${log.assigned_faculty_id}`}
-                        {log.outcome_status && log.outcome_status !== 'PENDING_EVALUATION' && `, outcome: ${(OUTCOME_LABELS[log.outcome_status] || log.outcome_status).toLowerCase()}`}
-                      </p>
+                      <p className="mt-0.5 text-13 text-slate">{historySummary(log)}</p>
                       {log.notes && <p className="mt-1.5 rounded-control bg-ink-wash p-2.5 text-15 text-graphite whitespace-pre-line">{log.notes}</p>}
                       {log.scheduled_followup_date && (
                         <p className="mt-1.5 flex items-center gap-1.5 text-13 text-slate">

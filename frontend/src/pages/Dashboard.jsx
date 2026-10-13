@@ -12,6 +12,22 @@ import RiskTierChip from '../components/RiskTierChip';
 const PAGE_SIZE = 25;
 const STATUS_LABELS = { ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', APPLIED: 'Applied', COMPLETED: 'Completed' };
 
+// Which worklist columns show at which width, so nothing essential sits in the horizontal scroll area.
+// Student (the row's link) and risk level always show. From md the app's left rail takes ~270px,
+// so the table has less room at md than at sm. Lower-priority columns drop first: fee delay,
+// backlogs, CGPA, department, then intervention and attendance.
+const COLUMN_VISIBILITY = {
+  rank: 'hidden sm:table-cell',
+  risk: 'hidden sm:table-cell',
+  riskInline: 'sm:hidden',
+  attendance: 'hidden sm:table-cell md:hidden lg:table-cell',
+  intervention: 'hidden lg:table-cell',
+  department: 'hidden xl:table-cell',
+  cgpa: 'hidden xl:table-cell',
+  backlogs: 'hidden 2xl:table-cell',
+  feeDelay: 'hidden 2xl:table-cell',
+};
+
 // Helper hook to debounce input search queries
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -268,44 +284,50 @@ const Dashboard = () => {
             <table className="w-full border-collapse text-left text-15 tabular-nums">
               <thead>
                 <tr className="border-b border-rule text-13 text-slate">
-                  <th scope="col" className="px-4 py-3 font-medium">#</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.rank} px-4 py-3 font-medium`}>#</th>
                   <th scope="col" className="px-4 py-3 font-medium">Student</th>
-                  <th scope="col" className="hidden md:table-cell px-4 py-3 font-medium">Department</th>
-                  <th scope="col" className="px-4 py-3 text-right font-medium">Estimated risk</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.department} px-4 py-3 font-medium`}>Department</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.risk} px-4 py-3 text-right font-medium`}>Estimated risk</th>
                   <th scope="col" className="px-4 py-3 font-medium">Risk level</th>
-                  <th scope="col" className="hidden sm:table-cell px-4 py-3 text-right font-medium">Attendance</th>
-                  <th scope="col" className="hidden lg:table-cell px-4 py-3 text-right font-medium">CGPA</th>
-                  <th scope="col" className="hidden lg:table-cell px-4 py-3 text-right font-medium">Backlogs</th>
-                  <th scope="col" className="hidden lg:table-cell px-4 py-3 text-right font-medium">Fee delay</th>
-                  <th scope="col" className="hidden xl:table-cell px-4 py-3 font-medium">Intervention</th>
-                  <th scope="col" className="px-4 py-3"><span className="sr-only">Open</span></th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.attendance} px-4 py-3 text-right font-medium`}>Attendance</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.cgpa} px-4 py-3 text-right font-medium`}>CGPA</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.backlogs} px-4 py-3 text-right font-medium`}>Backlogs</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.feeDelay} px-4 py-3 text-right font-medium`}>Fee delay</th>
+                  <th scope="col" className={`${COLUMN_VISIBILITY.intervention} px-4 py-3 font-medium`}>Intervention</th>
                 </tr>
               </thead>
               <tbody>
                 {queueData.items.map((student) => {
-                  const openStudent = () => navigate(`/app/students/${encodeURIComponent(student.student_id)}`);
+                  const studentPath = `/app/students/${encodeURIComponent(student.student_id)}`;
+                  const openStudent = () => navigate(studentPath);
                   const lowAttendance = isBelowThreshold(student.attendance);
                   return (
+                    // The name is the row's link (one tab stop, visible at every width); clicking anywhere
+                    // else on the row opens the student too.
                     <tr
                       key={student.student_id}
                       onClick={openStudent}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') openStudent();
-                      }}
-                      tabIndex={0}
-                      className="cursor-pointer border-b border-rule last:border-0 hover:bg-ink-wash focus-visible:bg-ink-wash"
+                      className="cursor-pointer border-b border-rule last:border-0 hover:bg-ink-wash focus-within:bg-ink-wash"
                     >
-                      <td className="px-4 py-3 text-slate">{student.priority_rank}</td>
+                      <td className={`${COLUMN_VISIBILITY.rank} px-4 py-3 text-slate`}>{student.priority_rank}</td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-graphite">{student.name || student.student_id}</div>
+                        <Link
+                          to={studentPath}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-graphite underline-offset-4 hover:underline"
+                        >
+                          {student.name || student.student_id}
+                        </Link>
                         {student.name && <div className="text-13 text-slate">{student.student_id}</div>}
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 text-graphite">{student.department || '—'}</td>
-                      <td className="px-4 py-3 text-right text-graphite">{formatPercent(student.risk_score_percentage)}</td>
+                      <td className={`${COLUMN_VISIBILITY.department} px-4 py-3 text-graphite`}>{student.department || '—'}</td>
+                      <td className={`${COLUMN_VISIBILITY.risk} px-4 py-3 text-right text-graphite`}>{formatPercent(student.risk_score_percentage)}</td>
                       <td className="px-4 py-3">
                         <RiskTierChip tier={student.risk_tier} className="border-0 px-0 py-0" />
+                        {/* The estimated risk column is hidden on phones; show the number here instead. */}
+                        <div className={`${COLUMN_VISIBILITY.riskInline} text-13 text-slate`}>{formatPercent(student.risk_score_percentage)}</div>
                       </td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-right">
+                      <td className={`${COLUMN_VISIBILITY.attendance} px-4 py-3 text-right`}>
                         {student.attendance == null ? (
                           '—'
                         ) : (
@@ -319,16 +341,16 @@ const Dashboard = () => {
                           </span>
                         )}
                       </td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-right text-graphite">
+                      <td className={`${COLUMN_VISIBILITY.cgpa} px-4 py-3 text-right text-graphite`}>
                         {student.cgpa == null ? '—' : student.cgpa.toFixed(2)}
                       </td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-right text-graphite">
+                      <td className={`${COLUMN_VISIBILITY.backlogs} px-4 py-3 text-right text-graphite`}>
                         {student.backlogs == null ? '—' : student.backlogs}
                       </td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-right text-graphite">
+                      <td className={`${COLUMN_VISIBILITY.feeDelay} px-4 py-3 text-right text-graphite`}>
                         {student.fee_delay_days == null ? '—' : `${student.fee_delay_days} days`}
                       </td>
-                      <td className="hidden xl:table-cell px-4 py-3">
+                      <td className={`${COLUMN_VISIBILITY.intervention} px-4 py-3`}>
                         {student.intervention_status ? (
                           <>
                             <div className="text-graphite">{student.primary_intervention}</div>
@@ -337,17 +359,6 @@ const Dashboard = () => {
                         ) : (
                           <span className="whitespace-nowrap text-slate">None logged</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          to={`/app/students/${encodeURIComponent(student.student_id)}`}
-                          onClick={(e) => e.stopPropagation()}
-                          tabIndex={-1}
-                          className="text-ink underline-offset-4 hover:underline"
-                          aria-label={`Open ${student.name || student.student_id}`}
-                        >
-                          Open
-                        </Link>
                       </td>
                     </tr>
                   );
