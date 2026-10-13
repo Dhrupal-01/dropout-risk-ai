@@ -7,6 +7,7 @@ import HealthBadge from '../components/HealthBadge';
 import ThemeToggle from '../components/ThemeToggle';
 import SkipLink from '../components/SkipLink';
 import StudentSearch from '../components/StudentSearch';
+import TopBarMenu from '../components/TopBarMenu';
 import PageLoading from '../components/PageLoading';
 import { isDemoMode } from '../content/site';
 
@@ -80,15 +81,19 @@ const AppLayout = () => (
           </div>
         )}
 
-        <header className="sticky top-0 z-40 bg-paper border-b border-rule px-4 sm:px-6 py-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+        {/* One row below md: the token field and health move into TopBarMenu. md and up may wrap. */}
+        <header className="sticky top-0 z-40 bg-paper border-b border-rule px-4 sm:px-6 py-3 flex md:flex-wrap items-center justify-end gap-x-2 md:gap-x-4 gap-y-2">
           <div className="mr-auto min-w-0">
             <StudentSearch />
           </div>
-          <AdminTokenField />
-          <div className="flex items-center gap-2 text-13 text-slate">
-            <span className="hidden sm:inline">Backend:</span>
+          <div className="hidden md:flex">
+            <AdminTokenField />
+          </div>
+          <div className="hidden md:flex items-center gap-2 text-13 text-slate">
+            <span>Backend:</span>
             <HealthBadge />
           </div>
+          <TopBarMenu className="md:hidden" />
           <ThemeToggle />
         </header>
 

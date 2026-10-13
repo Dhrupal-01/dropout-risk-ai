@@ -17,6 +17,7 @@ import { formatNumber } from '../../../content';
 import { ciLevelPct, evidenceProvenance, findResult, findResults, formatScore } from '../../../content/evidence';
 import { BENCHMARKS_DOC_URL } from '../../../content/site';
 import Reveal from '../../../components/Reveal';
+import { usePrefersReducedMotion } from '../../../hooks/usePrefersReducedMotion';
 
 // Lazy chunk: evidence.json and recharts load only when the Evidence section nears the screen.
 // Splits match the README: UCI repeated stratified CV, OULAD temporal holdout (predefined_split).
@@ -58,6 +59,7 @@ const uciRows = (featureSet) =>
 
 // One small multiple per feature set: a single series each, so no legend and no second colour.
 const UciPanel = ({ featureSet }) => {
+  const reducedMotion = usePrefersReducedMotion();
   const rows = uciRows(featureSet.key);
   return (
     <Reveal>
@@ -77,9 +79,9 @@ const UciPanel = ({ featureSet }) => {
             />
             <YAxis type="category" dataKey="label" width={128} tick={axisTick} tickLine={false} axisLine={false} />
             <ReferenceLine x={CHANCE} stroke="var(--slate)" strokeDasharray="0" label={{ value: 'Coin flip', position: 'top', fill: 'var(--slate)', fontSize: 12 }} />
-            <Tooltip content={<ScoreTooltip labelFor={(row) => row.label} />} cursor={false} isAnimationActive={false} />
-            <Scatter data={rows} fill="var(--ink)" isAnimationActive={false}>
-              <ErrorBar dataKey="err" direction="x" width={6} strokeWidth={2} stroke="var(--ink)" />
+            <Tooltip content={<ScoreTooltip labelFor={(row) => row.label} />} cursor={false} isAnimationActive={!reducedMotion} />
+            <Scatter data={rows} fill="var(--ink)" isAnimationActive={!reducedMotion}>
+              <ErrorBar dataKey="err" direction="x" width={6} strokeWidth={2} stroke="var(--ink)" isAnimationActive={!reducedMotion} />
             </Scatter>
           </ScatterChart>
         </ResponsiveContainer>
@@ -108,6 +110,7 @@ const UciPanel = ({ featureSet }) => {
 };
 
 const OuladChart = ({ rows }) => {
+  const reducedMotion = usePrefersReducedMotion();
   const lows = rows.map((r) => r.metric.ci_lower);
   const highs = rows.map((r) => r.metric.ci_upper);
   // One step below the coin-flip line so the line and its label sit clear of the x-axis.
@@ -132,15 +135,15 @@ const OuladChart = ({ rows }) => {
             />
             <YAxis domain={domain} ticks={yTicks} tickFormatter={(v) => v.toFixed(1)} tick={axisTick} width={40} axisLine={false} tickLine={false} />
             <ReferenceLine y={CHANCE} stroke="var(--slate)" label={{ value: 'Coin flip', position: 'insideTopRight', fill: 'var(--slate)', fontSize: 12 }} />
-            <Tooltip content={<ScoreTooltip labelFor={(row) => `Day ${row.day}`} />} cursor={{ stroke: 'var(--rule)' }} isAnimationActive={false} />
-            <Area dataKey="band" stroke="none" fill="var(--ink)" fillOpacity={0.1} isAnimationActive={false} />
+            <Tooltip content={<ScoreTooltip labelFor={(row) => `Day ${row.day}`} />} cursor={{ stroke: 'var(--rule)' }} isAnimationActive={!reducedMotion} />
+            <Area dataKey="band" stroke="none" fill="var(--ink)" fillOpacity={0.1} isAnimationActive={!reducedMotion} />
             <Line
               dataKey="point"
               stroke="var(--ink)"
               strokeWidth={2}
               dot={{ r: 4, fill: 'var(--ink)', stroke: 'var(--paper)', strokeWidth: 2 }}
               activeDot={{ r: 5, fill: 'var(--ink)', stroke: 'var(--paper)', strokeWidth: 2 }}
-              isAnimationActive={false}
+              isAnimationActive={!reducedMotion}
             />
           </ComposedChart>
         </ResponsiveContainer>

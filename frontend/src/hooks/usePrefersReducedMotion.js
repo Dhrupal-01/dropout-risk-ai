@@ -8,5 +8,5 @@ const subscribe = (onChange) => {
   return () => mq.removeEventListener('change', onChange);
 };
 
-// For motion driven from JavaScript (the count-up). CSS animations use the media query directly.
+// For motion driven from JavaScript (the count-up, isAnimationActive on the landing charts). CSS animations use the media query directly.
 export const usePrefersReducedMotion = () => useSyncExternalStore(subscribe, () => window.matchMedia(QUERY).matches);
