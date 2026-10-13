@@ -1,6 +1,6 @@
 """
 Synthetic Indian College Dataset Generator for DropoutGuard
-Context: Indian Higher Education Engineering/Degree College (SDG 4 / SIH 2026 PSID 7-L)
+Context: Indian Higher Education Engineering/Degree College (SDG 4)
 
 Generates ~2,000 realistic student records across the 4 core pillars:
 1. Attendance: Monthly % per subject, 3-month trend slope, consecutive absent days, mandatory 75% rule violation flag.

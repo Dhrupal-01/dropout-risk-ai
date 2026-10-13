@@ -1,6 +1,6 @@
 """
 End-to-End ML Core Validation & Report Generator for DropoutGuard
-Context: SIH 2026 PSID 7-L / SDG 4 (Quality Education)
+Context: SDG 4 (Quality Education)
 
 Executes / validates the entire ML core:
 1. Held-out test set metrics (Recall, Precision, F1, AUC-ROC, Accuracy)
@@ -61,7 +61,7 @@ def run_pipeline_validation(regenerate: bool = False, allow_dirty: bool = False)
     print("=" * 80)
     print(" DROPOUTGUARD — AI-POWERED EARLY-WARNING AND STUDENT SUPPORT SYSTEM ")
     print(" Comprehensive Machine Learning Core Validation & Clinical Report ")
-    print(" Context: Smart India Hackathon 2026 (PSID 7-L) | SDG 4: Quality Education")
+    print(" Context: SDG 4: Quality Education")
     print("=" * 80)
 
     # 1. Check / Regenerate Artifacts if requested

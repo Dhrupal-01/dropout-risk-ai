@@ -1,6 +1,6 @@
 """
 Fairness and Bias Audit Pipeline for DropoutGuard
-Context: SIH 2026 PSID 7-L / SDG 4 (Quality Education)
+Context: SDG 4 (Quality Education)
 
 Computes quantitative demographic parity, False Negative Rate (FNR) parity,
 and Equal Opportunity metrics across:

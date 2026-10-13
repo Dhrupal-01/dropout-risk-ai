@@ -1,6 +1,6 @@
 """
 Intervention Recommendation Engine & Counterfactual Recourse for DropoutGuard
-Context: SIH 2026 PSID 7-L / SDG 4 (Quality Education)
+Context: SDG 4 (Quality Education)
 
 Components:
 1. Structured Intervention Catalog (Categorized by the 4 pillars)
