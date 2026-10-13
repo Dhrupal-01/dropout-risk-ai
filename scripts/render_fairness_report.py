@@ -330,7 +330,7 @@ def render_fairness_markdown_report(
 
     content = f"""# Ethics, Responsible AI & Algorithmic Fairness Audit Report
 ### DropoutGuard — AI-Powered Early-Warning and Student Support System
-**Target Context**: Smart India Hackathon 2026 (PSID 7-L) & SDG 4: Quality Education  
+**Target Context**: SDG 4: Quality Education  
 **Evaluation Scope**: Quantitative algorithmic fairness, subgroup False-Negative-Rate (FNR) parity, within-group calibration (ECE), temporal presentation shift, and mitigation benchmarking across real-data cohorts and simulated benchmarks.
 {dirty_block}
 ---

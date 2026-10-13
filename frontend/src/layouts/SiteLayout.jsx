@@ -51,7 +51,7 @@ const SiteLayout = () => (
     <footer className="border-t border-rule">
       <div className="max-w-page mx-auto px-4 sm:px-6 py-10 text-15 text-slate space-y-2">
         <p className="font-medium text-graphite">DropoutGuard</p>
-        <p>Smart India Hackathon 2026, SDG 4: Quality Education</p>
+        <p>Supporting SDG 4: Quality Education</p>
         <p>
           <a href={REPO_URL} className="text-ink underline underline-offset-4 hover:no-underline">
             Source code on GitHub

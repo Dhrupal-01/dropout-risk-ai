@@ -1,7 +1,7 @@
 [project]
 name = "dropoutguard"
 version = "0.1.0"
-description = "AI-Powered Academic Dropout Prediction & Intervention System (SIH 2026 PSID 7-L / SDG 4)"
+description = "Early-warning and student support system for colleges"
 requires-python = ">=3.11"
 dependencies = [
     "numpy",

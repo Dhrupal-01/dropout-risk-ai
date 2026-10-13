@@ -1,6 +1,6 @@
 """
 Feature Engineering Pipeline for DropoutGuard
-Context: SIH 2026 PSID 7-L / SDG 4 (Quality Education)
+Context: SDG 4 (Quality Education)
 
 Combines data sources and builds engineered features across the four core pillars:
 1. Attendance Dynamics: Trends, slopes, streaks, mandatory 75% rule violation
