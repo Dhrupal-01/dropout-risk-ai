@@ -1,64 +1,76 @@
-# DropoutGuard — AI-Powered Early-Warning and Student Support System
+# DropoutGuard
 
-> **Smart India Hackathon 2026 (PSID 7-L)**  
-> **UN Sustainable Development Goal 4 (SDG 4: Quality Education)**  
-> Predictive intelligence, explainable SHAP attributions, prescriptive institutional interventions, and algorithmic fairness for higher education.
+**Early-warning and student support system for colleges.**
 
----
+![Python](https://img.shields.io/badge/Python-3.14.5-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141.1-009688?logo=fastapi&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-3.4.1-EB5B25)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9.0-F7931E?logo=scikitlearn&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0.52-D71F00?logo=sqlalchemy&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2.8-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-8.2.1-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.19-06B6D4?logo=tailwindcss&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-9.1.1-0A9EDC?logo=pytest&logoColor=white)
 
-## Quick Links & Documentation
+DropoutGuard flags students who may need support, explains each flag in plain language, suggests
+interventions, and keeps a record of mentor outreach. It is decision support for mentors: nothing
+it shows is punitive or automatic.
 
-- [**Frontend API Handover**](docs/frontend_api_handover.md) — Endpoint specifications, schemas & error codes
-- [Backend Architecture & Feature Contract](backend/README.md)
-- [Feature Data Dictionary](docs/data_dictionary.md)
-- [Real-Data Benchmarks](docs/benchmarks.md) (generated)
-- [Ethics, Responsible AI & Algorithmic Fairness Audit](docs/ethics_and_fairness.md) (generated)
-- [Simulated Cohort Specification](docs/simulation.md) and [Parameter Mapping](docs/simulation_mapping.md) (generated)
+![DropoutGuard landing page](docs/screenshots/landing-light.png)
 
----
+> **Status:** the demo model is trained on a simulated Indian college cohort. It has not been
+> validated on Indian college records. See [Limitations](#limitations).
 
-## System Overview
+## 💡 Why
 
-DropoutGuard continuously ingests multi-source student data across **4 Core Pillars**:
-1. **Attendance & Discipline**: Overall 3-month attendance %, recent-month trajectory, consecutive absence streaks, and the mandatory 75% AICTE/UGC debarment rule.
-2. **Academic Performance**: Current & previous semester CGPA, semester grade velocity, uncleared active backlogs, continuous assessment marks, and core course failure status.
-3. **Digital Learning Behavior (LMS)**: Weekly login frequency, assignment submission delays/lags, inactivity recency, and resource access volumes.
-4. **Socio-Economic & Financial Resilience**: Tuition fee payment overdue days, family income brackets, scholarship buffers, and first-generation learner status.
+Most students who leave college do not leave on one day. Attendance slips, assignments stop
+arriving, a fee goes unpaid, and the signs sit in separate records. India enrolled
+[4.5 crore students in higher education in 2023-24](https://ddnews.gov.in/en/higher-education-enrolment-rises-to-record-4-5-crore-in-2023-24-ger-touches-30-aishe-report/)
+(AISHE 2023-24, Ministry of Education, as reported by DD News), and
+[33,979 students left centrally funded institutions before completing between 2019 and 2023](https://news.careers360.com/98-student-suicide-33979-dropout-iit-iim-nit-iiser-iiit-sc-st-obc-central-university-education-ministry-lok-sabha-reply)
+(Ministry of Education reply in the Rajya Sabha, as reported by Careers360). DropoutGuard brings
+the records a college already keeps together, so a mentor can reach out while there is still time.
 
+## ✨ Features
+
+- 💬 **Risk level with reasons.** Each student is on track, monitor or needs outreach, with the top reasons in plain language.
+- 📋 **Mentor worklist.** Students ordered by priority and filterable by department, risk level and mentor.
+- 🤝 **Interventions and logging.** Suggested actions from a catalogue of institutional interventions, and a log of every outreach and its outcome.
+- 📤 **CSV import.** Upload the attendance, marks, learning-platform and fee records the college already keeps.
+- 🔔 **Rule-based alerts.** Simple rules, separate from the model, raise an alert when attendance falls below the required minimum.
+- ⚖️ **Fairness audits.** Results are audited across student groups, and the gaps are reported with confidence intervals.
+
+## 🖼️ Screenshots
+
+All records shown are simulated.
+
+| Light | Dark |
+| :---: | :---: |
+| ![Overview dashboard, light theme](docs/screenshots/overview-light.png) | ![Overview dashboard, dark theme](docs/screenshots/overview-dark.png) |
+| ![Student detail, light theme](docs/screenshots/student-detail-light.png) | ![Student detail, dark theme](docs/screenshots/student-detail-dark.png) |
+
+## 🔄 How it works
+
+```mermaid
+flowchart LR
+    A[CSV import] --> B[Feature engineering]
+    B --> C[Calibrated XGBoost model]
+    C --> D[SHAP reasons in plain language]
+    D --> E[Mentor worklist]
+    E --> F[Intervention log]
 ```
-                  ┌────────────────────────────────────────────────────────┐
-                  │             DropoutGuard ML Core Pipeline             │
-                  └────────────────────────────────────────────────────────┘
-                                              │
-                     ┌────────────────────────┴────────────────────────┐
-                     ▼                                                 ▼
-        [ Predictive Intelligence ]                       [ Prescriptive Recourse ]
-  • Calibrated Probabilities (Platt / Sigmoid)       • 12 Codified Institutional Actions
-  • Configurable Risk Tiers (Low/Med/High)           • Counterfactual Recourse Simulation
-  • TreeSHAP Signed Local Attributions               • Prioritized Mentor Triage Queue
-  • Counselor Plain-Language Statements              • Intervention Lifecycle Tracking
-```
 
----
+1. **Bring the records you already have.** Upload a CSV of attendance, marks, learning-platform activity and fee status.
+2. **See who may need support, and why.** Each student gets a risk level with the top reasons, not just a score.
+3. **Reach out early.** Mentors work from a priority worklist with suggested actions.
+4. **Record what happened.** Every outreach and outcome is logged, so the college learns what works.
 
-## Pipeline validation on simulated data (Held-Out Test Set $N=300$)
+## 📊 Evidence
 
-The evaluation cohort is simulated by `generate_synthetic_indian.py`, and target labels are derived from a known mathematical formula parameterized in that script. Consequently, these metrics demonstrate that the data ingestion, feature engineering, training, calibration, and fairness auditing pipelines function cohesively end-to-end, and they should not be construed as empirical evidence of real-world predictive accuracy.
-
-<!-- METRICS:START -->
-- **At-Risk Recall (Sensitivity)**: `78.10%` (Minimizes missed vulnerable students)
-- **At-Risk Precision**: `90.11%` (Prevents mentor alert fatigue)
-- **Minority Class F1 Score**: `0.8367`
-- **Macro-Averaged F1 Score**: `0.8788`
-- **ROC-AUC**: `0.9325`
-- **Overall Accuracy**: `89.33%`
-- **Brier Calibration Score**: `0.0902`
-- **Demographic Disparity**: Gender FNR gap $1.42\text{ pp}$, Economic proxy gap $8.08\text{ pp}$, First-Gen gap $7.15\text{ pp}$
-<!-- METRICS:END -->
-
----
-
-## Real-data benchmarks
+The modelling approach is benchmarked on two public datasets with real student outcomes, UCI 697
+(a Portuguese polytechnic) and OULAD (UK online learning), rebuilt from the official releases and
+checked against the checksums in [ml/sources/checksums.json](ml/sources/checksums.json). The
+section below is generated from the benchmark artifacts.
 
 <!-- BENCHMARKS:START -->
 Generated from `ml/artifacts/benchmarks/*.json` (commit `81f1229`; inputs `assessments.csv` `8cc738fb88ad`, `courses.csv` `4f16eee7454b`, `studentAssessment.csv` `fd5320786328`, `studentInfo.csv` `7e6f3e474a5e`, `studentRegistration.csv` `0d3267628537`, `studentVle.csv` `52668253d876`, `uci_dropout.csv` `3ef126de5cef`, `vle.csv` `d1b28303dea8`). Full results, all split strategies and metrics: [docs/benchmarks.md](docs/benchmarks.md). Values are point estimates with 95% bootstrap CIs (1,000 resamples).
@@ -107,238 +119,149 @@ Label: Withdrawn. Temporal holdout: train 2013B + 2013J, test 2014B + 2014J. n =
 > **Not validated on Indian college records.** This result is from UK distance-learning students (OULAD). The deployed model is trained on a simulated Indian cohort and has never been evaluated on real Indian student data.
 <!-- BENCHMARKS:END -->
 
----
+<details>
+<summary>Pipeline check on the simulated cohort (not real-world accuracy)</summary>
 
-## Quickstart & Local Setup
+These figures come from the simulated cohort, whose labels follow a known formula. They show that
+the pipeline runs end to end; they are not evidence of real-world accuracy. Cohort assumptions:
+[docs/simulation.md](docs/simulation.md).
 
-### Prerequisites
+<!-- METRICS:START -->
+- **At-Risk Recall (Sensitivity)**: `78.10%` (Minimizes missed vulnerable students)
+- **At-Risk Precision**: `90.11%` (Prevents mentor alert fatigue)
+- **Minority Class F1 Score**: `0.8367`
+- **Macro-Averaged F1 Score**: `0.8788`
+- **ROC-AUC**: `0.9325`
+- **Overall Accuracy**: `89.33%`
+- **Brier Calibration Score**: `0.0902`
+- **Demographic Disparity**: Gender FNR gap $1.42\text{ pp}$, Economic proxy gap $8.08\text{ pp}$, First-Gen gap $7.15\text{ pp}$
+<!-- METRICS:END -->
 
-| Requirement | Version |
-|---|---|
-| Python | **3.12** (3.11+ works; pinned to 3.12.10 in development) |
-| PostgreSQL | **16+** — a hosted [Neon](https://neon.tech) database is used in development |
-| OS | Windows / macOS / Linux |
+</details>
 
-### 1. Environment & dependencies
+### Limitations
+
+- **Not yet validated on Indian college records; the demo uses a simulated cohort.**
+- **Shared admin token only.** Every write needs one shared bearer token (`API_ADMIN_TOKEN`), and reads are public while `PUBLIC_READ_ONLY=true`. Do not load real student data until per-mentor login exists.
+- **Simulated fairness results reflect the generator's assumptions,** not disparities observed in real institutions.
+
+## 🧰 Tech stack
+
+| Layer | Technology | Version |
+| :--- | :--- | :--- |
+| ML | Python | 3.14.5 |
+| ML | XGBoost · scikit-learn · SHAP | 3.4.1 · 1.9.0 · 0.52.0 |
+| ML | pandas · NumPy | 3.0.5 · 2.5.2 |
+| ML (research extras) | PyTorch · fairlearn | 2.14.0 · 0.14.0 |
+| Backend | FastAPI · Uvicorn · Pydantic | 0.141.1 · 0.52.3 · 2.13.4 |
+| Database | PostgreSQL (with `pg_trgm`) | not pinned |
+| Database | SQLAlchemy · psycopg · Alembic | 2.0.52 · 3.3.4 · 1.19.1 |
+| Frontend | React · React Router · TanStack Query | 19.2.8 · 7.18.2 · 5.101.4 |
+| Frontend | Vite · Tailwind CSS · recharts | 8.2.1 · 3.4.19 · 3.10.1 |
+| Testing | pytest · oxlint | 9.1.1 · 1.79.0 |
+
+Python versions are pinned in [requirements.lock](requirements.lock) and frontend versions in
+[frontend/package-lock.json](frontend/package-lock.json).
+
+## 🚀 Quick start
+
+Needs Python 3.14.5 (the version `requirements.lock` was generated with; `pyproject.toml` allows
+3.11 and later), Node.js 20.19+ or 22.12+, and a PostgreSQL database.
 
 ```bash
-git clone <repo-url>
-cd dropout-risk-ai
-
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
+# Python environment, exact versions from the lock file
+python3 -m venv .venv
 source .venv/bin/activate
-
-# ML core only
-pip install -e .
-
-# ML core + FastAPI backend (what you want for the API)
-pip install -e ".[backend]"
-```
-
-#### Install from the lock file (exact versions)
-
-`requirements.lock` pins every package (ML, backend and research extras, test tools) to the exact
-versions the test suite was run with. It was produced with `python -m pip freeze --exclude-editable`
-and has been verified on Python 3.14.5 (see its header). To reproduce that environment:
-
-```bash
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.lock
-pip install -e . --no-deps                            # the project itself, without re-resolving
-pytest -m "not data" -q -rs                           # suite without the UCI / OULAD raw files
-```
+pip install -e . --no-deps
 
-Regenerate the lock after an intentional upgrade with the same `pip freeze` command and commit it.
+# Configuration: set DATABASE_URL (required) and API_ADMIN_TOKEN (needed for any write)
+cp .env.example .env
 
-### 2. Configuration
+# Real-data pipeline: benchmarks, simulated-cohort model, SHAP explainer, generated docs
+# (needs the raw datasets below and a clean git tree)
+python -m ml.pipeline run-all --dry-run
+python -m ml.pipeline run-all
 
-```bash
-cp .env.example .env      # then edit
-```
-
-`DATABASE_URL` is **required** and has no default — the app refuses to start without it.
-
-```bash
-# Neon (note: sslmode=require is mandatory)
-DATABASE_URL=postgresql://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
-
-# Optional: direct (non-pooled) endpoint used for Alembic DDL
-MIGRATION_DATABASE_URL=postgresql://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
-
-# Optional: a THROWAWAY database for the test suite, which creates and drops tables
-TEST_DATABASE_URL=postgresql://user:password@ep-xxx.region.aws.neon.tech/dropoutguard_test?sslmode=require
-
-ENVIRONMENT=development
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000
-```
-
-Bare `postgresql://` URLs are rewritten to the psycopg3 driver automatically.
-`.env` is gitignored — never commit credentials.
-
-**Access control (first stage).** Every write (`/predict`, `/predict/batch`, `/predict/batch/csv`,
-`/interventions/log`) needs `Authorization: Bearer <API_ADMIN_TOKEN>`; without the right token the
-API returns 401 `unauthorized`. With no `API_ADMIN_TOKEN` set, all writes are refused, and
-`ENVIRONMENT=production` will not start without one. Reads are public while `PUBLIC_READ_ONLY=true`
-(the default) and need the same token when it is `false`. The frontend has an "Admin token" field
-in the header, kept in memory only. This is one shared token, not per-mentor login.
-**Do not load real student data until per-mentor authentication exists.**
-
-### 3. Build the ML artifacts (required once)
-
-Model binaries and `features.csv` are gitignored, so a fresh clone has none. The backend
-serves no predictions until they exist.
-
-```bash
-python -m ml.data_pipeline.feature_engineering   # -> data/processed/features.csv (2000 x 44)
-python -m ml.validate_pipeline --regenerate      # trains, calibrates, builds the SHAP explainer
-```
-
-Produces `ml/artifacts/`: `base_xgboost_model.joblib`, `calibrated_model.joblib`,
-`shap_explainer.joblib`, `feature_names.json`, `interventions.json`.
-
-> Re-training on a different machine can select a different champion imbalance strategy,
-> so metrics may differ slightly from the committed `model_metrics.json`.
-
-### 4. Database migration
-
-```bash
+# Database schema and a simulated cohort
 alembic upgrade head
-```
+python -m backend.scripts.seed_students --limit 200 --predict
 
-Creates `students`, `predictions`, `intervention_logs` with all indexes and constraints.
-`alembic.ini` holds no URL — `alembic/env.py` injects it from the environment.
-
-```bash
-alembic revision --autogenerate -m "description"   # after changing models
-alembic downgrade -1                               # roll back one revision
-alembic current                                    # show applied revision
-```
-
-### 5. Seed the reference cohort
-
-```bash
-python -m backend.scripts.seed_students                # all 2,000 students
-python -m backend.scripts.seed_students --limit 200    # a subset
-python -m backend.scripts.seed_students --predict      # also score each student
-```
-
-Idempotent — re-running upserts by `student_id`. `name`/`department` do not exist in the
-ML dataset and are synthesised deterministically for the dashboard.
-`--predict` scores rows one at a time and takes roughly 15 minutes for the full cohort.
-
-### 6. Run the API
-
-```bash
-# development, with auto-reload
+# API: Swagger UI at http://localhost:8000/docs
 uvicorn backend.app.main:app --reload --port 8000
 
-# deployment entrypoint (binds $PORT, defaults to 8000)
-python -m backend.app.main
+# Frontend, in a second terminal: http://localhost:5173
+cd frontend
+npm ci
+npm run dev
+
+# Tests (database tests need TEST_DATABASE_URL pointing at a throwaway database)
+pytest -m "not data and not slow"
+pytest verification -rs
 ```
 
-| URL | Purpose |
-|---|---|
-| `http://localhost:8000/docs` | **Swagger UI** |
-| `http://localhost:8000/redoc` | ReDoc |
-| `http://localhost:8000/openapi.json` | OpenAPI schema |
-| `http://localhost:8000/health` | Health probe |
+**Windows:** activate with `.venv\Scripts\activate` and copy the env file with `copy .env.example .env`.
 
-### 7. Tests
+**Raw datasets for `run-all`:** extract `data.csv` unchanged from the
+[UCI 697 archive](https://archive.ics.uci.edu/static/public/697/predict+students+dropout+and+academic+success.zip)
+to `data/raw/uci_dropout.csv`, and the seven OULAD tables from the
+[original OULAD release](https://analyse.kmi.open.ac.uk/open_dataset) into `data/raw/oulad/`.
+Without them, build only the simulated-cohort model:
 
 ```bash
-pytest                      # everything (ml/tests + backend/tests)
-pytest ml/tests/ -v         # ML core only
-pytest backend/tests/ -v    # backend only
-pytest -k "predict"         # by keyword
+python -m ml.data_pipeline.feature_engineering
+python -m ml.validate_pipeline --regenerate
 ```
 
-For the current number of tests, run `pytest --collect-only -q`.
+More detail: [backend/README.md](backend/README.md), [frontend/README.md](frontend/README.md) and the
+[API reference](docs/frontend_api_handover.md).
 
-Database-backed tests skip unless `TEST_DATABASE_URL` is set. Point it at a **throwaway**
-database — the suite creates and drops tables. Its schema is built by running the real
-Alembic migration, so a broken migration fails the suite.
-
----
-
-## Deployment
-
-Deployable on any standard Python host (Render, Railway, Fly.io, Heroku).
-
-```bash
-# Procfile
-web: python -m backend.app.main
-```
-
-The entrypoint binds `0.0.0.0` on `$PORT`, as platform routing requires.
-
-**Required environment variables**
-
-```bash
-DATABASE_URL=postgresql://...      # managed PostgreSQL; SQLite is rejected in production
-ENVIRONMENT=production
-CORS_ORIGINS=https://your-frontend.example.com
-```
-
-- `ENVIRONMENT=production` **requires** a PostgreSQL `DATABASE_URL`. A file-backed database
-  is refused at startup, because an ephemeral container filesystem would silently discard
-  every prediction and intervention log on restart.
-- Run `alembic upgrade head` as a release step.
-- ML artifacts must be present in the image (they are gitignored — build them in CI or ship
-  them as a build artifact). Artifact paths resolve from the package location, so the
-  service works regardless of working directory.
-- If artifacts are missing the app still starts and `/health` reports
-  `model_loaded: false` rather than crash-looping.
-- Connection pooling is tuned for Neon (`pool_pre_ping`, `pool_recycle=280s`).
-
----
-
-## Repository Structure
+## 🗂️ Project structure
 
 ```
 dropout-risk-ai/
-├── data/
-│   ├── raw/                       # Reference benchmark datasets (UCI, OULAD)
-│   └── processed/                 # Standardized features.csv & feature_metadata.json
-├── docs/
-│   ├── frontend_api_handover.md   # API contract: endpoints, schemas, error codes
-│   ├── data_dictionary.md         # Feature definitions
-│   ├── benchmarks.md              # Generated: real-data benchmark report
-│   ├── ethics_and_fairness.md     # Generated: fairness audit report
-│   ├── simulation.md              # Generated: simulated cohort parameters
-│   ├── simulation_mapping.md      # Generated: parameter estimation from real data
-│   └── figures/                   # Generated: benchmark figures
 ├── ml/
-│   ├── artifacts/                 # Serialized model, explainer, and intervention JSONs
-│   │   ├── calibrated_model.joblib
-│   │   ├── base_xgboost_model.joblib
-│   │   ├── shap_explainer.joblib
-│   │   ├── feature_names.json
-│   │   └── interventions.json
-│   ├── config.py                  # Central configuration & configurable risk thresholds
-│   ├── data_pipeline/             # Ingestion & feature engineering scripts
-│   ├── models/                    # Training, calibration, SHAP & fairness audit
-│   ├── intervention/              # Prescriptive recommendation & counterfactual engine
-│   ├── tests/                     # ML test suite
-│   └── validate_pipeline.py       # End-to-end report generator and sanity assertions
-├── pytest.ini
-├── pyrightconfig.json
-├── pyproject.toml
-└── README.md
+│   ├── data_pipeline/   # simulated cohort generator and feature engineering
+│   ├── sources/         # UCI 697 and OULAD loaders, the only code that reads real data
+│   ├── evaluation/      # benchmark harness: splits, baselines, metrics, bootstrap CIs
+│   ├── simulation/      # cohort assumptions, parameter estimation, sim-to-real check
+│   ├── models/          # XGBoost training, calibration, SHAP
+│   ├── intervention/    # intervention catalogue and counterfactual recourse
+│   ├── fairness/        # audits, mitigations, shift check, income ablation
+│   ├── artifacts/       # metrics and benchmark JSON (model binaries are gitignored)
+│   └── pipeline.py      # run-all: the real-data pipeline runner
+├── backend/app/         # FastAPI app: endpoints, services, models, schemas
+├── alembic/versions/    # database schema migrations
+├── frontend/src/        # React site and mentor app
+├── scripts/             # renderers for the generated docs and README blocks
+├── verification/        # audit test suite and its generated REPORT.md
+└── docs/                # data dictionary, API reference, generated reports
 ```
 
----
+## 🛡️ Responsible AI
 
-## Limitations
+- **A person decides; the tool only suggests.** Every flag is a prompt for a mentor to look and talk to the student.
+- **Flags never punish.** They must never be used for penalties, debarment, admissions or scholarship decisions.
+- **Every flag comes with its reasons.** A mentor sees why a student was flagged, in plain language, and can disagree.
+- **Outcomes are audited across student groups.** Gender, age, caste category and disability are never model inputs.
 
-- **No per-mentor authentication yet**: one shared admin token protects writes, and reads are public by default. Do not load real student data until per-mentor authentication exists.
-- **Simulated Data Cohort**: The model is trained and evaluated exclusively on synthetic data generated via domain-informed rules and logistic formulas (`generate_synthetic_indian.py`). While the pipeline models Indian higher education patterns (attendance thresholds, backlogs, fee arrears), it has not been validated on real institutional student records.
-- **Absence of Temporal Validation**: The current validation uses static held-out and cross-validation splits rather than time-split validation across sequential academic terms. Temporal degradation and concept drift have not yet been evaluated across multi-semester horizons.
-- **Fairness Metrics Reflect Generator Assumptions**: The demographic parity and equalized opportunity evaluations reflect the distributions and functional dependencies programmed into the synthetic data generator rather than the systemic disparities observed in real-world educational institutions.
+Full audit: [docs/ethics_and_fairness.md](docs/ethics_and_fairness.md).
 
----
+## 🗺️ Roadmap
 
-## License & Compliance
-Built under the **MIT License** for **Smart India Hackathon 2026**. Designed in compliance with **UN SDG 4** and responsible AI fairness principles.
+- **Per-mentor login** to replace the shared admin token, before any real student data is loaded.
+- **Validation on real Indian college data.**
+
+## 🙌 Credits
+
+- **Dhrupalsinh Solanki** ([@Dhrupal-01](https://github.com/Dhrupal-01)), author and maintainer.
+  Designed and built the ML core: the simulated Indian college cohort and feature engineering, the
+  calibrated XGBoost model with SHAP explanations, and the intervention catalogue with
+  counterfactual recourse. Built the real-data benchmarks on UCI 697 and OULAD, the fairness audits
+  and mitigations, and the `run-all` pipeline with artifact provenance. Added the mentor-queue and
+  stats endpoints and admin-token access control to the backend, redesigned the site and mentor app,
+  and wrote the verification suite.
+- **Shlok Thakkar** built the first FastAPI backend: settings, database layer, the student,
+  prediction and intervention-log models, and the initial schema migration.
+- **Aryan Thakkar** built the first React and Vite dashboard, including the risk view with SHAP
+  explanations.
