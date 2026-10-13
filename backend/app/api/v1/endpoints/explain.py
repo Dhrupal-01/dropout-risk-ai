@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.errors import NoPredictionError, StudentNotFoundError
 from backend.app.db.session import get_db
 from backend.app.schemas.explanation import ExplanationResponse
-from backend.app.services import student_service
+from backend.app.services import prediction_service, student_service
 from backend.app.services.ml_service import MODEL_FEATURE_COUNT, ml_service
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,10 @@ def get_explanation(
 
     prediction = student_service.latest_prediction(db, student)
     if prediction is None:
-        raise NoPredictionError(student_id)
+        # Tells the client whether POST /students/{id}/rescore has stored inputs to score from.
+        raise NoPredictionError(
+            student_id, has_stored_features=prediction_service.stored_feature_input(student) is not None
+        )
 
     stored = prediction.top_drivers
     if stored and len(stored) >= top_k:

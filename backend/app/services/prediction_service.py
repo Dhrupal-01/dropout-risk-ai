@@ -9,9 +9,12 @@ aligned `predict_student_risk` call regardless of batch size.
 import logging
 from typing import Any, Dict, List, Optional, Sequence
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from backend.app.models.student import Student
 from backend.app.schemas.prediction import PredictionRequest, PredictionResponse
+from backend.app.schemas.student import StudentFeatureInput
 from backend.app.services import student_service
 from backend.app.services.ml_service import RAW_FEATURE_COLUMNS, ml_service
 
@@ -39,6 +42,23 @@ def canonical_stored_features(raw: Dict[str, Any]) -> Dict[str, Any]:
     elif raw.get("is_hosteler") is not None:
         stored["is_hosteler"] = raw["is_hosteler"]
     return stored
+
+
+def stored_feature_input(student: Student) -> Optional[StudentFeatureInput]:
+    """
+    The student's stored raw inputs (`students.features`) as a validated scoring input, or None when
+    there is nothing usable: an empty record, or one that no longer passes the current contract.
+
+    Only the keys `canonical_stored_features` persists are read, so a column dropped from the contract
+    (e.g. `age`, a protected attribute) in an older record is ignored rather than scored.
+    """
+    stored = canonical_stored_features(student.features or {})
+    if not stored:
+        return None
+    try:
+        return StudentFeatureInput(**stored)
+    except ValidationError:
+        return None
 
 
 def score_and_persist(

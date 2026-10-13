@@ -48,11 +48,27 @@ class TestV3Phase0B:
         assert not re.search(r"const\s+DEPARTMENTS\s*=\s*\[", dashboard_src), "Hardcoded DEPARTMENTS array found in Dashboard.jsx"
         assert not re.search(r"const\s+MENTORS\s*=\s*\[", dashboard_src), "Hardcoded MENTORS array found in Dashboard.jsx"
 
-    def test_v3_4_demo_mode_banner(self):
-        """V3.4: VITE_DEMO_MODE toggles the demo banner."""
-        app_src = (PROJECT_ROOT / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
-        assert "VITE_DEMO_MODE" in app_src, "VITE_DEMO_MODE check missing from App.jsx"
-        assert "Demo environment" in app_src or "demo" in app_src.lower()
+    @pytest.mark.parametrize(
+        ("layout", "banner_text"),
+        [
+            ("AppLayout.jsx", "Demo environment — all student records are simulated."),
+            ("SiteLayout.jsx", "Demo data is simulated."),
+        ],
+    )
+    def test_v3_4_demo_mode_banner(self, layout, banner_text):
+        """V3.4: VITE_DEMO_MODE toggles the demo banner in each layout (via isDemoMode in content/site.js)."""
+        site_src = (PROJECT_ROOT / "frontend" / "src" / "content" / "site.js").read_text(encoding="utf-8")
+        assert re.search(
+            r"export\s+const\s+isDemoMode\s*=\s*import\.meta\.env\.VITE_DEMO_MODE\s*===\s*'true'", site_src
+        ), "isDemoMode is not derived from VITE_DEMO_MODE in content/site.js"
+
+        layout_src = (PROJECT_ROOT / "frontend" / "src" / "layouts" / layout).read_text(encoding="utf-8")
+        assert re.search(
+            r"import\s*\{[^}]*\bisDemoMode\b[^}]*\}\s*from\s*'\.\./content/site'", layout_src
+        ), f"{layout} does not import isDemoMode from content/site"
+        gated = re.search(r"\{\s*isDemoMode\s*&&\s*\(?\s*(<.*?)\s*\)?\s*\}", layout_src, re.DOTALL)
+        assert gated, f"{layout} does not render anything behind isDemoMode"
+        assert banner_text in gated.group(1), f"{layout}: demo banner text is not behind isDemoMode"
 
     def test_v3_5_frontend_build_and_lint(self):
         """V3.5: npm run build and npm run lint clean."""

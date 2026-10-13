@@ -62,6 +62,7 @@ class TestStatsSummary:
         assert data["total"] == 0
         assert data["by_tier"] == {"High": 0, "Medium": 0, "Low": 0}
         assert data["by_department"] == {}
+        assert data["by_department_tier"] == {}
 
     def test_summary_aggregates_tiers_and_departments(self, client, seeded_cohort):
         res = client.get(STATS_URL)
@@ -104,3 +105,49 @@ class TestStatsSummary:
         assert data["total"] == 5  # Still 5 unique students
         assert data["by_tier"]["High"] == 2  # 3 decreased to 2
         assert data["by_tier"]["Low"] == 3  # 2 increased to 3
+
+
+@requires_db
+class TestStatsSummaryDepartmentTier:
+    def test_breakdown_counts(self, client, seeded_cohort):
+        data = client.get(STATS_URL).json()
+        assert data["by_department_tier"] == {
+            "Computer Science & Engineering": {"High": 2, "Medium": 0, "Low": 1},
+            "Mechanical Engineering": {"High": 1, "Medium": 0, "Low": 1},
+        }
+        assert list(data["by_department_tier"]) == sorted(data["by_department_tier"])
+
+    def test_breakdown_matches_the_queue_totals_the_chart_used(self, client, seeded_cohort):
+        breakdown = client.get(STATS_URL).json()["by_department_tier"]
+        for department, tiers in breakdown.items():
+            for tier, count in tiers.items():
+                page = client.get(
+                    "/api/v1/mentors/queue", params={"department": department, "risk_tier": tier, "limit": 1}
+                ).json()
+                assert page["total"] == count, (department, tier)
+
+    def test_breakdown_sums_to_department_and_tier_totals(self, client, seeded_cohort):
+        data = client.get(STATS_URL).json()
+        breakdown = data["by_department_tier"]
+        assert {d: sum(t.values()) for d, t in breakdown.items()} == data["by_department"]
+        # Every seeded student has a department, so the tier sums equal by_tier.
+        assert {tier: sum(t[tier] for t in breakdown.values()) for tier in ("High", "Medium", "Low")} == data["by_tier"]
+
+    def test_breakdown_is_one_sql_statement(self, db_engine, db_session, seeded_cohort):
+        from sqlalchemy import event
+
+        from backend.app.services.stats_service import department_tier_counts
+
+        statements = []
+
+        def count(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        event.listen(db_engine, "before_cursor_execute", count)
+        try:
+            breakdown = department_tier_counts(db_session)
+        finally:
+            event.remove(db_engine, "before_cursor_execute", count)
+        assert len(statements) == 1, statements
+        assert "GROUP BY" in statements[0]
+        assert set(breakdown) == {"Computer Science & Engineering", "Mechanical Engineering"}

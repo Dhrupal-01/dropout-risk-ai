@@ -23,7 +23,8 @@
 ### Authentication (first stage)
 
 Every `/api/v1` write (`POST /api/v1/predict`, `POST /api/v1/predict/batch`,
-`POST /api/v1/predict/batch/csv`, `POST /api/v1/interventions/log`) needs the shared admin token:
+`POST /api/v1/predict/batch/csv`, `POST /api/v1/students/{student_id}/rescore`,
+`POST /api/v1/interventions/log`) needs the shared admin token:
 
 ```
 Authorization: Bearer <API_ADMIN_TOKEN>
@@ -166,10 +167,10 @@ Every error shares one envelope. **Tracebacks are never returned.**
 |---|---|---|
 | 401 | `unauthorized` | Missing or wrong admin token on a write (or on a read when `PUBLIC_READ_ONLY=false`), or no token configured on the server; sends `WWW-Authenticate: Bearer`. See §1 Authentication |
 | 404 | `student_not_found` | Unknown `student_id` |
-| 404 | `no_prediction_history` | Student exists but was never scored — call `/predict` first |
+| 404 | `no_prediction_history` | Student exists but was never scored. From `/students/{id}/explanation` it also carries `has_stored_features` (see §5.4) |
 | 409 | `invalid_lifecycle_transition` | Backward status move; includes `current_status` and `requested_status` |
 | 422 | `validation_error` | Schema/range failure; includes a `details[]` array of `{field, type, message}` |
-| 422 | `invalid_feature_payload` | Contract violation (label sent, unknown intervention id, bad CSV) |
+| 422 | `invalid_feature_payload` | Contract violation (label sent, unknown intervention id, bad CSV), or a rescore with no usable stored inputs |
 | 422 | `invalid_cursor` | `GET /api/v1/mentors/queue` received a `cursor` it cannot decode; request the first page without a cursor |
 | 503 | `model_unavailable` | ML artifacts not loaded — check `/health`; sends `Retry-After: 30` |
 | 500 | `internal_error` | Unexpected fault; includes an `incident_id` to quote to the backend team |
@@ -283,6 +284,31 @@ Duplicate `student_id`s in one batch are rejected (422). One invalid row fails t
 
 ---
 
+### 5.3a `POST /api/v1/students/{student_id}/rescore`
+
+**Purpose:** score a student again from the inputs the server already holds, for example a student
+who was imported but never scored. Use this instead of building a `/predict` body in the client:
+nothing typed in the browser reaches the model.
+
+**Body:** none.
+
+**Input:** the student's stored raw record (`students.features`: the 27 raw features plus residency,
+as last sent to `/predict` or a batch route). Keys that are no longer model inputs (e.g. `age` in
+records written before it was removed) are ignored, never scored.
+
+**Response `201`:** the same shape as `/predict` (§5.2). Like `/predict`, it appends a new prediction
+(history is never overwritten), stores its top SHAP drivers, and updates the student's latest
+prediction. `name`, `department` and `assigned_mentor_id` are left unchanged.
+
+**Errors:**
+- 401 `unauthorized`: missing or wrong admin token (this is a write).
+- 404 `student_not_found`: unknown `student_id`.
+- 422 `invalid_feature_payload`: the student has no stored inputs, or the stored record does not
+  meet the current feature contract (§3). Nothing is written. Import the student's records first.
+- 503 · 500.
+
+---
+
 ### 5.4 `GET /api/v1/students/{student_id}/explanation`
 
 **Purpose:** the top SHAP drivers behind the student's **latest** prediction.
@@ -315,6 +341,18 @@ Explanations come from the immutable snapshot that produced the stored score, so
 **Rendering:** `impact_direction` is `RISK_INCREASING` (positive `shap_value`) or `RISK_DECREASING`. Colour by direction; size bars by `|risk_delta_percentage_points|`. `plain_language_explanation` is counselor-ready — display it verbatim.
 
 **Errors:** 404 (`student_not_found`, `no_prediction_history`) · 422 (bad `top_k`) · 503 · 500.
+
+For a student who exists but was never scored, the 404 body says whether `POST /students/{id}/rescore`
+(§5.3a) has stored inputs to score from. Offer "Score now" only when it is `true`:
+
+```json
+{
+  "error": "no_prediction_history",
+  "message": "Student 'IND_2026_0042' has no prediction history — score the student via POST /api/v1/predict first.",
+  "student_id": "IND_2026_0042",
+  "has_stored_features": true
+}
+```
 
 ---
 
@@ -543,7 +581,8 @@ Either list may be empty.
 {
   "total": "<int>",
   "by_tier": { "High": "<int>", "Medium": "<int>", "Low": "<int>" },
-  "by_department": { "<department>": "<int>" }
+  "by_department": { "<department>": "<int>" },
+  "by_department_tier": { "<department>": { "High": "<int>", "Medium": "<int>", "Low": "<int>" } }
 }
 ```
 
@@ -553,8 +592,130 @@ Either list may be empty.
 - `total` is the sum of `by_tier`.
 - `by_department` leaves out students with no department, so its values can sum to less than `total`.
   Keys are sorted by department name.
+- `by_department_tier` covers the same students as `by_department`, split by risk tier, from one SQL
+  `GROUP BY`. Every department has all three tier keys, and each department's three counts sum to its
+  `by_department` value. Keys are sorted by department name. Use it for a department × tier chart
+  instead of one `/mentors/queue` request per pair.
 
 **Errors:** 500.
+
+### 5.10 `GET /api/v1/stats/distribution`
+
+**Purpose:** histogram of risk scores for the Overview dashboard.
+
+**Query**
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `bins` | int | `10` | Number of equal-width bins over [0, 1]; 2–50 |
+
+**Response `200`** (shape)
+
+```json
+{
+  "total": "<int>",
+  "bin_count": "<int>",
+  "bins": [ { "lower": "<float>", "upper": "<float>", "count": "<int>" } ]
+}
+```
+
+- Uses each student's latest `calibrated_risk_probability` (`latest_predictions`).
+- Bins are `[lower, upper)`; the last bin includes 1.0. Every bin is present, including empty ones.
+- `total` is the sum of the bin counts and equals `/stats/summary` `total`.
+
+**Errors:** 422 `validation_error` (`bins` out of range), 500.
+
+### 5.11 `GET /api/v1/stats/drivers`
+
+**Purpose:** the features that most often push students' risk up, for the "top risk drivers" chart.
+
+**Query**
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `limit` | int | `10` | Maximum drivers returned; 1–50 |
+| `risk_tier` | `High` \| `Medium` \| `Low` | none | Only count students in this tier |
+
+**Response `200`** (shape)
+
+```json
+{
+  "risk_tier": "High",
+  "students_considered": "<int>",
+  "students_with_drivers": "<int>",
+  "drivers": [ { "feature_name": "attendance_percentage", "display_name": "<string>", "student_count": "<int>" } ]
+}
+```
+
+- Counts, per feature, the students whose latest prediction lists it among its stored top SHAP
+  drivers with `impact_direction: "RISK_INCREASING"`. Drivers are stored at scoring time (top 5
+  for `/predict`), so a feature outside a student's top drivers is not counted for them.
+- Ordered by `student_count` (highest first), then `feature_name`.
+- `students_with_drivers` can be lower than `students_considered` when predictions were stored
+  without drivers. Divide by `students_with_drivers`, not `students_considered`, for a share.
+- Drivers explain the model's score; they are not causes. Label the chart accordingly
+  ("most common reasons for a raised risk score").
+
+**Errors:** 422 `validation_error` (unknown tier, `limit` out of range), 500.
+
+### 5.12 `GET /api/v1/stats/interventions`
+
+**Purpose:** intervention counts for the status funnel and the "open interventions" KPI.
+
+**Request:** none.
+
+**Response `200`** (shape)
+
+```json
+{
+  "total": "<int>",
+  "open": "<int>",
+  "students_with_open_interventions": "<int>",
+  "by_status": { "ASSIGNED": "<int>", "IN_PROGRESS": "<int>", "APPLIED": "<int>", "COMPLETED": "<int>" },
+  "by_outcome_status": { "PENDING_EVALUATION": "<int>", "IMPROVED": "<int>", "NO_CHANGE": "<int>", "DETERIORATED": "<int>" }
+}
+```
+
+- Counts every row in `intervention_logs`. Each assignment is one row that advances in place
+  (§5.6), so `by_status` is the current status of each assignment, not a history of moves.
+- `open` = rows whose status is not `COMPLETED`. Every status key is always present.
+
+**Errors:** 500.
+
+### 5.13 `GET /api/v1/stats/alerts`
+
+**Purpose:** how many students trigger each rule-based alert, for the "attendance alerts" KPI.
+
+**Request:** none.
+
+**Response `200`** (shape)
+
+```json
+{
+  "students_considered": "<int>",
+  "students_with_any_alert": "<int>",
+  "attendance_threshold": "<float>",
+  "alerts": [
+    { "code": "ATTENDANCE_BELOW_REQUIREMENT", "student_count": "<int>" },
+    { "code": "ACADEMIC_CRISIS_FLAG", "student_count": "<int>" }
+  ]
+}
+```
+
+- Applies the same rules as `rule_based_alerts` in `/students/{id}/interventions` (§5.5) to each
+  student's latest prediction snapshot: attendance below `attendance_threshold` or
+  `attendance_risk_flag` set; `academic_crisis_flag` set. A missing value never raises an alert.
+- `attendance_threshold` comes from the server configuration (`ml.config.ATTENDANCE_THRESHOLD`).
+  Show this value instead of typing the threshold into the UI.
+- Alerts are independent of the model's risk tier. A student can trigger both alerts; they are
+  counted once in `students_with_any_alert`.
+
+**Errors:** 500.
+
+### Aggregates and privacy
+
+`/stats/*` responses contain counts, bin edges and feature names only. No student identifiers,
+names or personal fields are returned, so they are safe for the Overview dashboard to cache.
 
 ---
 
@@ -564,7 +725,7 @@ Either list may be empty.
 2. **Student detail** → `GET /students/{id}/explanation` (why) + `GET /students/{id}/interventions` (what to do).
 3. **Mentor acts** → `POST /interventions/log` with `status: "ASSIGNED"`.
 4. **Follow-up** → `POST /interventions/log` again with `IN_PROGRESS` / `APPLIED` / `COMPLETED`, adding `post_intervention_risk_probability` once re-scored to populate `outcome_status`.
-5. **Re-score** → `POST /predict` appends new history; the queue and explanation follow the latest automatically.
+5. **Re-score** → `POST /predict` with new inputs, or `POST /students/{id}/rescore` to score the stored inputs again; both append new history, and the queue and explanation follow the latest automatically.
 
 **Bulk import** → `POST /predict/batch/csv`.
 

@@ -7,8 +7,8 @@ const AdminTokenNotice = () => {
   const adminToken = useAdminToken();
   if (adminToken.trim()) return null;
   return (
-    <p className="text-[11px] text-secondary bg-subtle/60 border border-border rounded p-2 flex items-start gap-1.5">
-      <KeyRound className="w-3.5 h-3.5 shrink-0 mt-0.5 text-muted" aria-hidden="true" />
+    <p className="flex items-start gap-2 rounded-control border border-rule bg-ink-wash p-3 text-15 text-graphite">
+      <KeyRound className="mt-0.5 w-4 h-4 shrink-0 text-ink" aria-hidden="true" />
       <span>{ADMIN_TOKEN_MISSING_MESSAGE}</span>
     </p>
   );

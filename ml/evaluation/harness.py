@@ -31,7 +31,11 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 BENCHMARK_ARTIFACTS_DIR = BASE_DIR / "ml" / "artifacts" / "benchmarks"
-N_BOOTSTRAPS = 1000  # resamples for every reported 95% CI; recorded in each artifact
+N_BOOTSTRAPS = 1000  # resamples for every reported CI; recorded in each artifact
+CI_LEVEL_PCT = 95  # confidence level (%) of every reported bootstrap CI; exported to the site's evidence.json
+# Percentile-interval bounds, exact for an integer level: 95 -> 2.5 and 97.5.
+CI_LOWER_PERCENTILE = (100 - CI_LEVEL_PCT) / 2
+CI_UPPER_PERCENTILE = 100 - CI_LOWER_PERCENTILE
 
 
 def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray) -> Dict[str, float]:
@@ -202,7 +206,8 @@ def compute_bootstrap_cis(
     seed: int = 42,
 ) -> Dict[str, Dict[str, float]]:
     """
-    Computes 95% bootstrap confidence intervals across 1,000 resamples of out-of-fold predictions.
+    Computes CI_LEVEL_PCT bootstrap confidence intervals (percentile method) across `n_bootstraps`
+    resamples of out-of-fold predictions.
     Guarantees that the point estimate is bounded within [ci_lower, ci_upper].
     """
     point_estimates = compute_metrics(y_true, y_prob)
@@ -234,8 +239,8 @@ def compute_bootstrap_cis(
     for m, point_val in point_estimates.items():
         vals = boot_metrics[m]
         if vals:
-            ci_low = float(np.percentile(vals, 2.5))
-            ci_high = float(np.percentile(vals, 97.5))
+            ci_low = float(np.percentile(vals, CI_LOWER_PERCENTILE))
+            ci_high = float(np.percentile(vals, CI_UPPER_PERCENTILE))
         else:
             ci_low = point_val
             ci_high = point_val

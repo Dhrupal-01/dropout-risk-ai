@@ -1,210 +1,151 @@
 import React, { useState } from 'react';
-import { Table, BarChart2, Info } from 'lucide-react';
+import { BarChart2, Info, Table } from 'lucide-react';
+
+const DEFAULT_LIMIT = 5;
+const EXPANDED_LIMIT = 8;
+
+const signed = (value) => `${value > 0 ? '+' : ''}${value.toFixed(1)} pp`;
 
 /**
- * ShapChart Component
- * Visualizes the TreeSHAP local attribution values as a diverging horizontal bar chart.
- * 
- * @param {Object} props
- * @param {Array} props.drivers - List of SHAP drivers from the API response
- * @param {boolean} [props.isLoading] - Loading state
+ * The SHAP drivers behind a student's estimate, as a diverging bar chart (bars right raise the
+ * estimate, bars left lower it) with a table view. Values are percentage points of estimated risk.
  */
-const ShapChart = ({ drivers = [], isLoading = false }) => {
-  const [viewMode, setViewMode] = useState('chart'); // 'chart' | 'table'
-  const [limit, setLimit] = useState(5);
+const ShapChart = ({ drivers = [] }) => {
+  const [viewMode, setViewMode] = useState('chart');
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse select-none">
-        <div className="h-6 w-1/3 bg-subtle rounded" />
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex space-x-3 items-center">
-            <div className="h-4 w-1/4 bg-subtle rounded" />
-            <div className="h-6 flex-1 bg-subtle rounded-full" />
-            <div className="h-4 w-12 bg-subtle rounded" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (!drivers || drivers.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-6 border border-dashed border-border rounded-lg bg-subtle/30 text-center">
-        <Info className="w-5 h-5 text-muted mb-2" />
-        <p className="text-sm font-medium text-secondary">No explanation data available.</p>
-      </div>
-    );
-  }
-
-  // Slice based on the user-selected limit
-  const activeDrivers = drivers.slice(0, limit);
-  
-  // Find maximum absolute value to scale the bars dynamically
-  const maxVal = Math.max(
-    ...drivers.map((d) => Math.abs(d.risk_delta_percentage_points || 0)),
-    1 // fallback to prevent division by 0
+  const toggle = (
+    <div role="group" aria-label="View as" className="inline-flex rounded-control border border-control p-0.5">
+      {[
+        { mode: 'chart', label: 'Chart', icon: BarChart2 },
+        { mode: 'table', label: 'Table', icon: Table },
+      ].map(({ mode, label, icon: Icon }) => (
+        <button
+          key={mode}
+          type="button"
+          aria-pressed={viewMode === mode}
+          onClick={() => setViewMode(mode)}
+          className={`inline-flex items-center gap-1 rounded-[4px] px-2.5 py-1 text-13 ${
+            viewMode === mode ? 'bg-ink text-on-ink' : 'text-graphite hover:bg-ink-wash'
+          }`}
+        >
+          <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </div>
   );
+
+  const header = (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 className="text-17 font-semibold text-graphite">Why this student may need support</h2>
+        <p className="mt-0.5 text-13 text-slate">
+          The factors that moved this estimate most. They explain the model; they are not causes.
+        </p>
+      </div>
+      {drivers.length > 0 && toggle}
+    </div>
+  );
+
+  if (!drivers.length) {
+    return (
+      <div className="space-y-4">
+        {header}
+        <p className="flex items-center gap-2 rounded-control border border-dashed border-rule p-4 text-15 text-slate">
+          <Info className="w-4 h-4 shrink-0" aria-hidden="true" />
+          Reasons are not available for this estimate.
+        </p>
+      </div>
+    );
+  }
+
+  const shown = drivers.slice(0, limit);
+  const maxAbs = Math.max(...drivers.map((d) => Math.abs(d.risk_delta_percentage_points || 0)), 1);
 
   return (
     <div className="space-y-4">
-      {/* Chart controls & Toggle */}
-      <div className="flex items-center justify-between border-b border-border pb-2.5">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-secondary">
-          Why this student needs support
-        </h3>
-        
-        {/* Toggle Button for accessibility (Chart / Table view) */}
-        <div className="flex items-center border border-border rounded-md bg-subtle p-0.5 select-none">
-          <button
-            onClick={() => setViewMode('chart')}
-            className={`flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'chart'
-                ? 'bg-card text-primary shadow-sm'
-                : 'text-secondary hover:text-primary'
-            }`}
-            aria-label="Show chart view"
-          >
-            <BarChart2 className="w-3.5 h-3.5 mr-1" />
-            Chart
-          </button>
-          <button
-            onClick={() => setViewMode('table')}
-            className={`flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'table'
-                ? 'bg-card text-primary shadow-sm'
-                : 'text-secondary hover:text-primary'
-            }`}
-            aria-label="Show table view"
-          >
-            <Table className="w-3.5 h-3.5 mr-1" />
-            Table
-          </button>
-        </div>
-      </div>
+      {header}
 
       {viewMode === 'chart' ? (
-        /* 1. CHART VIEW (DIVERGING BARS) */
-        <div className="space-y-4 pt-2">
-          {activeDrivers.map((driver) => {
-            const isIncreasing = driver.impact_direction === 'RISK_INCREASING';
+        <ul className="space-y-1">
+          {shown.map((driver) => {
             const value = driver.risk_delta_percentage_points || 0;
-            const percentage = Math.min((Math.abs(value) / maxVal) * 100, 100);
-
-            // Positioning calculations for zero-centered diverging chart
-            // Left column is 40% width, Right column is 50% width, text value is 10%
+            const raises = driver.impact_direction === 'RISK_INCREASING';
+            const width = `${(Math.abs(value) / maxAbs) * 50}%`;
             return (
-              <div
+              <li
                 key={driver.feature_name}
-                className="group flex items-center min-h-[32px] text-xs transition-colors hover:bg-hover/40 px-2 py-1 rounded"
                 title={driver.plain_language_explanation}
+                className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_4.5rem] items-center gap-3 rounded-control px-1 py-1.5 text-15 hover:bg-ink-wash"
               >
-                {/* Feature Label (40% width, aligned right) */}
-                <div className="w-[35%] pr-4 text-right font-medium text-secondary truncate" title={driver.display_name}>
-                  {driver.display_name || driver.feature_name}
-                </div>
-
-                {/* Bar Container (55% width) */}
-                <div className="w-[53%] h-6 relative flex items-center bg-subtle/50 rounded overflow-hidden">
-                  {/* Zero midpoint line */}
-                  <div className="absolute top-0 bottom-0 left-[50%] w-[1px] bg-border z-10" />
-
-                  {isIncreasing ? (
-                    // RISK INCREASING: grow right
-                    <div
-                      className="absolute h-4 left-[50%] bg-shap-increase rounded-r transition-all duration-500 ease-out"
-                      style={{ width: `${percentage * 0.5}%` }}
-                    />
-                  ) : (
-                    // RISK DECREASING: grow left
-                    <div
-                      className="absolute h-4 bg-shap-decrease rounded-l transition-all duration-500 ease-out"
-                      style={{
-                        width: `${percentage * 0.5}%`,
-                        left: `${50 - percentage * 0.5}%`,
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Signed Percentage impact (12% width) */}
-                <div
-                  className={`w-[12%] pl-3 font-semibold text-right tabular-nums ${
-                    isIncreasing ? 'text-shap-increase' : 'text-shap-decrease'
-                  }`}
-                >
-                  {isIncreasing ? '+' : ''}
-                  {value.toFixed(1)} pp
-                </div>
-              </div>
+                <span className="text-right text-graphite leading-snug">{driver.display_name || driver.feature_name}</span>
+                <span className="relative h-5" aria-hidden="true">
+                  <span className="absolute inset-y-0 left-1/2 w-px bg-rule" />
+                  <span
+                    className={`absolute top-0.5 bottom-0.5 ${raises ? 'left-1/2 rounded-r-[4px]' : 'right-1/2 rounded-l-[4px]'}`}
+                    style={{ width, background: raises ? 'var(--shap-increase)' : 'var(--shap-decrease)' }}
+                  />
+                </span>
+                <span className="text-right tabular-nums text-graphite">
+                  {signed(value)}
+                  <span className="sr-only">
+                    {raises ? ', raises the estimate. ' : ', lowers the estimate. '}
+                    {driver.plain_language_explanation}
+                  </span>
+                </span>
+              </li>
             );
           })}
-        </div>
+        </ul>
       ) : (
-        /* 2. ACCESSIBLE TABLE VIEW */
-        <div className="overflow-x-auto border border-border rounded-lg bg-card">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="relative overflow-x-auto">
+          <table className="w-full border-collapse text-left text-15 tabular-nums">
             <thead>
-              <tr className="bg-subtle text-secondary font-semibold border-b border-border">
-                <th className="p-3">Risk Driver</th>
-                <th className="p-3 text-right">Value</th>
-                <th className="p-3 text-right">Impact</th>
-                <th className="p-3">Attribution Reason</th>
+              <tr className="border-b border-rule text-13 text-slate">
+                <th scope="col" className="py-2 pr-3 font-medium">Factor</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">Value</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">Effect</th>
+                <th scope="col" className="py-2 font-medium">Explanation</th>
               </tr>
             </thead>
             <tbody>
-              {activeDrivers.map((driver) => {
-                const isIncreasing = driver.impact_direction === 'RISK_INCREASING';
-                return (
-                  <tr
-                    key={driver.feature_name}
-                    className="border-b border-border last:border-0 hover:bg-hover/20"
-                  >
-                    <td className="p-3 font-medium text-primary">
-                      {driver.display_name || driver.feature_name}
-                    </td>
-                    <td className="p-3 text-right text-secondary font-mono">
-                      {driver.feature_value !== null ? driver.feature_value.toFixed(2) : '-'}
-                    </td>
-                    <td
-                      className={`p-3 text-right font-semibold ${
-                        isIncreasing ? 'text-shap-increase' : 'text-shap-decrease'
-                      }`}
-                    >
-                      {isIncreasing ? '+' : ''}
-                      {driver.risk_delta_percentage_points.toFixed(1)} pp
-                    </td>
-                    <td className="p-3 text-secondary italic">
-                      {driver.plain_language_explanation}
-                    </td>
-                  </tr>
-                );
-              })}
+              {shown.map((driver) => (
+                <tr key={driver.feature_name} className="border-b border-rule last:border-0 align-top">
+                  <td className="py-2 pr-3 text-graphite">{driver.display_name || driver.feature_name}</td>
+                  <td className="py-2 pr-3 text-right text-graphite">
+                    {driver.feature_value != null ? driver.feature_value.toFixed(2) : '—'}
+                  </td>
+                  <td className="py-2 pr-3 text-right text-graphite whitespace-nowrap">{signed(driver.risk_delta_percentage_points)}</td>
+                  <td className="py-2 text-slate">{driver.plain_language_explanation}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Show more/less toggle buttons */}
-      {drivers.length > 5 && (
-        <div className="flex justify-center pt-2">
-          {limit === 5 ? (
-            <button
-              onClick={() => setLimit(8)}
-              className="text-xs font-semibold text-accent hover:text-accent-hover transition-colors border border-border px-3 py-1.5 rounded-md hover:bg-hover focus:ring-2 focus:ring-accent"
-            >
-              Show More Drivers (8)
-            </button>
-          ) : (
-            <button
-              onClick={() => setLimit(5)}
-              className="text-xs font-semibold text-accent hover:text-accent-hover transition-colors border border-border px-3 py-1.5 rounded-md hover:bg-hover focus:ring-2 focus:ring-accent"
-            >
-              Show Less Drivers
-            </button>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-13 text-slate">
+        <span className="inline-flex items-center gap-4">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: 'var(--shap-increase)' }} aria-hidden="true" />
+            Raises the estimate
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: 'var(--shap-decrease)' }} aria-hidden="true" />
+            Lowers it
+          </span>
+        </span>
+        {drivers.length > DEFAULT_LIMIT && (
+          <button
+            type="button"
+            onClick={() => setLimit(limit === DEFAULT_LIMIT ? EXPANDED_LIMIT : DEFAULT_LIMIT)}
+            className="btn btn-secondary py-1 text-13"
+          >
+            {limit === DEFAULT_LIMIT ? 'Show more factors' : 'Show fewer factors'}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

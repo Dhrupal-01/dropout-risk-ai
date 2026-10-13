@@ -57,6 +57,8 @@ client.interceptors.response.use(
         standardError.details = data.details || [];
         standardError.student_id = data.student_id;
         standardError.incident_id = data.incident_id;
+        // no_prediction_history from the explanation endpoint: whether rescoring has stored inputs to use.
+        standardError.has_stored_features = data.has_stored_features;
 
         // Custom mappings as per UX spec
         if (standardError.code === 'unauthorized') {
