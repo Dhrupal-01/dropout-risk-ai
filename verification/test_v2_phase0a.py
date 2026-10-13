@@ -185,13 +185,11 @@ UNIT_NUMBER = re.compile(
     r"|(?<![\w.])0\.\d{2,}(?![\d.])"
 )
 # Exact lines (stripped) that may carry such a number, with the reason. Unused entries fail the test.
-_R_ATT = "the statutory 75% attendance rule (ml.config.ATTENDANCE_THRESHOLD)"
 _R_FORMULA = "formula constant copied from ml/data_pipeline/"
 _R_TIER = "configured risk-tier thresholds (ml/config.py DEFAULT_RISK_THRESHOLD_LOW/HIGH)"
 _R_OUT = "outcome band (backend/app/services/intervention_service.py RISK_DELTA_THRESHOLD)"
 _R_EX = "example API response value from the simulated cohort, not a metric"
 ALLOWED_NUMBER_LINES = {
-    ('README.md', '1. **Attendance & Discipline**: Overall 3-month attendance %, recent-month trajectory, consecutive absence streaks, and the mandatory 75% AICTE/UGC debarment rule.'): _R_ATT,
     ('docs/frontend_api_handover.md', '| `Low` | `p < 0.33` | No urgent action; routine monitoring |'): _R_TIER,
     ('docs/frontend_api_handover.md', '| `Medium` | `0.33 ≤ p ≤ 0.66` | Watch list; early supportive outreach |'): _R_TIER,
     ('docs/frontend_api_handover.md', '| `High` | `p > 0.66` | Priority mentor outreach |'): _R_TIER,
